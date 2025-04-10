@@ -1,7 +1,6 @@
 # MCP-Scan: An MCP Security Scanner
 
-## Overview
-MCP-Scan is a tool designed to iterate through your installed MCP servers and check them for common [prompt-injection-based security vulnerabilities](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks).
+MCP-Scan is a security scanning tool designed to go over your installed MCP servers and check them for common [security vulnerabilities like prompt injections, tool poisoning and cross-origin escalations](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks).
 
 ## Quick Start
 To run MCP-Scan, use the following command:
