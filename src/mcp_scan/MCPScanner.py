@@ -119,10 +119,10 @@ def verify_server(tools, prompts, resources, base_url):
 
 
 async def check_server(server_config, timeout):
+    is_sse = "url" in server_config
     def get_client(server_config):
-        if "url" in server_config:
-            raise NotImplementedError("SSE servers not supported yet")
-            # return sse_client(url=server_config['url'], timeout=timeout)
+        if is_sse:
+            return sse_client(url=server_config['url'], timeout=timeout)
         else:
             server_params = StdioServerParameters(**server_config)
             return stdio_client(server_params)
@@ -130,21 +130,31 @@ async def check_server(server_config, timeout):
     with SuppressStd():
         async with get_client(server_config) as (read, write):
             async with ClientSession(read, write) as session:
-                await session.initialize()
-                try:
-                    prompts = await session.list_prompts()
-                    prompts = list(prompts.prompts)
-                except:
+                meta = await session.initialize()
+                # for see servers we need to check the announced capabilities
+                if not is_sse or meta.capabilities.prompts.supported:
+                    try:
+                        prompts = await session.list_prompts()
+                        prompts = list(prompts.prompts)
+                    except:
+                        prompts = []
+                else:
                     prompts = []
-                try:
-                    resources = await session.list_resources()
-                    resources = list(resources.resources)
-                except:
+                if not is_sse or meta.capabilities.resources.supported:
+                    try:
+                        resources = await session.list_resources()
+                        resources = list(resources.resources)
+                    except:
+                        resources = []
+                else:
                     resources = []
-                try:
-                    tools = await session.list_tools()
-                    tools = list(tools.tools)
-                except:
+                if not is_sse or meta.capabilities.tools.supported:
+                    try:
+                        tools = await session.list_tools()
+                        tools = list(tools.tools)
+                    except:
+                        tools = []
+                else:
                     tools = []
     return prompts, resources, tools
 
@@ -331,14 +341,14 @@ class MCPScanner:
                     if token in flagged_names:
                         cross_ref_found = True
                         cross_reference_sources.add(token)
-        if cross_ref_found and verbose:
-            rich.print(
-                rich.text.Text.from_markup(
-                    f"\n[bold yellow]:construction: Cross-Origin Violation: Tool descriptions of server {cross_reference_sources} explicitly mention tools of other servers, or other servers.[/bold yellow]"
-                ),
-            )
-
-        print()
+        if verbose:
+            if cross_ref_found:
+                rich.print(
+                    rich.text.Text.from_markup(
+                        f"\n[bold yellow]:construction: Cross-Origin Violation: Tool descriptions of server {cross_reference_sources} explicitly mention tools of other servers, or other servers.[/bold yellow]"
+                    ),
+                )
+            rich.print()
 
     def start(self):
         for i, path in enumerate(self.paths):
