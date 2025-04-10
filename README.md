@@ -45,6 +45,8 @@ scanning ~/.cursor/mcp.json found 5 servers
 scanning ~/Library/Application Support/Claude/claude_desktop_config.json file not found
 ```
 
+To list all tools you can run `uvx mcp-scan@latest inspect`.
+
 ## How It Works
 MCP-Scan searches through your configuration files to find MCP server configurations. It connects to these servers and retrieves tool descriptions.
 
