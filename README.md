@@ -55,7 +55,7 @@ scanning ~/Library/Application Support/Claude/claude_desktop_config.json file no
 ## How It Works
 MCP-Scan searches through your configuration files to find MCP server configurations. It connects to these servers and retrieves tool descriptions.
 
-It then scans tool descriptions, both with local checks and by invoking Invariant Labs Guardrailing via an API. For this, tool names and descriptions are shared with invariantlabs.ai. By using MCP-Scan, you agree to the invariantlabs.ai [terms of use](https://explorer.invariantlabs.ai/terms) and [privacy policy](https://invariantlabs.ai/privacy-policy).
+It then scans tool descriptions, both with local checks and by invoking Invariant Guardrailing via an API. For this, tool names and descriptions are shared with invariantlabs.ai. By using MCP-Scan, you agree to the invariantlabs.ai [terms of use](https://explorer.invariantlabs.ai/terms) and [privacy policy](https://invariantlabs.ai/privacy-policy).
 
 Invariant Labs is collecting data for security research purposes (only about tool descriptions and how they change over time, not your user data). Don't use MCP-scan if you don't want to share your tools.
 
