@@ -4,6 +4,7 @@ from mcp.client.stdio import stdio_client
 from mcp.client.sse import sse_client
 import json
 import os
+import textwrap
 import asyncio
 import requests
 import ast
@@ -47,6 +48,34 @@ def format_tool_line(tool, verified: Result, changed: Result = Result(), type="t
         name = name[:22] + "..."
     name = name + " " * (25 - len(name))
     text = f"{type} {color}[bold]{name}[/bold] {icon} {message}"
+
+    text = rich.text.Text.from_markup(text)
+    return text
+
+
+def format_inspect_tool_line(
+    tool,
+):
+    name = tool.name
+    if len(name) > 25:
+        name = name[:22] + "..."
+    name = name + " " * (25 - len(name))
+
+    if hasattr(tool, "description"):
+        # dedent the description
+        description = tool.description
+        # wrap the description to 80 characters
+        description = textwrap.dedent(description)
+    else:
+        description = "<no description available>"
+
+    color = "[gray62]"
+    icon = ""
+    type = "tool"
+    message = ""
+    text = f"{type} {color}[bold]{name}[/bold] {icon} {message}"
+    text += f"\n{description}"
+
     text = rich.text.Text.from_markup(text)
     return text
 
@@ -120,7 +149,7 @@ async def check_server(server_config, timeout):
     return prompts, resources, tools
 
 
-async def check_sever_with_timeout(server_config, timeout):
+async def check_server_with_timeout(server_config, timeout):
     return await asyncio.wait_for(check_server(server_config, timeout), timeout)
 
 
@@ -179,6 +208,53 @@ class MCPScanner:
         self.storage_file = StorageFile(self.storage_file_path)
         self.server_timeout = server_timeout
 
+    def inspect_path(self, path, verbose=True):
+        """
+        Just inspects the server and prints the tools, prompts and resources without checking them.
+        """
+        try:
+            servers = scan_config_file(path)
+            status = f"found {len(servers)} server{'' if len(servers) == 1 else 's'}"
+        except FileNotFoundError:
+            status = f"file does not exist"
+            return
+        except json.JSONDecodeError:
+            status = f"invalid json"
+            return
+        finally:
+            if verbose:
+                rich.print(format_path_line(path, status))
+
+        path_print_tree = Tree("│")
+        for server_name, server_config in servers.items():
+            try:
+                prompts, resources, tools = asyncio.run(
+                    check_server_with_timeout(server_config, self.server_timeout)
+                )
+                status = None
+            except TimeoutError as e:
+                status = "Could not reach server within timeout"
+                continue
+            except Exception as e:
+                status = str(e).splitlines()[0] + "..."
+                continue
+            finally:
+                server_print = path_print_tree.add(
+                    format_servers_line(server_name, status)
+                )
+
+            for tool in tools:
+                server_print.add(format_inspect_tool_line(tool))
+
+            for prompt in prompts:
+                server_print.add(format_inspect_tool_line(prompt))
+
+            for resource in resources:
+                server_print.add(format_inspect_tool_line(resource))
+
+        if len(servers) > 0 and verbose:
+            rich.print(path_print_tree)
+
     def scan(self, path, verbose=True):
         try:
             servers = scan_config_file(path)
@@ -198,7 +274,7 @@ class MCPScanner:
         for server_name, server_config in servers.items():
             try:
                 prompts, resources, tools = asyncio.run(
-                    check_sever_with_timeout(server_config, self.server_timeout)
+                    check_server_with_timeout(server_config, self.server_timeout)
                 )
                 status = None
             except TimeoutError as e:
@@ -212,6 +288,7 @@ class MCPScanner:
                     format_servers_line(server_name, status)
                 )
             servers_with_tools[server_name] = tools
+
             verification_result = verify_server(
                 tools, prompts, resources, base_url=self.base_url
             )
@@ -267,6 +344,13 @@ class MCPScanner:
         for i, path in enumerate(self.paths):
             for k in range(self.checks_per_server):
                 self.scan(path, verbose=(k == self.checks_per_server - 1))
+            if i < len(self.paths) - 1:
+                rich.print("")
+        self.storage_file.save()
+
+    def inspect(self):
+        for i, path in enumerate(self.paths):
+            self.inspect_path(path, verbose=True)
             if i < len(self.paths) - 1:
                 rich.print("")
         self.storage_file.save()

@@ -44,6 +44,13 @@ def main():
     rich.print("[bold blue]Invariant MCP-scan v{}[/bold blue]\n".format(version_info))
 
     args = parser.parse_args()
+
+    # check for case where the only file is 'inspect'
+    if len(sys.argv) == 2 and sys.argv[1] == "inspect":
+        args.files = WELL_KNOWN_MCP_PATHS
+        MCPScanner(**vars(args)).inspect()
+        sys.exit(0)
+
     scanner = MCPScanner(**vars(args))
     scanner.start()
 
