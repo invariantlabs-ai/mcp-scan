@@ -11,8 +11,7 @@ uvx mcp-scan@latest
 
 ### Example Output
 ```bash
-(base)
-% uvx mcp-scan@latest
+> uvx mcp-scan@latest
 scanning ~/.codeium/windsurf/mcp_config.json found 0 servers
 
 scanning ~/.cursor/mcp.json found 5 servers
@@ -45,19 +44,13 @@ scanning ~/.cursor/mcp.json found 5 servers
 scanning ~/Library/Application Support/Claude/claude_desktop_config.json file not found
 ```
 
-<<<<<<< HEAD
 ## Features
-
-MCP-scan currently supports:
 
 - Scanning of Claude, Cursor, Windsurf, and other file-based MCP client configurations
 - Scanning for prompt injection attacks in tool descriptions and [tool poisoning attacks](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks) using [Invariant Guardrails](https://github.com/invariantlabs-ai/invariant?tab=readme-ov-file#analyzer)
 - Detection of cross-origin escalation attacks ([tool shadowing](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks))
 - _Tool Pinning_ to detect and prevent [MCP rug pull attacks](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks), i.e. detects changes to MCP tools via hashing
-
-=======
-To list all tools you can run `uvx mcp-scan@latest inspect`.
->>>>>>> 6c295bc98f02f423ba98198204160416b3736de0
+- Inspecting the tool descriptions of installed tools via `uvx mcp-scan@latest inspect`
 
 ## How It Works
 MCP-Scan searches through your configuration files to find MCP server configurations. It connects to these servers and retrieves tool descriptions.
