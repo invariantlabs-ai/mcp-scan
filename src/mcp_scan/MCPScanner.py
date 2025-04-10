@@ -18,8 +18,8 @@ from hashlib import md5
 Result = namedtuple("Result", field_names=["value", "message"], defaults=[None, None])
 
 
-def format_path_line(path, status):
-    text = f"● Scanning [bold]{path}[/bold] [gray62]{status}[/gray62]"
+def format_path_line(path, status, operation="Scanning"):
+    text = f"● {operation} [bold]{path}[/bold] [gray62]{status}[/gray62]"
     return rich.text.Text.from_markup(text)
 
 
@@ -233,7 +233,7 @@ class MCPScanner:
             return
         finally:
             if verbose:
-                rich.print(format_path_line(path, status))
+                rich.print(format_path_line(path, status, operation="Inspecting"))
 
         path_print_tree = Tree("│")
         for server_name, server_config in servers.items():
