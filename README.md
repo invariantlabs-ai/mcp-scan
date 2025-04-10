@@ -55,9 +55,8 @@ The scans are conducted both locally and via an invariantlabs.ai server. Tool na
 To run this package from source, follow these steps:
 
 ```
-uv init
 uv run pip install -e .
-uv run -m src.mcp_scan
+uv run -m src.mcp_scan.cli
 ```
 
 ## Further Reading
