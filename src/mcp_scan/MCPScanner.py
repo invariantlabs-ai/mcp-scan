@@ -257,7 +257,7 @@ class MCPScanner:
         if cross_ref_found and verbose:
             rich.print(
                 rich.text.Text.from_markup(
-                    f"\n[bold yellow]:warning: Cross-Origin Violation: Tool descriptions of server {cross_reference_sources} explicitly mention tools of other servers, or other servers.[/bold yellow]"
+                    f"\n[bold yellow]:construction: Cross-Origin Violation: Tool descriptions of server {cross_reference_sources} explicitly mention tools of other servers, or other servers.[/bold yellow]"
                 ),
             )
 
