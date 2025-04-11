@@ -358,8 +358,8 @@ class MCPScanner:
         except FileNotFoundError:
             status = f"file does not exist"
             return
-        except json.JSONDecodeError:
-            status = f"invalid json"
+        except Exception:
+            status = f"could not parse file"
             return
         finally:
             if verbose:
