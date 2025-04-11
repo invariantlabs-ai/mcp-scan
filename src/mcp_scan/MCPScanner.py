@@ -22,11 +22,14 @@ import pyjson5
 Result = namedtuple("Result", field_names=["value", "message"], defaults=[None, None])
 
 def format_err_str(e, max_length=None):
-    if isinstance(e, ExceptionGroup):
-        text = ', '.join([format_err_str(e) for e in e.exceptions])
-    elif isinstance(e, TimeoutError):
-        text = "Could not reach server within timeout"
-    else:
+    try:
+        if isinstance(e, ExceptionGroup):
+            text = ', '.join([format_err_str(e) for e in e.exceptions])
+        elif isinstance(e, TimeoutError):
+            text = "Could not reach server within timeout"
+    except:
+        text = None
+    if text is None: 
         name = type(e).__name__
         try:
             def _mapper(e):
@@ -172,8 +175,7 @@ async def check_server(server_config: SSEServer | StdioServer, timeout, suppress
             server_params = StdioServerParameters(
                 command=server_config.command,
                 args=server_config.args,
-                #env=server_config.env
-                env={'PATH':'/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/opt/homebrew/bin:/Users/marc/miniforge3/bin'}
+                env=server_config.env
             )
             return stdio_client(server_params)
 
