@@ -4,11 +4,35 @@ from .MCPScanner import MCPScanner
 import rich
 from .version import version_info
 
-WELL_KNOWN_MCP_PATHS = [
-    "~/.codeium/windsurf/mcp_config.json",  # windsurf
-    "~/.cursor/mcp.json",  # cursor
-    "~/Library/Application Support/Claude/claude_desktop_config.json",  # Claude Desktop
-]
+def str2bool(v):
+    return v.lower() in ("true", "1", "t", "y", "yes")
+
+if sys.platform == "linux" or sys.platform == "linux2":
+    WELL_KNOWN_MCP_PATHS = [
+        "~/.codeium/windsurf/mcp_config.json",  # windsurf
+        "~/.cursor/mcp.json",  # cursor
+        "~/.vscode/mcp.json",  # vscode
+        "~/.config/Code/User/settings.json"  # vscode linux
+    ]
+elif sys.platform == "darwin":
+    # OS X
+    WELL_KNOWN_MCP_PATHS = [
+        "~/.codeium/windsurf/mcp_config.json",  # windsurf
+        "~/.cursor/mcp.json",  # cursor
+        "~/Library/Application Support/Claude/claude_desktop_config.json",  # Claude Desktop mac
+        "~/.vscode/mcp.json",  # vscode
+        "~/Library/Application Support/Code/User/settings.json",  # vscode mac
+    ]
+elif sys.platform == "win32":
+    WELL_KNOWN_MCP_PATHS = [
+        "~/.codeium/windsurf/mcp_config.json",  # windsurf
+        "~/.cursor/mcp.json",  # cursor
+        "~/AppData/Roaming/Claude/claude_desktop_config.json",  # Claude Desktop windows
+        "~/.vscode/mcp.json",  # vscode
+        "~/AppData/Roaming/Code/User/settings.json",  # vscode windows
+    ]
+else:
+    WELL_KNOWN_MCP_PATHS = []
 
 
 def main():
@@ -36,6 +60,12 @@ def main():
         type=float,
         default=10,
         help="Number of seconds to wait while trying a mcp server",
+    )
+    parser.add_argument(
+        "--suppress-mcpserver-io",
+        default=True,
+        type=str2bool,
+        help="Suppress the output of the mcp server",
     )
     parser.add_argument(
         "files", type=str, nargs="*", default=WELL_KNOWN_MCP_PATHS, help="Files to scan"

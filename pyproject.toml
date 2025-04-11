@@ -9,10 +9,11 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "argparse>=1.4.0",
     "mcp[cli]>=1.6.0",
     "requests>=2.32.3",
     "rich>=14.0.0",
+    "pyjson5>=1.6.8",
+    "pydantic>=2.11.2",
 ]
 
 [project.scripts]

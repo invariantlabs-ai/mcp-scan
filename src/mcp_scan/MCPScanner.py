@@ -1,5 +1,6 @@
 import os
 from pydoc import describe
+import traceback
 from mcp import ClientSession, StdioServerParameters, types
 from mcp.client.stdio import stdio_client
 from mcp.client.sse import sse_client
@@ -11,13 +12,38 @@ import requests
 import ast
 import rich
 from rich.tree import Tree
+from .models import VSCodeConfigFile, VSCodeMCPConfig, ClaudeConfigFile, SSEServer, StdioServer
 from .surpressIO import SuppressStd
 from collections import namedtuple
 from datetime import datetime
 from hashlib import md5
+import pyjson5
 
 Result = namedtuple("Result", field_names=["value", "message"], defaults=[None, None])
 
+def format_err_str(e, max_length=None):
+    if isinstance(e, ExceptionGroup):
+        text = ', '.join([format_err_str(e) for e in e.exceptions])
+    elif isinstance(e, TimeoutError):
+        text = "Could not reach server within timeout"
+    else:
+        name = type(e).__name__
+        try:
+            def _mapper(e):
+                if isinstance(e, Exception):
+                    return format_err_str(e)
+                return str(e)
+            message = ','.join(map(_mapper, e.args))
+        except Exception:
+            message = str(e)
+        message = message.strip()
+        if len(message) > 0:
+            text = f"{name}: {message}"
+        else:
+            text = name
+    if max_length is not None and len(text) > max_length:
+        text = text[:(max_length-3)] + "..."
+    return text
 
 def format_path_line(path, status, operation="Scanning"):
     text = f"● {operation} [bold]{path}[/bold] [gray62]{status}[/gray62]"
@@ -134,16 +160,24 @@ def verify_server(tools, prompts, resources, base_url):
         ]
 
 
-async def check_server(server_config, timeout):
-    is_sse = "url" in server_config
+async def check_server(server_config: SSEServer | StdioServer, timeout, suppress_mcpserver_io):
+    is_sse = isinstance(server_config, SSEServer)
     def get_client(server_config):
         if is_sse:
-            return sse_client(url=server_config['url'], timeout=timeout)
+            return sse_client(url=server_config.url,
+                              headers=server_config.headers,
+                              #env=server_config.env, #Not supported by MCP yet, but present in vscode
+                              timeout=timeout)
         else:
-            server_params = StdioServerParameters(**server_config)
+            server_params = StdioServerParameters(
+                command=server_config.command,
+                args=server_config.args,
+                #env=server_config.env
+                env={'PATH':'/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/opt/homebrew/bin:/Users/marc/miniforge3/bin'}
+            )
             return stdio_client(server_params)
 
-    with SuppressStd():
+    async def _check_server():
         async with get_client(server_config) as (read, write):
             async with ClientSession(read, write) as session:
                 meta = await session.initialize()
@@ -172,18 +206,49 @@ async def check_server(server_config, timeout):
                         tools = []
                 else:
                     tools = []
-    return prompts, resources, tools
+                return prompts, resources, tools
+
+    if suppress_mcpserver_io:
+        with SuppressStd():
+            return await _check_server()
+    else:
+        return await _check_server()
+                
 
 
-async def check_server_with_timeout(server_config, timeout):
-    return await asyncio.wait_for(check_server(server_config, timeout), timeout)
+async def check_server_with_timeout(server_config, timeout, suppress_mcpserver_io):
+    return await asyncio.wait_for(check_server(server_config, timeout, suppress_mcpserver_io), timeout)
 
 
 def scan_config_file(path):
     path = os.path.expanduser(path)
+    
+    def parse_and_validate(config):
+        models = [ClaudeConfigFile, # used by most clients
+                  VSCodeConfigFile, # used by vscode settings.json
+                  VSCodeMCPConfig # used by vscode mcp.json
+        ]
+        for model in models:
+            try:
+                return model.parse_obj(config)
+            except Exception as e:
+                pass
+        raise Exception("Could not parse config file")
+
+    
     with open(path, "r") as f:
-        config = json.load(f)
-        servers = config.get("mcpServers")
+        #use json5 to support comments as in vscode
+        config = pyjson5.load(f)
+        #try to parse model
+        model = parse_and_validate(config)
+        if isinstance(model, VSCodeConfigFile):
+            servers = model.mcp.servers
+        elif isinstance(model, VSCodeMCPConfig):
+            servers = model.servers
+        elif isinstance(model, ClaudeConfigFile):
+            servers = model.mcpServers
+        else:
+            assert False
         return servers
 
 
@@ -227,7 +292,7 @@ class StorageFile:
 
 class MCPScanner:
     def __init__(
-        self, files, base_url, checks_per_server, storage_file, server_timeout
+        self, files, base_url, checks_per_server, storage_file, server_timeout, suppress_mcpserver_io
     ):
         self.paths = files
         self.base_url = base_url
@@ -235,6 +300,7 @@ class MCPScanner:
         self.storage_file_path = os.path.expanduser(storage_file)
         self.storage_file = StorageFile(self.storage_file_path)
         self.server_timeout = server_timeout
+        self.suppress_mcpserver_io = suppress_mcpserver_io
 
     def inspect_path(self, path, verbose=True):
         """
@@ -257,7 +323,7 @@ class MCPScanner:
         for server_name, server_config in servers.items():
             try:
                 prompts, resources, tools = asyncio.run(
-                    check_server_with_timeout(server_config, self.server_timeout)
+                    check_server_with_timeout(server_config, self.server_timeout, self.suppress_mcpserver_io)
                 )
                 status = None
             except TimeoutError as e:
@@ -302,14 +368,13 @@ class MCPScanner:
         for server_name, server_config in servers.items():
             try:
                 prompts, resources, tools = asyncio.run(
-                    check_server_with_timeout(server_config, self.server_timeout)
+                    check_server_with_timeout(server_config,
+                                              self.server_timeout,
+                                              self.suppress_mcpserver_io)
                 )
                 status = None
-            except TimeoutError as e:
-                status = "Could not reach server within timeout"
-                continue
             except Exception as e:
-                status = str(e).splitlines()[0] + "..."
+                status = format_err_str(e)
                 continue
             finally:
                 server_print = path_print_tree.add(
