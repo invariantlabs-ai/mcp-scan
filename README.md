@@ -54,3 +54,4 @@ uv run -m src.mcp_scan.cli
 - `0.1.4.0` initial public release
 - `0.1.4.1` `inspect` command, reworked output
 - `0.1.4.2` added SSE support
+- `0.1.4.3` added VSCode MCP support, better support for non-MacOS, improved error handling, better output formatting
