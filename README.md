@@ -12,39 +12,8 @@ uvx mcp-scan@latest
 ```
 
 ### Example Output
-```bash
-> uvx mcp-scan@latest
-scanning ~/.codeium/windsurf/mcp_config.json found 0 servers
+![mcp-scan-output](https://invariantlabs.ai/images/mcp-scan-output.png)
 
-scanning ~/.cursor/mcp.json found 5 servers
-│
-├── wcgw
-│   ├── tool Initialize                ✅ verified
-│   ├── tool BashCommand               ✅ verified
-│   ├── tool ReadFiles                 ✅ verified
-│   ├── tool ReadImage                 ✅ verified
-│   ├── tool FileWriteOrEdit           ✅ verified
-│   ├── tool ContextSave               ✅ verified
-│   └── prompt KnowledgeTransfer          skipped
-├── add
-│   └── tool add                       ❌ failed - attempted instruction overwrite
-├── browsermcp
-│   ├── tool browser_navigate          ✅ verified
-│   ├── tool browser_go_back           ✅ verified
-│   ├── tool browser_go_forward        ✅ verified
-│   ├── tool browser_snapshot          ✅ verified
-│   ├── tool browser_click             ✅ verified
-│   ├── tool browser_hover             ✅ verified
-│   ├── tool browser_type              ✅ verified
-│   ├── tool browser_select_option     ✅ verified
-│   ├── tool browser_press_key         ✅ verified
-│   ├── tool browser_wait              ✅ verified
-│   └── tool browser_get_console_logs  ✅ verified
-├── email-mcp SSE servers not supported yet...
-└── zapier SSE servers not supported yet...
-
-scanning ~/Library/Application Support/Claude/claude_desktop_config.json file not found
-```
 
 ## Features
 
