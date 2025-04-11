@@ -1,4 +1,5 @@
 import os
+from pydoc import describe
 from mcp import ClientSession, StdioServerParameters, types
 from mcp.client.stdio import stdio_client
 from mcp.client.sse import sse_client
@@ -30,7 +31,12 @@ def format_servers_line(server, status=None):
     return rich.text.Text.from_markup(text)
 
 
-def format_tool_line(tool, verified: Result, changed: Result = Result(), type="tool"):
+def format_tool_line(tool,
+                     verified: Result,
+                     changed: Result = Result(),
+                     type="tool",
+                     include_description=False,
+                     additional_text=None):
     is_verified = verified.value
     if is_verified is not None and changed.value is not None:
         is_verified = is_verified and not changed.value
@@ -48,6 +54,16 @@ def format_tool_line(tool, verified: Result, changed: Result = Result(), type="t
         name = name[:22] + "..."
     name = name + " " * (25 - len(name))
     text = f"{type} {color}[bold]{name}[/bold] {icon} {message}"
+
+    if include_description:
+        if hasattr(tool, "description"):
+            description = tool.description
+        else:
+            description = "<no description available>"
+        text += f"\n[gray62][bold]Current description:[/bold]\n{description}[/gray62]"
+    
+    if additional_text is not None:
+        text += f"\n[gray62]{additional_text}[/gray62]"
 
     text = rich.text.Text.from_markup(text)
     return text
@@ -192,15 +208,17 @@ class StorageFile:
         }
         changed = False
         message = None
+        prev_data = None
         if key in self.data:
-            changed = self.data[key]["hash"] != new_data["hash"]
+            prev_data = self.data[key]
+            changed = prev_data["hash"] != new_data["hash"]
             if changed:
                 message = (
                     "tool description changed since previous scan at "
-                    + self.data[key]["timestamp"]
+                    + prev_data["timestamp"]
                 )
         self.data[key] = new_data
-        return Result(changed, message)
+        return Result(changed, message), prev_data
 
     def save(self):
         with open(self.path, "w") as f:
@@ -303,10 +321,13 @@ class MCPScanner:
                 tools, prompts, resources, base_url=self.base_url
             )
             for tool, verified in zip(tools, verification_result):
-                changed = self.storage_file.check_and_update(
+                changed, prev_data = self.storage_file.check_and_update(
                     server_name, tool, verified.value
                 )
-                server_print.add(format_tool_line(tool, verified, changed))
+                additional_text = None
+                if changed.value is True:
+                    additional_text = f"[bold]Previous description({prev_data['timestamp']}):[/bold]\n{prev_data['description']}"
+                server_print.add(format_tool_line(tool, verified, changed, include_description=(verified.value is False or changed.value is True), additional_text=additional_text))
             for prompt in prompts:
                 server_print.add(
                     format_tool_line(prompt, Result(message="skipped"), type="prompt")
