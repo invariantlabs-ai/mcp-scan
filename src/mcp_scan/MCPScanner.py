@@ -12,7 +12,13 @@ import requests
 import ast
 import rich
 from rich.tree import Tree
-from .models import VSCodeConfigFile, VSCodeMCPConfig, ClaudeConfigFile, SSEServer, StdioServer
+from .models import (
+    VSCodeConfigFile,
+    VSCodeMCPConfig,
+    ClaudeConfigFile,
+    SSEServer,
+    StdioServer,
+)
 from .surpressIO import SuppressStd
 from collections import namedtuple
 from datetime import datetime
@@ -21,22 +27,25 @@ import pyjson5
 
 Result = namedtuple("Result", field_names=["value", "message"], defaults=[None, None])
 
+
 def format_err_str(e, max_length=None):
     try:
         if isinstance(e, ExceptionGroup):
-            text = ', '.join([format_err_str(e) for e in e.exceptions])
+            text = ", ".join([format_err_str(e) for e in e.exceptions])
         elif isinstance(e, TimeoutError):
             text = "Could not reach server within timeout"
     except:
         text = None
-    if text is None: 
+    if text is None:
         name = type(e).__name__
         try:
+
             def _mapper(e):
                 if isinstance(e, Exception):
                     return format_err_str(e)
                 return str(e)
-            message = ','.join(map(_mapper, e.args))
+
+            message = ",".join(map(_mapper, e.args))
         except Exception:
             message = str(e)
         message = message.strip()
@@ -45,8 +54,9 @@ def format_err_str(e, max_length=None):
         else:
             text = name
     if max_length is not None and len(text) > max_length:
-        text = text[:(max_length-3)] + "..."
+        text = text[: (max_length - 3)] + "..."
     return text
+
 
 def format_path_line(path, status, operation="Scanning"):
     text = f"● {operation} [bold]{path}[/bold] [gray62]{status}[/gray62]"
@@ -60,12 +70,14 @@ def format_servers_line(server, status=None):
     return rich.text.Text.from_markup(text)
 
 
-def format_tool_line(tool,
-                     verified: Result,
-                     changed: Result = Result(),
-                     type="tool",
-                     include_description=False,
-                     additional_text=None):
+def format_tool_line(
+    tool,
+    verified: Result,
+    changed: Result = Result(),
+    type="tool",
+    include_description=False,
+    additional_text=None,
+):
     is_verified = verified.value
     if is_verified is not None and changed.value is not None:
         is_verified = is_verified and not changed.value
@@ -90,7 +102,7 @@ def format_tool_line(tool,
         else:
             description = "<no description available>"
         text += f"\n[gray62][bold]Current description:[/bold]\n{description}[/gray62]"
-    
+
     if additional_text is not None:
         text += f"\n[gray62]{additional_text}[/gray62]"
 
@@ -163,19 +175,24 @@ def verify_server(tools, prompts, resources, base_url):
         ]
 
 
-async def check_server(server_config: SSEServer | StdioServer, timeout, suppress_mcpserver_io):
+async def check_server(
+    server_config: SSEServer | StdioServer, timeout, suppress_mcpserver_io
+):
     is_sse = isinstance(server_config, SSEServer)
+
     def get_client(server_config):
         if is_sse:
-            return sse_client(url=server_config.url,
-                              headers=server_config.headers,
-                              #env=server_config.env, #Not supported by MCP yet, but present in vscode
-                              timeout=timeout)
+            return sse_client(
+                url=server_config.url,
+                headers=server_config.headers,
+                # env=server_config.env, #Not supported by MCP yet, but present in vscode
+                timeout=timeout,
+            )
         else:
             server_params = StdioServerParameters(
                 command=server_config.command,
                 args=server_config.args,
-                env=server_config.env
+                env=server_config.env,
             )
             return stdio_client(server_params)
 
@@ -215,33 +232,42 @@ async def check_server(server_config: SSEServer | StdioServer, timeout, suppress
             return await _check_server()
     else:
         return await _check_server()
-                
 
 
 async def check_server_with_timeout(server_config, timeout, suppress_mcpserver_io):
-    return await asyncio.wait_for(check_server(server_config, timeout, suppress_mcpserver_io), timeout)
+    return await asyncio.wait_for(
+        check_server(server_config, timeout, suppress_mcpserver_io), timeout
+    )
 
 
 def scan_config_file(path):
     path = os.path.expanduser(path)
-    
+
     def parse_and_validate(config):
-        models = [ClaudeConfigFile, # used by most clients
-                  VSCodeConfigFile, # used by vscode settings.json
-                  VSCodeMCPConfig # used by vscode mcp.json
+        models = [
+            ClaudeConfigFile,  # used by most clients
+            VSCodeConfigFile,  # used by vscode settings.json
+            VSCodeMCPConfig,  # used by vscode mcp.json
         ]
+        errors = []
         for model in models:
             try:
                 return model.parse_obj(config)
             except Exception as e:
-                pass
+                errors.append(e)
+        if len(errors) > 0:
+            raise Exception(
+                "Could not parse config file as any of "
+                + str([model.__name__ for model in models])
+                + "\nErrors:\n"
+                + "\n".join([str(e) for e in errors])
+            )
         raise Exception("Could not parse config file")
 
-    
     with open(path, "r") as f:
-        #use json5 to support comments as in vscode
+        # use json5 to support comments as in vscode
         config = pyjson5.load(f)
-        #try to parse model
+        # try to parse model
         model = parse_and_validate(config)
         if isinstance(model, VSCodeConfigFile):
             servers = model.mcp.servers
@@ -294,7 +320,13 @@ class StorageFile:
 
 class MCPScanner:
     def __init__(
-        self, files, base_url, checks_per_server, storage_file, server_timeout, suppress_mcpserver_io
+        self,
+        files,
+        base_url,
+        checks_per_server,
+        storage_file,
+        server_timeout,
+        suppress_mcpserver_io,
     ):
         self.paths = files
         self.base_url = base_url
@@ -308,14 +340,18 @@ class MCPScanner:
         """
         Just inspects the server and prints the tools, prompts and resources without checking them.
         """
+        status = "unknown"
         try:
             servers = scan_config_file(path)
             status = f"found {len(servers)} server{'' if len(servers) == 1 else 's'}"
         except FileNotFoundError:
-            status = f"file does not exist"
+            status = "file does not exist"
             return
         except json.JSONDecodeError:
-            status = f"invalid json"
+            status = "invalid json"
+            return
+        except Exception:
+            status = "failed to parse"
             return
         finally:
             if verbose:
@@ -325,7 +361,9 @@ class MCPScanner:
         for server_name, server_config in servers.items():
             try:
                 prompts, resources, tools = asyncio.run(
-                    check_server_with_timeout(server_config, self.server_timeout, self.suppress_mcpserver_io)
+                    check_server_with_timeout(
+                        server_config, self.server_timeout, self.suppress_mcpserver_io
+                    )
                 )
                 status = None
             except TimeoutError as e:
@@ -370,9 +408,9 @@ class MCPScanner:
         for server_name, server_config in servers.items():
             try:
                 prompts, resources, tools = asyncio.run(
-                    check_server_with_timeout(server_config,
-                                              self.server_timeout,
-                                              self.suppress_mcpserver_io)
+                    check_server_with_timeout(
+                        server_config, self.server_timeout, self.suppress_mcpserver_io
+                    )
                 )
                 status = None
             except Exception as e:
@@ -394,7 +432,17 @@ class MCPScanner:
                 additional_text = None
                 if changed.value is True:
                     additional_text = f"[bold]Previous description({prev_data['timestamp']}):[/bold]\n{prev_data['description']}"
-                server_print.add(format_tool_line(tool, verified, changed, include_description=(verified.value is False or changed.value is True), additional_text=additional_text))
+                server_print.add(
+                    format_tool_line(
+                        tool,
+                        verified,
+                        changed,
+                        include_description=(
+                            verified.value is False or changed.value is True
+                        ),
+                        additional_text=additional_text,
+                    )
+                )
             for prompt in prompts:
                 server_print.add(
                     format_tool_line(prompt, Result(message="skipped"), type="prompt")

@@ -32,6 +32,31 @@ Invariant Labs is collecting data for security research purposes (only about too
 
 MCP-scan does not store or log any usage data, i.e. the contents and results of your MCP tool calls.
 
+## CLI parameters
+
+```
+
+usage: uvx mcp-scan@latest [--checks-per-server CHECKS_PER_SERVER] [--storage-file STORAGE_FILE] [--base-url BASE_URL] [--server-timeout SERVER_TIMEOUT] [files ...]
+
+[FILE1] [FILE2] [FILE3] ...
+    Different file locations to scan. This can include custom file locations as long as they are in an expected format, including Claude, Cursor or VSCode format.
+
+inspect
+    Prints the tool descriptions of the installed tools
+
+help
+    Prints this help message
+
+options:
+  --checks-per-server CHECKS_PER_SERVER
+                        Number of checks to perform on each server, values greater than 1 help catch non-deterministic behavior
+  --storage-file STORAGE_FILE
+                        Path to previous scan results
+  --base-url BASE_URL   Base URL for the Invariant API server.
+  --server-timeout SERVER_TIMEOUT
+                        Number of seconds to wait while trying an MCP server
+```
+
 ## Contributing
 
 We welcome contributions to MCP-Scan. If you have suggestions, bug reports, or feature requests, please open an issue on our GitHub repository.
@@ -43,6 +68,10 @@ To run this package from source, follow these steps:
 uv run pip install -e .
 uv run -m src.mcp_scan.cli
 ```
+
+## Including MCP-scan results in your own project / registry
+
+If you want to include MCP-scan results in your own project or registry, please reach out to the team via `mcpscan@invariantlabs.ai`, and we can help you with that.
 
 ## Further Reading
 - [Introducing MCP-Scan](https://invariantlabs.ai/blog/introducing-mcp-scan)

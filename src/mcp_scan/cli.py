@@ -4,15 +4,17 @@ from .MCPScanner import MCPScanner
 import rich
 from .version import version_info
 
+
 def str2bool(v):
     return v.lower() in ("true", "1", "t", "y", "yes")
+
 
 if sys.platform == "linux" or sys.platform == "linux2":
     WELL_KNOWN_MCP_PATHS = [
         "~/.codeium/windsurf/mcp_config.json",  # windsurf
         "~/.cursor/mcp.json",  # cursor
         "~/.vscode/mcp.json",  # vscode
-        "~/.config/Code/User/settings.json"  # vscode linux
+        "~/.config/Code/User/settings.json",  # vscode linux
     ]
 elif sys.platform == "darwin":
     # OS X
@@ -36,7 +38,7 @@ else:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="MCP Scanner CLI")
+    parser = argparse.ArgumentParser(description="MCP-scan CLI")
     parser.add_argument(
         "--checks-per-server",
         type=int,
@@ -68,12 +70,21 @@ def main():
         help="Suppress the output of the mcp server",
     )
     parser.add_argument(
-        "files", type=str, nargs="*", default=WELL_KNOWN_MCP_PATHS, help="Files to scan"
+        "files",
+        type=str,
+        nargs="*",
+        default=WELL_KNOWN_MCP_PATHS,
+        help="Different file locations to scan. This can include custom file locations as long as they are in an expected format, including Claude, Cursor or VSCode format.",
     )
 
     rich.print("[bold blue]Invariant MCP-scan v{}[/bold blue]\n".format(version_info))
 
     args = parser.parse_args()
+
+    # print help
+    if len(sys.argv) == 2 and sys.argv[1] == "help":
+        parser.print_help()
+        sys.exit(0)
 
     # check for case where the only file is 'inspect'
     if len(sys.argv) == 2 and sys.argv[1] == "inspect":
