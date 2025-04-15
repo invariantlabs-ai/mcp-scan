@@ -52,7 +52,7 @@ def main():
         default="https://mcp.invariantlabs.ai/",
         help="Base URL for the checking server",
     )
-   
+
     # scan
     scan_parser = subparsers.add_parser("scan", help="Scan MCP servers [default]")
     scan_parser.add_argument(
@@ -133,8 +133,6 @@ def main():
         help="Do not contribute to the global whitelist.",
     )
     
-    # help
-    help_parser = subparsers.add_parser("help", help="Print this help message")
 
     rich.print("[bold blue]Invariant MCP-scan v{}[/bold blue]\n".format(version_info))
 
