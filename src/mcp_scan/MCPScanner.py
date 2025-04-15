@@ -1,5 +1,6 @@
 import os
 from pydoc import describe
+from re import A
 import traceback
 from mcp import ClientSession, StdioServerParameters, types
 from mcp.client.stdio import stdio_client
@@ -26,6 +27,7 @@ from hashlib import md5
 import pyjson5
 
 Result = namedtuple("Result", field_names=["value", "message"], defaults=[None, None])
+WhitelistEntry = namedtuple("WhitelistEntry", ["path", "server", "tool"], defaults=[None, None, None])
 
 
 def format_err_str(e, max_length=None):
@@ -313,6 +315,41 @@ class StorageFile:
         self.data[key] = new_data
         return Result(changed, message), prev_data
 
+    def print_whitelist(self):
+        whitelist = self.data.get("__whitelist", [])
+        whitelist = [WhitelistEntry(*entry) for entry in whitelist]
+        whitelist = sorted(whitelist)
+        table = rich.table.Table(title="Whitelist")
+        table.add_column("Path")
+        table.add_column("Server")
+        table.add_column("Tool")
+        for entry in whitelist:
+            path = entry.path or "*"
+            server = entry.server or "*"
+            tool = entry.tool or "*"
+            table.add_row(path, server, tool)
+        rich.print(table)
+        
+    def whitelist(self, path=None, server=None, tool=None):
+        whitelist = self.data.get("__whitelist", [])
+        # check if entry already exists
+        for entry in whitelist:
+            entry = WhitelistEntry(*entry)
+            if entry.path == path and entry.server == server and entry.tool == tool:
+                return
+        whitelist.append(WhitelistEntry(path, server, tool))
+        self.data["__whitelist"] = whitelist
+        
+    def is_whitelisted(self, path, server, tool):
+        whitelist = self.data.get("__whitelist", [])
+        whitelist = [WhitelistEntry(*entry) for entry in whitelist]
+        for entry in whitelist:
+            if ((entry.path == path or entry.path is None) and
+                (entry.server == server or entry.server is None) and
+                (entry.tool == tool or entry.tool is None)):
+                return True
+        return False
+
     def save(self):
         with open(self.path, "w") as f:
             json.dump(self.data, f)
@@ -321,12 +358,13 @@ class StorageFile:
 class MCPScanner:
     def __init__(
         self,
-        files,
-        base_url,
-        checks_per_server,
-        storage_file,
-        server_timeout,
-        suppress_mcpserver_io,
+        files=[],
+        base_url="https://mcp.invariantlabs.ai/",
+        checks_per_server=1,
+        storage_file="~/.mcp-scan",
+        server_timeout=10,
+        suppress_mcpserver_io=True,
+        **kwargs,
     ):
         self.paths = files
         self.base_url = base_url
@@ -432,6 +470,19 @@ class MCPScanner:
                 additional_text = None
                 if changed.value is True:
                     additional_text = f"[bold]Previous description({prev_data['timestamp']}):[/bold]\n{prev_data['description']}"
+                if self.storage_file.is_whitelisted(path, server_name, tool.name):
+                    verified = True
+                    message = '[bold]tool whitelisted[/bold]; '
+                    if additional_text is not None:
+                        additional_text = additional_text + '; ' + message
+                    else:
+                        additional_text = message
+                elif (verified.value is False or changed.value is True):
+                    message = f'[bold]You can whitelist this tool by running `mcp-scan whitelist "{path}" "{server_name}" "{tool.name}"`[/bold]'
+                    if additional_text is not None:
+                        additional_text += '\n\n' + message
+                    else:
+                        additional_text = message
                 server_print.add(
                     format_tool_line(
                         tool,
@@ -485,6 +536,13 @@ class MCPScanner:
                     ),
                 )
             rich.print()
+    
+    def print_whitelist(self):
+        self.storage_file.print_whitelist()
+        
+    def whitelist(self, path, server_name, tool_name):
+        self.storage_file.whitelist(path, server_name, tool_name)
+        self.storage_file.save()
 
     def start(self):
         for i, path in enumerate(self.paths):

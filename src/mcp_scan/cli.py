@@ -39,37 +39,41 @@ else:
 
 def main():
     parser = argparse.ArgumentParser(description="MCP-scan CLI")
-    parser.add_argument(
-        "--checks-per-server",
-        type=int,
-        default=1,
-        help="Number of checks to perform on each server, values greater than 1 help catch non-deterministic behavior",
-    )
+    subparsers = parser.add_subparsers(dest="command")
     parser.add_argument(
         "--storage-file",
         type=str,
         default="~/.mcp-scan",
         help="Path to previous scan results",
     )
-    parser.add_argument(
+   
+    # scan
+    scan_parser = subparsers.add_parser("scan", help="Scan MCP servers [default]")
+    scan_parser.add_argument(
+        "--checks-per-server",
+        type=int,
+        default=1,
+        help="Number of checks to perform on each server, values greater than 1 help catch non-deterministic behavior",
+    )
+    scan_parser.add_argument(
         "--base-url",
         type=str,
         default="https://mcp.invariantlabs.ai/",
         help="Base URL for the checking server",
     )
-    parser.add_argument(
+    scan_parser.add_argument(
         "--server-timeout",
         type=float,
         default=10,
         help="Number of seconds to wait while trying a mcp server",
     )
-    parser.add_argument(
+    scan_parser.add_argument(
         "--suppress-mcpserver-io",
         default=True,
         type=str2bool,
         help="Suppress the output of the mcp server",
     )
-    parser.add_argument(
+    scan_parser.add_argument(
         "files",
         type=str,
         nargs="*",
@@ -77,26 +81,65 @@ def main():
         help="Different file locations to scan. This can include custom file locations as long as they are in an expected format, including Claude, Cursor or VSCode format.",
     )
 
+    # inspect
+    inspect_parser = subparsers.add_parser("inspect", help="Print tool descriptions of installed tools")
+    inspect_parser.add_argument(
+        "files",
+        type=str,
+        nargs="*",
+        default=WELL_KNOWN_MCP_PATHS,
+        help="Different file locations to scan. This can include custom file locations as long as they are in an expected format, including Claude, Cursor or VSCode format.",
+    )
+    
+    # whitelist
+    whitelist_parser = subparsers.add_parser("whitelist", help="Whitelist MCP tools")
+    whitelist_parser.add_argument(
+        "--list",
+        action="store_true",
+        default=False,
+        help="List whitelisted tools."
+        )
+    whitelist_parser.add_argument(
+        "--file",
+        type=str,
+        help="MCP config file location.",
+    )
+    whitelist_parser.add_argument(
+        "--server",
+        type=str,
+        help="Server name.",
+    )
+    whitelist_parser.add_argument(
+        "--tool",
+        type=str,
+        help="Tool name.",
+    )
+    
+    # help
+    help_parser = subparsers.add_parser("help", help="Print this help message")
+
     rich.print("[bold blue]Invariant MCP-scan v{}[/bold blue]\n".format(version_info))
 
-    args = parser.parse_args()
-
-    # print help
-    if len(sys.argv) == 2 and sys.argv[1] == "help":
+    # by default run in scan mode
+    args = parser.parse_args(['scan'] if len(sys.argv) == 1 else None)
+    
+    if args.command == 'help':
         parser.print_help()
         sys.exit(0)
-
-    # check for case where the only file is 'inspect'
-    if len(sys.argv) == 2 and sys.argv[1] == "inspect":
-        args.files = WELL_KNOWN_MCP_PATHS
+    elif args.command == 'inspect':
         MCPScanner(**vars(args)).inspect()
         sys.exit(0)
-
-    scanner = MCPScanner(**vars(args))
-    scanner.start()
-
-    sys.exit(0)
-
+    elif args.command == 'whitelist':
+        if not args.list:
+            MCPScanner(**vars(args)).whitelist(args.file, args.server, args.tool)
+        MCPScanner(**vars(args)).print_whitelist()
+        sys.exit(0)
+    elif args.command == 'scan':
+        MCPScanner(**vars(args)).start()
+        sys.exit(0)
+    else:
+        rich.print("[bold red]Unknown command: {}[/bold red]".format(args.command))
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()
