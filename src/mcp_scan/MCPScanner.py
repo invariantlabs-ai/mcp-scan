@@ -16,7 +16,7 @@ from .models import (
     SSEServer,
     StdioServer,
 )
-from .surpressIO import SuppressStd
+from .suppressIO import SuppressStd
 from collections import namedtuple
 from datetime import datetime
 from hashlib import md5
