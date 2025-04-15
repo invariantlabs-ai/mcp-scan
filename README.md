@@ -36,7 +36,7 @@ MCP-scan does not store or log any usage data, i.e. the contents and results of 
 
 ```
 
-usage: uvx mcp-scan@latest [--storage-file STORAGE_FILE]
+usage: uvx mcp-scan@latest [--storage-file STORAGE_FILE] [--base-url BASE_URL]
 
 help
     Prints this help message
@@ -45,12 +45,15 @@ whitelist
     Whitelists a tool
     Prints the current whitelist when no arguments are provided
 
-    --file
+    [--file FILE]
         MCP config file location.
-    --server
+    [--server SERVER]
         Server name.
-    --tool
+    [--tool TOOL]
         Tool name.
+    [--local-only]
+        Do not contribute to the global whitelist.
+        Defaults to False
     
 scan 
     Scan MCP servers
@@ -63,9 +66,6 @@ scan
     [--checks-per-server CHECKS_PER_SERVER]
         Number of checks to perform on each server, values greater than 1 help catch non-deterministic behavior
         Defaults to 1
-    [--base-url BASE_URL]
-        Base URL for the checking server
-        Defaults to https://mcp.invariantlabs.ai/
     [--server-timeout SERVER_TIMEOUT]
         Number of seconds to wait while trying a mcp server
         Defaults to 10
@@ -116,3 +116,4 @@ If you want to include MCP-scan results in your own project or registry, please 
 - `0.1.4.2` added SSE support
 - `0.1.4.3` added VSCode MCP support, better support for non-MacOS, improved error handling, better output formatting
 - `0.1.4.4-5` fixes
+- `*` whitelisting of files

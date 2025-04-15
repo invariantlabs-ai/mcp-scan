@@ -46,6 +46,12 @@ def main():
         default="~/.mcp-scan",
         help="Path to previous scan results",
     )
+    parser.add_argument(
+        "--base-url",
+        type=str,
+        default="https://mcp.invariantlabs.ai/",
+        help="Base URL for the checking server",
+    )
    
     # scan
     scan_parser = subparsers.add_parser("scan", help="Scan MCP servers [default]")
@@ -54,12 +60,6 @@ def main():
         type=int,
         default=1,
         help="Number of checks to perform on each server, values greater than 1 help catch non-deterministic behavior",
-    )
-    scan_parser.add_argument(
-        "--base-url",
-        type=str,
-        default="https://mcp.invariantlabs.ai/",
-        help="Base URL for the checking server",
     )
     scan_parser.add_argument(
         "--server-timeout",
@@ -106,6 +106,12 @@ def main():
     # whitelist
     whitelist_parser = subparsers.add_parser("whitelist", help="Whitelist MCP tools")
     whitelist_parser.add_argument(
+        "--reset",
+        default=False,
+        action="store_true",
+        help="Reset the whitelist.",
+    )
+    whitelist_parser.add_argument(
         "--file",
         type=str,
         help="MCP config file location.",
@@ -119,6 +125,12 @@ def main():
         "--tool",
         type=str,
         help="Tool name.",
+    )
+    whitelist_parser.add_argument(
+        "--local-only",
+        default=False,
+        action="store_true",
+        help="Do not contribute to the global whitelist.",
     )
     
     # help
@@ -136,8 +148,11 @@ def main():
         MCPScanner(**vars(args)).inspect()
         sys.exit(0)
     elif args.command == 'whitelist':
+        if args.reset:
+            MCPScanner(**vars(args)).reset_whitelist()
+            sys.exit(0)
         if not all(map(lambda x: x is None, [args.file, args.server, args.tool])):
-            MCPScanner(**vars(args)).whitelist(args.file, args.server, args.tool)
+            MCPScanner(**vars(args)).whitelist(args.file, args.server, args.tool, args.local_only)
         MCPScanner(**vars(args)).print_whitelist()
         sys.exit(0)
     elif args.command == 'scan':
