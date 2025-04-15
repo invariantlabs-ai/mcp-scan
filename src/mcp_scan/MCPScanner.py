@@ -471,12 +471,7 @@ class MCPScanner:
                 if changed.value is True:
                     additional_text = f"[bold]Previous description({prev_data['timestamp']}):[/bold]\n{prev_data['description']}"
                 if self.storage_file.is_whitelisted(path, server_name, tool.name):
-                    verified = True
-                    message = '[bold]tool whitelisted[/bold]; '
-                    if additional_text is not None:
-                        additional_text = additional_text + '; ' + message
-                    else:
-                        additional_text = message
+                    verified = Result(True, message="[bold]tool whitelisted[/bold] " + verified.message)
                 elif (verified.value is False or changed.value is True):
                     message = f'[bold]You can whitelist this tool by running `mcp-scan whitelist "{path}" "{server_name}" "{tool.name}"`[/bold]'
                     if additional_text is not None:
