@@ -36,25 +36,56 @@ MCP-scan does not store or log any usage data, i.e. the contents and results of 
 
 ```
 
-usage: uvx mcp-scan@latest [--checks-per-server CHECKS_PER_SERVER] [--storage-file STORAGE_FILE] [--base-url BASE_URL] [--server-timeout SERVER_TIMEOUT] [files ...]
-
-[FILE1] [FILE2] [FILE3] ...
-    Different file locations to scan. This can include custom file locations as long as they are in an expected format, including Claude, Cursor or VSCode format.
-
-inspect
-    Prints the tool descriptions of the installed tools
+usage: uvx mcp-scan@latest [--storage-file STORAGE_FILE]
 
 help
     Prints this help message
 
-options:
-  --checks-per-server CHECKS_PER_SERVER
-                        Number of checks to perform on each server, values greater than 1 help catch non-deterministic behavior
-  --storage-file STORAGE_FILE
-                        Path to previous scan results
-  --base-url BASE_URL   Base URL for the Invariant API server.
-  --server-timeout SERVER_TIMEOUT
-                        Number of seconds to wait while trying an MCP server
+whitelist 
+    Whitelists a tool
+    Prints the current whitelist when no arguments are provided
+
+    --file
+        MCP config file location.
+    --server
+        Server name.
+    --tool
+        Tool name.
+    
+scan 
+    Scan MCP servers
+    Default command, when no arguments are provided
+
+    [FILE1] [FILE2] [FILE3] ...
+        Different file locations to scan. This can include custom file locations as long as they are in an expected format, including Claude, Cursor or VSCode format.
+        Defaults to well known locations, depending on your OS
+        
+    [--checks-per-server CHECKS_PER_SERVER]
+        Number of checks to perform on each server, values greater than 1 help catch non-deterministic behavior
+        Defaults to 1
+    [--base-url BASE_URL]
+        Base URL for the checking server
+        Defaults to https://mcp.invariantlabs.ai/
+    [--server-timeout SERVER_TIMEOUT]
+        Number of seconds to wait while trying a mcp server
+        Defaults to 10
+    [--suppress-mcpserver-io]
+        Suppress the output of the mcp server
+        Defaults to True
+
+inspect
+    Prints the tool descriptions of the installed tools
+
+    [FILE1] [FILE2] [FILE3] ...
+        Different file locations to scan. This can include custom file locations as long as they are in an expected format, including Claude, Cursor or VSCode format.
+        Defaults to well known locations, depending on your OS
+
+    [--server-timeout SERVER_TIMEOUT]
+        Number of seconds to wait while trying a mcp server
+        Defaults to 10
+    [--suppress-mcpserver-io]
+        Suppress the output of the mcp server
+        Defaults to True
 ```
 
 ## Contributing

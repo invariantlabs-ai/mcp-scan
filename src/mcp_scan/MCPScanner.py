@@ -473,7 +473,7 @@ class MCPScanner:
                 if self.storage_file.is_whitelisted(path, server_name, tool.name):
                     verified = Result(True, message="[bold]tool whitelisted[/bold] " + verified.message)
                 elif (verified.value is False or changed.value is True):
-                    message = f'[bold]You can whitelist this tool by running `mcp-scan whitelist "{path}" "{server_name}" "{tool.name}"`[/bold]'
+                    message = f'[bold]You can whitelist this tool by running `mcp-scan whitelist --file "{path}" --server "{server_name}" --tool "{tool.name}"`[/bold]'
                     if additional_text is not None:
                         additional_text += '\n\n' + message
                     else:

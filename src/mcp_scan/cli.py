@@ -84,6 +84,18 @@ def main():
     # inspect
     inspect_parser = subparsers.add_parser("inspect", help="Print tool descriptions of installed tools")
     inspect_parser.add_argument(
+        "--server-timeout",
+        type=float,
+        default=10,
+        help="Number of seconds to wait while trying a mcp server",
+    )
+    inspect_parser.add_argument(
+        "--suppress-mcpserver-io",
+        default=True,
+        type=str2bool,
+        help="Suppress the output of the mcp server",
+    )
+    inspect_parser.add_argument(
         "files",
         type=str,
         nargs="*",
@@ -93,12 +105,6 @@ def main():
     
     # whitelist
     whitelist_parser = subparsers.add_parser("whitelist", help="Whitelist MCP tools")
-    whitelist_parser.add_argument(
-        "--list",
-        action="store_true",
-        default=False,
-        help="List whitelisted tools."
-        )
     whitelist_parser.add_argument(
         "--file",
         type=str,
@@ -130,7 +136,7 @@ def main():
         MCPScanner(**vars(args)).inspect()
         sys.exit(0)
     elif args.command == 'whitelist':
-        if not args.list:
+        if not all(map(lambda x: x is None, [args.file, args.server, args.tool])):
             MCPScanner(**vars(args)).whitelist(args.file, args.server, args.tool)
         MCPScanner(**vars(args)).print_whitelist()
         sys.exit(0)
