@@ -132,7 +132,9 @@ def main():
         action="store_true",
         help="Do not contribute to the global whitelist.",
     )
-    
+
+    # help
+    help_parser = subparsers.add_parser("help", help="Print this help message")
 
     rich.print("[bold blue]Invariant MCP-scan v{}[/bold blue]\n".format(version_info))
 
