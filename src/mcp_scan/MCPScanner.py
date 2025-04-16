@@ -23,7 +23,9 @@ from hashlib import md5
 import pyjson5
 
 Result = namedtuple("Result", field_names=["value", "message"], defaults=[None, None])
-WhitelistEntry = namedtuple("WhitelistEntry", ["path", "server", "tool"], defaults=[None, None, None])
+WhitelistEntry = namedtuple(
+    "WhitelistEntry", ["path", "server", "tool"], defaults=[None, None, None]
+)
 
 
 def format_err_str(e, max_length=None):
@@ -134,6 +136,7 @@ def format_inspect_tool_line(
     text = rich.text.Text.from_markup(text)
     return text
 
+
 def upload_whitelist_entry(entry, base_url):
     url = base_url + "/api/v1/public/mcp-whitelist"
     headers = {"Content-Type": "application/json"}
@@ -143,6 +146,7 @@ def upload_whitelist_entry(entry, base_url):
         "tool": entry.tool,
     }
     response = requests.post(url, headers=headers, data=json.dumps(data))
+
 
 def verify_server(tools, prompts, resources, base_url):
     if len(tools) == 0:
@@ -488,7 +492,7 @@ class MCPScanner:
                 elif verified.value is False or changed.value is True:
                     message = f'[bold]You can whitelist this tool by running `mcp-scan whitelist --file "{path}" --server "{server_name}" --tool "{tool.name}"`[/bold]'
                     if additional_text is not None:
-                        additional_text += '\n\n' + message
+                        additional_text += "\n\n" + message
                     else:
                         additional_text = message
                 server_print.add(
