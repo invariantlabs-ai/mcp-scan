@@ -1,12 +1,8 @@
 import os
-from pydoc import describe
-from re import A
-import traceback
-from mcp import ClientSession, StdioServerParameters, types
+from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 from mcp.client.sse import sse_client
 import json
-import os
 import textwrap
 import asyncio
 import requests
@@ -20,7 +16,7 @@ from .models import (
     SSEServer,
     StdioServer,
 )
-from .surpressIO import SuppressStd
+from .suppressIO import SuppressStd
 from collections import namedtuple
 from datetime import datetime
 from hashlib import md5
@@ -338,7 +334,7 @@ class StorageFile:
             tool = entry.tool or "*"
             table.add_row(path, server, tool)
         rich.print(table)
-        
+
     def whitelist(self, path=None, server=None, tool=None):
         whitelist = self.data.get("__whitelist", [])
         # check if entry already exists
@@ -348,17 +344,19 @@ class StorageFile:
                 return
         whitelist.append(WhitelistEntry(path, server, tool))
         self.data["__whitelist"] = whitelist
-        
+
     def is_whitelisted(self, path, server, tool):
         whitelist = self.data.get("__whitelist", [])
         whitelist = [WhitelistEntry(*entry) for entry in whitelist]
         for entry in whitelist:
-            if ((entry.path == path or entry.path is None) and
-                (entry.server == server or entry.server is None) and
-                (entry.tool == tool or entry.tool is None)):
+            if (
+                (entry.path == path or entry.path is None)
+                and (entry.server == server or entry.server is None)
+                and (entry.tool == tool or entry.tool is None)
+            ):
                 return True
         return False
-    
+
     def reset_whitelist(self):
         self.data["__whitelist"] = []
 
@@ -483,8 +481,11 @@ class MCPScanner:
                 if changed.value is True:
                     additional_text = f"[bold]Previous description({prev_data['timestamp']}):[/bold]\n{prev_data['description']}"
                 if self.storage_file.is_whitelisted(path, server_name, tool.name):
-                    verified = Result(True, message="[bold]tool whitelisted[/bold] " + verified.message)
-                elif (verified.value is False or changed.value is True):
+                    verified = Result(
+                        True,
+                        message="[bold]tool whitelisted[/bold] " + verified.message,
+                    )
+                elif verified.value is False or changed.value is True:
                     message = f'[bold]You can whitelist this tool by running `mcp-scan whitelist --file "{path}" --server "{server_name}" --tool "{tool.name}"`[/bold]'
                     if additional_text is not None:
                         additional_text += '\n\n' + message
@@ -543,20 +544,22 @@ class MCPScanner:
                     ),
                 )
             rich.print()
-   
+
     def reset_whitelist(self):
         self.storage_file.reset_whitelist()
-        self.storage_file.save() 
+        self.storage_file.save()
         rich.print("Whitelist reset")
-     
+
     def print_whitelist(self):
         self.storage_file.print_whitelist()
-        
+
     def whitelist(self, path, server_name, tool_name, local_only=False):
         self.storage_file.whitelist(path, server_name, tool_name)
         self.storage_file.save()
         if not local_only:
-            upload_whitelist_entry(WhitelistEntry(path, server_name, tool_name), self.base_url)
+            upload_whitelist_entry(
+                WhitelistEntry(path, server_name, tool_name), self.base_url
+            )
 
     def start(self):
         for i, path in enumerate(self.paths):

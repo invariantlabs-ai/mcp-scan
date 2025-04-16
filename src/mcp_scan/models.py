@@ -1,5 +1,4 @@
 from pydantic import BaseModel, ConfigDict, field_validator
-from datetime import date
 from typing import Any
 
 class SSEServer(BaseModel):
