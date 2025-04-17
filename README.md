@@ -42,15 +42,14 @@ help
     Prints this help message
 
 whitelist 
-    Whitelists a tool
-    Prints the current whitelist when no arguments are provided
+    Whitelists a tool, or prints the current whitelist if no arguments are provided
 
-    [--file FILE]
-        MCP config file location.
-    [--server SERVER]
-        Server name.
-    [--tool TOOL]
-        Tool name.
+    [NAME HASH]
+        Adds tool name and hash to whitelist
+        
+    [--reset]
+        Resets the whitelist
+    
     [--local-only]
         Do not contribute to the global whitelist.
         Defaults to False
@@ -116,4 +115,4 @@ If you want to include MCP-scan results in your own project or registry, please 
 - `0.1.4.2` added SSE support
 - `0.1.4.3` added VSCode MCP support, better support for non-MacOS, improved error handling, better output formatting
 - `0.1.4.4-5` fixes
-- `*` whitelisting of files
+- `0.1.4.6` whitelisting of tools

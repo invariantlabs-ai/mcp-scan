@@ -40,21 +40,21 @@ else:
 def main():
     parser = argparse.ArgumentParser(description="MCP-scan CLI")
     subparsers = parser.add_subparsers(dest="command")
-    parser.add_argument(
+
+    # scan
+    scan_parser = subparsers.add_parser("scan", help="Scan MCP servers [default]")
+    scan_parser.add_argument(
         "--storage-file",
         type=str,
         default="~/.mcp-scan",
         help="Path to previous scan results",
     )
-    parser.add_argument(
+    scan_parser.add_argument(
         "--base-url",
         type=str,
         default="https://mcp.invariantlabs.ai/",
         help="Base URL for the checking server",
     )
-
-    # scan
-    scan_parser = subparsers.add_parser("scan", help="Scan MCP servers [default]")
     scan_parser.add_argument(
         "--checks-per-server",
         type=int,
@@ -84,6 +84,18 @@ def main():
     # inspect
     inspect_parser = subparsers.add_parser("inspect", help="Print tool descriptions of installed tools")
     inspect_parser.add_argument(
+        "--storage-file",
+        type=str,
+        default="~/.mcp-scan",
+        help="Path to previous scan results",
+    )
+    inspect_parser.add_argument(
+        "--base-url",
+        type=str,
+        default="https://mcp.invariantlabs.ai/",
+        help="Base URL for the checking server",
+    )
+    inspect_parser.add_argument(
         "--server-timeout",
         type=float,
         default=10,
@@ -106,10 +118,16 @@ def main():
     # whitelist
     whitelist_parser = subparsers.add_parser("whitelist", help="Whitelist MCP tools")
     whitelist_parser.add_argument(
-        "--print",
-        default=False,
-        action="store_true",
-        help="Print the whitelist.",
+        "--storage-file",
+        type=str,
+        default="~/.mcp-scan",
+        help="Path to previous scan results",
+    )
+    whitelist_parser.add_argument(
+        "--base-url",
+        type=str,
+        default="https://mcp.invariantlabs.ai/",
+        help="Base URL for the checking server",
     )
     whitelist_parser.add_argument(
         "--reset",
@@ -156,7 +174,7 @@ def main():
         if args.reset:
             MCPScanner(**vars(args)).reset_whitelist()
             sys.exit(0)
-        elif args.print:
+        elif all(map(lambda x: x is not None, [args.name, args.hash])): # no args
             MCPScanner(**vars(args)).print_whitelist()
             sys.exit(0)
         elif all(map(lambda x: x is not None, [args.name, args.hash])):
@@ -166,7 +184,7 @@ def main():
         else:
             rich.print("[bold red]Please provide a name and hash.[/bold red]")
             sys.exit(1)
-    elif args.command == 'scan':
+    elif args.command == 'scan' or args.command is None: # default to scan
         MCPScanner(**vars(args)).start()
         sys.exit(0)
     else:
