@@ -106,31 +106,36 @@ def main():
     # whitelist
     whitelist_parser = subparsers.add_parser("whitelist", help="Whitelist MCP tools")
     whitelist_parser.add_argument(
+        "--print",
+        default=False,
+        action="store_true",
+        help="Print the whitelist.",
+    )
+    whitelist_parser.add_argument(
         "--reset",
         default=False,
         action="store_true",
         help="Reset the whitelist.",
     )
     whitelist_parser.add_argument(
-        "--file",
-        type=str,
-        help="MCP config file location.",
-    )
-    whitelist_parser.add_argument(
-        "--server",
-        type=str,
-        help="Server name.",
-    )
-    whitelist_parser.add_argument(
-        "--tool",
-        type=str,
-        help="Tool name.",
-    )
-    whitelist_parser.add_argument(
         "--local-only",
         default=False,
         action="store_true",
         help="Do not contribute to the global whitelist.",
+    )
+    whitelist_parser.add_argument(
+        "name",
+        type=str,
+        default=None,
+        nargs="?",
+        help="Tool name.",
+    )
+    whitelist_parser.add_argument(
+        "hash",
+        type=str,
+        default=None,
+        nargs="?",
+        help="Tool hash.",
     )
 
     # help
@@ -151,10 +156,16 @@ def main():
         if args.reset:
             MCPScanner(**vars(args)).reset_whitelist()
             sys.exit(0)
-        if not all(map(lambda x: x is None, [args.file, args.server, args.tool])):
-            MCPScanner(**vars(args)).whitelist(args.file, args.server, args.tool, args.local_only)
-        MCPScanner(**vars(args)).print_whitelist()
-        sys.exit(0)
+        elif args.print:
+            MCPScanner(**vars(args)).print_whitelist()
+            sys.exit(0)
+        elif all(map(lambda x: x is not None, [args.name, args.hash])):
+            MCPScanner(**vars(args)).whitelist(args.name, args.hash, args.local_only)
+            MCPScanner(**vars(args)).print_whitelist()
+            sys.exit(0)
+        else:
+            rich.print("[bold red]Please provide a name and hash.[/bold red]")
+            sys.exit(1)
     elif args.command == 'scan':
         MCPScanner(**vars(args)).start()
         sys.exit(0)

@@ -23,8 +23,6 @@ from hashlib import md5
 import pyjson5
 
 Result = namedtuple("Result", field_names=["value", "message"], defaults=[None, None])
-WhitelistEntry = namedtuple("WhitelistEntry", ["path", "server", "tool"], defaults=[None, None, None])
-
 
 def format_err_str(e, max_length=None):
     try:
@@ -134,13 +132,12 @@ def format_inspect_tool_line(
     text = rich.text.Text.from_markup(text)
     return text
 
-def upload_whitelist_entry(entry, base_url):
+def upload_whitelist_entry(name, hash, base_url):
     url = base_url + "/api/v1/public/mcp-whitelist"
     headers = {"Content-Type": "application/json"}
     data = {
-        "path": entry.path,
-        "server": entry.server,
-        "tool": entry.tool,
+        "name": name,
+        "hash": hash,
     }
     response = requests.post(url, headers=headers, data=json.dumps(data))
 
@@ -294,13 +291,20 @@ class StorageFile:
         if os.path.exists(path):
             with open(path, "r") as f:
                 self.data = json.load(f)
+    
+    @property
+    def whitelist(self):
+        return self.data.get("__whitelist", {})
 
-    def compute_hash(self, server_name, tool):
+    def reset_whitelist(self):
+        self.data["__whitelist"] = {}
+        
+    def compute_hash(self, tool):
         return md5(tool.description.encode()).hexdigest()
 
     def check_and_update(self, server_name, tool, verified):
         key = f"{server_name}.{tool.name}"
-        hash = self.compute_hash(server_name, tool)
+        hash = self.compute_hash(tool)
         new_data = {
             "hash": hash,
             "timestamp": datetime.now().strftime("%d/%m/%Y, %H:%M:%S"),
@@ -321,44 +325,18 @@ class StorageFile:
         return Result(changed, message), prev_data
 
     def print_whitelist(self):
-        whitelist = self.data.get("__whitelist", [])
-        whitelist = [WhitelistEntry(*entry) for entry in whitelist]
-        whitelist = sorted(whitelist)
-        table = rich.table.Table(title="Whitelist")
-        table.add_column("Path")
-        table.add_column("Server")
-        table.add_column("Tool")
-        for entry in whitelist:
-            path = entry.path or "*"
-            server = entry.server or "*"
-            tool = entry.tool or "*"
-            table.add_row(path, server, tool)
-        rich.print(table)
+        whitelist_keys = sorted(self.whitelist.keys())
+        for key in whitelist_keys:
+            rich.print(key, self.whitelist[key])
+        rich.print(f"[bold]{len(whitelist_keys)} entries in whitelist[/bold]")
 
-    def whitelist(self, path=None, server=None, tool=None):
-        whitelist = self.data.get("__whitelist", [])
-        # check if entry already exists
-        for entry in whitelist:
-            entry = WhitelistEntry(*entry)
-            if entry.path == path and entry.server == server and entry.tool == tool:
-                return
-        whitelist.append(WhitelistEntry(path, server, tool))
-        self.data["__whitelist"] = whitelist
+    def add_to_whitelist(self, name, hash):
+        self.data["__whitelist"][name] = hash
+        self.save()
 
-    def is_whitelisted(self, path, server, tool):
-        whitelist = self.data.get("__whitelist", [])
-        whitelist = [WhitelistEntry(*entry) for entry in whitelist]
-        for entry in whitelist:
-            if (
-                (entry.path == path or entry.path is None)
-                and (entry.server == server or entry.server is None)
-                and (entry.tool == tool or entry.tool is None)
-            ):
-                return True
-        return False
-
-    def reset_whitelist(self):
-        self.data["__whitelist"] = []
+    def is_whitelisted(self, tool):
+        hash = self.compute_hash(tool)
+        return hash in self.whitelist.values()
 
     def save(self):
         with open(self.path, "w") as f:
@@ -480,13 +458,14 @@ class MCPScanner:
                 additional_text = None
                 if changed.value is True:
                     additional_text = f"[bold]Previous description({prev_data['timestamp']}):[/bold]\n{prev_data['description']}"
-                if self.storage_file.is_whitelisted(path, server_name, tool.name):
+                if self.storage_file.is_whitelisted(tool):
                     verified = Result(
                         True,
                         message="[bold]tool whitelisted[/bold] " + verified.message,
                     )
                 elif verified.value is False or changed.value is True:
-                    message = f'[bold]You can whitelist this tool by running `mcp-scan whitelist --file "{path}" --server "{server_name}" --tool "{tool.name}"`[/bold]'
+                    hash = self.storage_file.compute_hash(tool)
+                    message = f'[bold]You can whitelist this tool by running `mcp-scan whitelist "{tool.name}" {hash}`[/bold]'
                     if additional_text is not None:
                         additional_text += '\n\n' + message
                     else:
@@ -553,12 +532,12 @@ class MCPScanner:
     def print_whitelist(self):
         self.storage_file.print_whitelist()
 
-    def whitelist(self, path, server_name, tool_name, local_only=False):
-        self.storage_file.whitelist(path, server_name, tool_name)
+    def whitelist(self, name, hash, local_only=False):
+        self.storage_file.add_to_whitelist(name, hash)
         self.storage_file.save()
         if not local_only:
             upload_whitelist_entry(
-                WhitelistEntry(path, server_name, tool_name), self.base_url
+                name, hash, self.base_url
             )
 
     def start(self):
