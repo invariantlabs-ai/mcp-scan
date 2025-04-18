@@ -16,7 +16,7 @@ class SSEServer(BaseModel):
 class StdioServer(BaseModel):
     model_config = ConfigDict()
     command: str
-    args: list[str]
+    args: list[str] | None = None
     type: str | None = 'stdio'
     env: dict[str, str] = {}
 

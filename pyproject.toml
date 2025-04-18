@@ -14,6 +14,7 @@ dependencies = [
     "rich>=14.0.0",
     "pyjson5>=1.6.8",
     "pydantic>=2.11.2",
+    "lark-parser[regex]>=0.12.0",
 ]
 
 [project.scripts]

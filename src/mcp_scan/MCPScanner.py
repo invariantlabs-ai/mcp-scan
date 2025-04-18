@@ -21,8 +21,30 @@ from collections import namedtuple
 from datetime import datetime
 from hashlib import md5
 import pyjson5
+from lark import Lark
 
 Result = namedtuple("Result", field_names=["value", "message"], defaults=[None, None])
+
+def rebalance_command_args(command, args):
+    # create a parser that splits on whitespace,
+    # unless it is inside "." or '.'
+    # unless that is escaped
+    parser = Lark(r'''
+        command: (PART|SQUOTEDPART|DQUOTEDPART)*
+        PART: /[^\s'".]+/
+        SQUOTEDPART: /'[^']'/
+        DQUOTEDPART: /"[^"]"/
+        ''',
+        parser="lalr",
+        lexer="standard",
+        start="command",
+        regex=True,
+    )
+    tree = parser.parse(command)
+    command = [node.value for node in tree.children]
+    args = (args or []) + command[1:]
+    command = command[0]
+    return command, args
 
 def format_err_str(e, max_length=None):
     try:
@@ -30,6 +52,8 @@ def format_err_str(e, max_length=None):
             text = ", ".join([format_err_str(e) for e in e.exceptions])
         elif isinstance(e, TimeoutError):
             text = "Could not reach server within timeout"
+        else:
+            raise Exception()
     except:
         text = None
     if text is None:
@@ -193,9 +217,11 @@ async def check_server(
                 timeout=timeout,
             )
         else:
+            # handle complex configs
+            command, args = rebalance_command_args(server_config.command, server_config.args)
             server_params = StdioServerParameters(
-                command=server_config.command,
-                args=server_config.args,
+                command=command,
+                args=args,
                 env=server_config.env,
             )
             return stdio_client(server_params)
