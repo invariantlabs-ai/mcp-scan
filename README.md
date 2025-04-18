@@ -116,3 +116,4 @@ If you want to include MCP-scan results in your own project or registry, please 
 - `0.1.4.3` added VSCode MCP support, better support for non-MacOS, improved error handling, better output formatting
 - `0.1.4.4-5` fixes
 - `0.1.4.6` whitelisting of tools
+- `0.1.4.7` automatically rebalance command args
