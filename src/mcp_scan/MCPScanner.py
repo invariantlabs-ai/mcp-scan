@@ -2,6 +2,8 @@ import os
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 from mcp.client.sse import sse_client
+from typing import Type
+
 import json
 import textwrap
 import asyncio
@@ -15,6 +17,7 @@ from .models import (
     ClaudeConfigFile,
     SSEServer,
     StdioServer,
+    MCPConfig,
 )
 from .suppressIO import SuppressStd
 from collections import namedtuple
@@ -249,11 +252,11 @@ async def check_server_with_timeout(server_config, timeout, suppress_mcpserver_i
     )
 
 
-def scan_config_file(path):
+def scan_config_file(path: str) -> MCPConfig:
     path = os.path.expanduser(path)
 
-    def parse_and_validate(config):
-        models = [
+    def parse_and_validate(config) -> MCPConfig:
+        models: list[Type[MCPConfig]] = [
             ClaudeConfigFile,  # used by most clients
             VSCodeConfigFile,  # used by vscode settings.json
             VSCodeMCPConfig,  # used by vscode mcp.json
@@ -261,7 +264,7 @@ def scan_config_file(path):
         errors = []
         for model in models:
             try:
-                return model.parse_obj(config)
+                return model.model_validate(config)
             except Exception as e:
                 errors.append(e)
         if len(errors) > 0:
@@ -277,16 +280,7 @@ def scan_config_file(path):
         # use json5 to support comments as in vscode
         config = pyjson5.load(f)
         # try to parse model
-        model = parse_and_validate(config)
-        if isinstance(model, VSCodeConfigFile):
-            servers = model.mcp.servers
-        elif isinstance(model, VSCodeMCPConfig):
-            servers = model.servers
-        elif isinstance(model, ClaudeConfigFile):
-            servers = model.mcpServers
-        else:
-            assert False
-        return servers
+        return parse_and_validate(config)
 
 
 class StorageFile:
@@ -373,7 +367,7 @@ class MCPScanner:
         """
         status = "unknown"
         try:
-            servers = scan_config_file(path)
+            servers = scan_config_file(path).get_servers()
             status = f"found {len(servers)} server{'' if len(servers) == 1 else 's'}"
         except FileNotFoundError:
             status = "file does not exist"
@@ -422,7 +416,7 @@ class MCPScanner:
 
     def scan(self, path, verbose=True):
         try:
-            servers = scan_config_file(path)
+            servers = scan_config_file(path).get_servers()
             status = f"found {len(servers)} server{'' if len(servers) == 1 else 's'}"
         except FileNotFoundError:
             status = f"file does not exist"

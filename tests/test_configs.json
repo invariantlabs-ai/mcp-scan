@@ -1,0 +1,32 @@
+{
+    "mcpServers": {
+        "Random Facts MCP Server": {
+            "command": "uv",
+            "args": [
+                "run",
+                "--with",
+                "mcp[cli]",
+                "mcp",
+                "run",
+                "/Users/marcomilanta/Documents/invariant/mcp-injection-experiments/whatsapp-takeover.py"
+            ],
+            "type": "stdio",
+            "env": {}
+        },
+        "WhatsApp Server": {
+            "command": "uv",
+            "args": [
+                "run",
+                "--with",
+                "mcp[cli]",
+                "--with",
+                "requests",
+                "mcp",
+                "run",
+                "/Users/marcomilanta/Documents/invariant/mcp-injection-experiments/whatsapp.py"
+            ],
+            "type": "stdio",
+            "env": {}
+        }
+    }
+}

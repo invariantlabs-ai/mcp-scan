@@ -1,6 +1,7 @@
 import sys
 import argparse
 from .MCPScanner import MCPScanner
+from mcp_scan.gateway import MCPGatewayInstaller, MCPGatewayConfig
 import rich
 from .version import version_info
 
@@ -155,6 +156,43 @@ def main():
         nargs="?",
         help="Tool hash.",
     )
+    # install
+    install_parser = subparsers.add_parser("install", help="Install Invariant Gateway")
+    install_parser.add_argument(
+        "files",
+        type=str,
+        nargs="*",
+        default=WELL_KNOWN_MCP_PATHS,
+        help="Different file locations to scan. This can include custom file locations as long as they are in an expected format, including Claude, Cursor or VSCode format.",
+    )
+    install_parser.add_argument(
+        "--project_name",
+        type=str,
+        default="mcp-gateway",
+        help="Project name for the Invariant Gateway",
+    )
+    install_parser.add_argument(
+        "--api-key",
+        type=str,
+        required=True,
+        help="api key for the Invariant Gateway",
+    )
+    install_parser.add_argument(
+        "--local-only",
+        default=False,
+        action="store_true",
+        help="Prevent pushing traces to the explorer.",
+    )
+
+    # uninstall
+    uninstall_parser = subparsers.add_parser("uninstall", help="Uninstall Invariant Gateway")
+    uninstall_parser.add_argument(
+        "files",
+        type=str,
+        nargs="*",
+        default=WELL_KNOWN_MCP_PATHS,
+        help="Different file locations to scan. This can include custom file locations as long as they are in an expected format, including Claude, Cursor or VSCode format.",
+    )
 
     # help
     help_parser = subparsers.add_parser("help", help="Print this help message")
@@ -170,6 +208,18 @@ def main():
     elif args.command == 'inspect':
         MCPScanner(**vars(args)).inspect()
         sys.exit(0)
+    elif args.command == 'install':
+        installer = MCPGatewayInstaller(paths=args.files)
+        installer.install(gateway_config=MCPGatewayConfig(
+            project_name=args.project_name,
+            push_explorer=not args.local_only,
+            api_key=args.api_key,
+        ), verbose=True)
+        # install logic here
+    elif args.command == 'uninstall':
+        installer = MCPGatewayInstaller(paths=args.files)
+        installer.uninstall(verbose=True)
+        # uninstall logic here
     elif args.command == 'whitelist':
         if args.reset:
             MCPScanner(**vars(args)).reset_whitelist()
