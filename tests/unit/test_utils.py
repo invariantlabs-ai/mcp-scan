@@ -1,0 +1,9 @@
+import pytest
+from mcp_scan.utils import rebalance_command_args
+
+
+def test_rebalance_command_args():
+    command, args = rebalance_command_args("ls -l", ["-a"])
+    print(command, args)
+    assert command == "ls"
+    assert args == ["-l", "-a"]
