@@ -7,3 +7,14 @@ def test_rebalance_command_args():
     print(command, args)
     assert command == "ls"
     assert args == ["-l", "-a"]
+    
+    command, args = rebalance_command_args("ls -l", [])
+    print(command, args)
+    assert command == "ls"
+    assert args == ["-l"]
+    
+    command, args = rebalance_command_args("ls   -l    ", [])
+    print(command, args)
+    assert command == "ls"
+    assert args == ["-l"]
+    
