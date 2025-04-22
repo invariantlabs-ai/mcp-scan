@@ -1,7 +1,4 @@
 import os
-from mcp import ClientSession, StdioServerParameters
-from mcp.client.stdio import stdio_client
-from mcp.client.sse import sse_client
 import json
 import textwrap
 import asyncio
@@ -9,19 +6,10 @@ import requests
 import ast
 import rich
 from rich.tree import Tree
-from .models import (
-    VSCodeConfigFile,
-    VSCodeMCPConfig,
-    ClaudeConfigFile,
-    SSEServer,
-    StdioServer,
-)
-from .suppressIO import SuppressStd
 from collections import namedtuple
 from datetime import datetime
 from hashlib import md5
-import pyjson5
-from .utils import rebalance_command_args
+from .mcp_client import check_server_with_timeout, scan_mcp_config_file
 
 Result = namedtuple("Result", field_names=["value", "message"], defaults=[None, None])
 
@@ -181,114 +169,6 @@ def verify_server(tools, prompts, resources, base_url):
             Result(None, "could not reach verification server " + errstr) for _ in tools
         ]
 
-
-async def check_server(
-    server_config: SSEServer | StdioServer, timeout, suppress_mcpserver_io
-):
-    is_sse = isinstance(server_config, SSEServer)
-
-    def get_client(server_config):
-        if is_sse:
-            return sse_client(
-                url=server_config.url,
-                headers=server_config.headers,
-                # env=server_config.env, #Not supported by MCP yet, but present in vscode
-                timeout=timeout,
-            )
-        else:
-            # handle complex configs
-            command, args = rebalance_command_args(server_config.command, server_config.args)
-            server_params = StdioServerParameters(
-                command=command,
-                args=args,
-                env=server_config.env,
-            )
-            return stdio_client(server_params)
-
-    async def _check_server():
-        async with get_client(server_config) as (read, write):
-            async with ClientSession(read, write) as session:
-                meta = await session.initialize()
-                # for see servers we need to check the announced capabilities
-                if not is_sse or meta.capabilities.prompts.supported:
-                    try:
-                        prompts = await session.list_prompts()
-                        prompts = list(prompts.prompts)
-                    except:
-                        prompts = []
-                else:
-                    prompts = []
-                if not is_sse or meta.capabilities.resources.supported:
-                    try:
-                        resources = await session.list_resources()
-                        resources = list(resources.resources)
-                    except:
-                        resources = []
-                else:
-                    resources = []
-                if not is_sse or meta.capabilities.tools.supported:
-                    try:
-                        tools = await session.list_tools()
-                        tools = list(tools.tools)
-                    except:
-                        tools = []
-                else:
-                    tools = []
-                return prompts, resources, tools
-
-    if suppress_mcpserver_io:
-        with SuppressStd():
-            return await _check_server()
-    else:
-        return await _check_server()
-
-
-async def check_server_with_timeout(server_config, timeout, suppress_mcpserver_io):
-    return await asyncio.wait_for(
-        check_server(server_config, timeout, suppress_mcpserver_io), timeout
-    )
-
-
-def scan_config_file(path):
-    path = os.path.expanduser(path)
-
-    def parse_and_validate(config):
-        models = [
-            ClaudeConfigFile,  # used by most clients
-            VSCodeConfigFile,  # used by vscode settings.json
-            VSCodeMCPConfig,  # used by vscode mcp.json
-        ]
-        errors = []
-        for model in models:
-            try:
-                return model.parse_obj(config)
-            except Exception as e:
-                errors.append(e)
-        if len(errors) > 0:
-            raise Exception(
-                "Could not parse config file as any of "
-                + str([model.__name__ for model in models])
-                + "\nErrors:\n"
-                + "\n".join([str(e) for e in errors])
-            )
-        raise Exception("Could not parse config file")
-
-    with open(path, "r") as f:
-        # use json5 to support comments as in vscode
-        config = pyjson5.load(f)
-        # try to parse model
-        model = parse_and_validate(config)
-        if isinstance(model, VSCodeConfigFile):
-            servers = model.mcp.servers
-        elif isinstance(model, VSCodeMCPConfig):
-            servers = model.servers
-        elif isinstance(model, ClaudeConfigFile):
-            servers = model.mcpServers
-        else:
-            assert False
-        return servers
-
-
 class StorageFile:
     def __init__(self, path):
         self.path = path
@@ -373,7 +253,7 @@ class MCPScanner:
         """
         status = "unknown"
         try:
-            servers = scan_config_file(path)
+            servers = scan_mcp_config_file(path)
             status = f"found {len(servers)} server{'' if len(servers) == 1 else 's'}"
         except FileNotFoundError:
             status = "file does not exist"
@@ -422,7 +302,7 @@ class MCPScanner:
 
     def scan(self, path, verbose=True):
         try:
-            servers = scan_config_file(path)
+            servers = scan_mcp_config_file(path)
             status = f"found {len(servers)} server{'' if len(servers) == 1 else 's'}"
         except FileNotFoundError:
             status = f"file does not exist"
