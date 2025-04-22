@@ -174,7 +174,7 @@ def main():
         if args.reset:
             MCPScanner(**vars(args)).reset_whitelist()
             sys.exit(0)
-        elif all(map(lambda x: x is not None, [args.name, args.hash])): # no args
+        elif all(map(lambda x: x is None, [args.name, args.hash])): # no args
             MCPScanner(**vars(args)).print_whitelist()
             sys.exit(0)
         elif all(map(lambda x: x is not None, [args.name, args.hash])):
