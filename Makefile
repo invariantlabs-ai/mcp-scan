@@ -9,6 +9,10 @@ endif
 run:
 	uv run -m src.mcp_scan.cli ${RUN_ARGS}
 
+test:
+	uv pip install -e .[test]
+	uv run pytest
+
 clean:
 	rm -rf ./dist
 	rm -rf ./mcp_scan/mcp_scan.egg-info
