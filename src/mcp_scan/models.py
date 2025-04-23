@@ -33,7 +33,7 @@ class ClaudeConfigFile(BaseModel):
 class VSCodeMCPConfig(BaseModel):
     # see https://code.visualstudio.com/docs/copilot/chat/mcp-servers
     model_config = ConfigDict()
-    inputs: list[Any]
+    inputs: list[Any] | None = None
     servers: dict[str, SSEServer | StdioServer]
 
 class VSCodeConfigFile(BaseModel):
