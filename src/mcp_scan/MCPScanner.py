@@ -1,3 +1,4 @@
+import inspect
 import os
 import json
 import textwrap
@@ -83,6 +84,8 @@ def format_tool_line(
     if include_description:
         if hasattr(tool, "description"):
             description = tool.description
+            # wrap the description to 80 characters
+            description = textwrap.dedent(description)
         else:
             description = "<no description available>"
         text += f"\n[gray62][bold]Current description:[/bold]\n{description}[/gray62]"
@@ -93,32 +96,6 @@ def format_tool_line(
     text = rich.text.Text.from_markup(text)
     return text
 
-
-def format_inspect_tool_line(
-    tool,
-):
-    name = tool.name
-    if len(name) > 25:
-        name = name[:22] + "..."
-    name = name + " " * (25 - len(name))
-
-    if hasattr(tool, "description"):
-        # dedent the description
-        description = tool.description
-        # wrap the description to 80 characters
-        description = textwrap.dedent(description)
-    else:
-        description = "<no description available>"
-
-    color = "[gray62]"
-    icon = ""
-    type = "tool"
-    message = ""
-    text = f"{type} {color}[bold]{name}[/bold] {icon} {message}"
-    text += f"\n{description}"
-
-    text = rich.text.Text.from_markup(text)
-    return text
 
 def verify_server(tools, prompts, resources, base_url):
     if len(tools) == 0:
@@ -176,60 +153,7 @@ class MCPScanner:
         self.server_timeout = server_timeout
         self.suppress_mcpserver_io = suppress_mcpserver_io
 
-    def inspect_path(self, path, verbose=True):
-        """
-        Just inspects the server and prints the tools, prompts and resources without checking them.
-        """
-        status = "unknown"
-        try:
-            servers = scan_mcp_config_file(path)
-            status = f"found {len(servers)} server{'' if len(servers) == 1 else 's'}"
-        except FileNotFoundError:
-            status = "file does not exist"
-            return
-        except json.JSONDecodeError:
-            status = "invalid json"
-            return
-        except Exception:
-            status = "failed to parse"
-            return
-        finally:
-            if verbose:
-                rich.print(format_path_line(path, status, operation="Inspecting"))
-
-        path_print_tree = Tree("│")
-        for server_name, server_config in servers.items():
-            try:
-                prompts, resources, tools = asyncio.run(
-                    check_server_with_timeout(
-                        server_config, self.server_timeout, self.suppress_mcpserver_io
-                    )
-                )
-                status = None
-            except TimeoutError as e:
-                status = "Could not reach server within timeout"
-                continue
-            except Exception as e:
-                status = str(e).splitlines()[0] + "..."
-                continue
-            finally:
-                server_print = path_print_tree.add(
-                    format_servers_line(server_name, status)
-                )
-
-            for tool in tools:
-                server_print.add(format_inspect_tool_line(tool))
-
-            for prompt in prompts:
-                server_print.add(format_inspect_tool_line(prompt))
-
-            for resource in resources:
-                server_print.add(format_inspect_tool_line(resource))
-
-        if len(servers) > 0 and verbose:
-            rich.print(path_print_tree)
-
-    def scan(self, path, verbose=True):
+    def scan(self, path, verbose=True, inspect_only=False):
         try:
             servers = scan_mcp_config_file(path)
             status = f"found {len(servers)} server{'' if len(servers) == 1 else 's'}"
@@ -262,43 +186,63 @@ class MCPScanner:
                 )
             servers_with_tools[server_name] = tools
 
-            verification_result = verify_server(
-                tools, prompts, resources, base_url=self.base_url
-            )
-            for tool, verified in zip(tools, verification_result):
-                changed, prev_data = self.storage_file.check_and_update(
-                    server_name, tool, verified.value
+            if not inspect_only:
+                verification_result = verify_server(
+                    tools, prompts, resources, base_url=self.base_url
                 )
-                additional_text = None
-                if changed.value is True:
-                    additional_text = f"[bold]Previous description({prev_data['timestamp']}):[/bold]\n{prev_data['description']}"
-                if self.storage_file.is_whitelisted(tool):
-                    verified = Result(
-                        True,
-                        message="[bold]tool whitelisted[/bold] " + verified.message,
+            for i, tool in enumerate(tools):
+                
+                if not inspect_only:
+                    additional_text = None
+                    verified = verification_result[i]
+
+                    # check if tool has changed
+                    changed, prev_data = self.storage_file.check_and_update(
+                        server_name, tool, verified.value
                     )
-                elif verified.value is False or changed.value is True:
-                    hash = self.storage_file.compute_hash(tool)
-                    message = f'[bold]You can whitelist this tool by running `mcp-scan whitelist "{tool.name}" {hash}`[/bold]'
-                    if additional_text is not None:
-                        additional_text += '\n\n' + message
-                    else:
-                        additional_text = message
-                server_print.add(
-                    format_tool_line(
-                        tool,
-                        verified,
-                        changed,
-                        include_description=(
-                            verified.value is False or changed.value is True
-                        ),
-                        additional_text=additional_text,
+                    if changed.value is True:
+                        additional_text = f"[bold]Previous description({prev_data['timestamp']}):[/bold]\n{prev_data['description']}"
+                    
+                    # check if tool is whitelisted
+                    if self.storage_file.is_whitelisted(tool):
+                        verified = Result(
+                            True,
+                            message="[bold]tool whitelisted[/bold] " + verified.message,
+                        )
+                    elif verified.value is False or changed.value is True:
+                        hash = self.storage_file.compute_hash(tool)
+                        message = f'[bold]You can whitelist this tool by running `mcp-scan whitelist "{tool.name}" {hash}`[/bold]'
+                        if additional_text is not None:
+                            additional_text += '\n\n' + message
+                        else:
+                            additional_text = message
+
+                    server_print.add(
+                        format_tool_line(
+                            tool,
+                            verified,
+                            changed,
+                            include_description=(
+                                verified.value is False or changed.value is True
+                            ),
+                            additional_text=additional_text,
+                        )
                     )
-                )
+                else:
+                    server_print.add(
+                        format_tool_line(
+                            tool,
+                            Result(None),
+                            Result(None),
+                            include_description=True
+                        )
+                    )
+                            
             for prompt in prompts:
                 server_print.add(
                     format_tool_line(prompt, Result(message="skipped"), type="prompt")
                 )
+
             for resource in resources:
                 server_print.add(
                     format_tool_line(
@@ -348,7 +292,7 @@ class MCPScanner:
 
     def inspect(self):
         for i, path in enumerate(self.paths):
-            self.inspect_path(path, verbose=True)
+            self.scan(path, verbose=True, inspect_only=True)
             if i < len(self.paths) - 1:
                 rich.print("")
         self.storage_file.save()
