@@ -120,7 +120,7 @@ async def test_check_server_mocked(mock_stdio_client):
     # Test function with mocks
     with patch('mcp_scan.mcp_client.ClientSession', MockClientSession):
         server = StdioServer(command="mcp", args=["run", "some_file.py"])
-        prompts, resources, tools = await check_server(server, 20, True)
+        prompts, resources, tools = await check_server(server, 2, True)
         
         # Verify results
         assert len(prompts) == 2

@@ -1,5 +1,9 @@
 from pydantic import BaseModel, ConfigDict, field_validator
 from typing import Any
+from collections import namedtuple
+
+
+Result = namedtuple("Result", field_names=["value", "message"], defaults=[None, None])
 
 class SSEServer(BaseModel):
     model_config = ConfigDict()
