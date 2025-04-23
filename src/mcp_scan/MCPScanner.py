@@ -10,6 +10,8 @@ from rich.tree import Tree
 from .mcp_client import check_server_with_timeout, scan_mcp_config_file
 from .models import Result
 from .StorageFile import StorageFile
+from .verify_api import verify_server
+
 
 def format_err_str(e, max_length=None):
     try:
@@ -75,16 +77,21 @@ def format_tool_line(
     icon = {True: ":white_heavy_check_mark:", False: ":cross_mark:", None: ""}[
         is_verified
     ]
+    
+    # right-pad & truncate name
     name = tool.name
     if len(name) > 25:
         name = name[:22] + "..."
     name = name + " " * (25 - len(name))
+    
+    # right-pad type
+    type = type + " " * (len('resource') - len(type))
+    
     text = f"{type} {color}[bold]{name}[/bold] {icon} {message}"
 
     if include_description:
         if hasattr(tool, "description"):
             description = tool.description
-            # wrap the description to 80 characters
             description = textwrap.dedent(description)
         else:
             description = "<no description available>"
@@ -96,43 +103,6 @@ def format_tool_line(
     text = rich.text.Text.from_markup(text)
     return text
 
-
-def verify_server(tools, prompts, resources, base_url):
-    if len(tools) == 0:
-        return []
-    messages = [
-        {
-            "role": "system",
-            "content": f"Tool Name:{tool.name}\nTool Description:{tool.description}",
-        }
-        for tool in tools
-    ]
-    url = base_url + "/api/v1/public/mcp"
-    headers = {"Content-Type": "application/json"}
-    data = {
-        "messages": messages,
-    }
-    try:
-        response = requests.post(url, headers=headers, data=json.dumps(data))
-        if response.status_code == 200:
-            response = response.json()
-            results = [Result(True, "verified") for _ in tools]
-            for error in response["errors"]:
-                key = ast.literal_eval(error["key"])
-                idx = key[1][0]
-                results[idx] = Result(False, "failed - " + " ".join(error["args"]))
-            return results
-        else:
-            raise Exception(f"Error: {response.status_code} - {response.text}")
-    except Exception as e:
-        try:
-            errstr = str(e.args[0])
-            errstr = errstr.splitlines()[0]
-        except Exception:
-            errstr = ""
-        return [
-            Result(None, "could not reach verification server " + errstr) for _ in tools
-        ]
 
 class MCPScanner:
     def __init__(
@@ -168,7 +138,7 @@ class MCPScanner:
                 rich.print(format_path_line(path, status))
 
         path_print_tree = Tree("│")
-        servers_with_tools = {}
+        servers_with_entities = {}
         for server_name, server_config in servers.items():
             try:
                 prompts, resources, tools = asyncio.run(
@@ -184,71 +154,70 @@ class MCPScanner:
                 server_print = path_print_tree.add(
                     format_servers_line(server_name, status)
                 )
-            servers_with_tools[server_name] = tools
+            servers_with_entities[server_name] = tools + prompts + resources
 
-            if not inspect_only:
-                verification_result = verify_server(
-                    tools, prompts, resources, base_url=self.base_url
-                )
-            for i, tool in enumerate(tools):
-                
-                if not inspect_only:
-                    additional_text = None
-                    verified = verification_result[i]
-
-                    # check if tool has changed
-                    changed, prev_data = self.storage_file.check_and_update(
-                        server_name, tool, verified.value
-                    )
-                    if changed.value is True:
-                        additional_text = f"[bold]Previous description({prev_data['timestamp']}):[/bold]\n{prev_data['description']}"
-                    
-                    # check if tool is whitelisted
-                    if self.storage_file.is_whitelisted(tool):
-                        verified = Result(
-                            True,
-                            message="[bold]tool whitelisted[/bold] " + verified.message,
+            if inspect_only:
+                for type, entities in [
+                    ("tool", tools),
+                    ("prompt", prompts),
+                    ("resource", resources),
+                ]:
+                    for entity in entities:
+                        server_print.add(
+                            format_tool_line(
+                                entity,
+                                Result(None),
+                                Result(None),
+                                include_description=True,
+                                type=type,
+                            )
                         )
-                    elif verified.value is False or changed.value is True:
-                        hash = self.storage_file.compute_hash(tool)
-                        message = f'[bold]You can whitelist this tool by running `mcp-scan whitelist "{tool.name}" {hash}`[/bold]'
-                        if additional_text is not None:
-                            additional_text += '\n\n' + message
-                        else:
-                            additional_text = message
-
-                    server_print.add(
-                        format_tool_line(
-                            tool,
-                            verified,
-                            changed,
-                            include_description=(
-                                verified.value is False or changed.value is True
-                            ),
-                            additional_text=additional_text,
+            else:
+                (
+                    verification_result_tools,
+                    verification_result_prompts,
+                    verification_result_resources,
+                ) = verify_server(tools, prompts, resources, base_url=self.base_url)
+                for type, entities, verification_results in [
+                    ("tool", tools, verification_result_tools),
+                    ("prompt", prompts, verification_result_prompts),
+                    ("resource", resources, verification_result_resources),
+                ]:
+                    for entity, verified in zip(entities, verification_results):
+                        additional_text = None
+                        # check if tool has changed
+                        changed, prev_data = self.storage_file.check_and_update(
+                            server_name, entity, verified.value
                         )
-                    )
-                else:
-                    server_print.add(
-                        format_tool_line(
-                            tool,
-                            Result(None),
-                            Result(None),
-                            include_description=True
-                        )
-                    )
-                            
-            for prompt in prompts:
-                server_print.add(
-                    format_tool_line(prompt, Result(message="skipped"), type="prompt")
-                )
+                        if changed.value is True:
+                            additional_text = f"[bold]Previous description({prev_data['timestamp']}):[/bold]\n{prev_data['description']}"
 
-            for resource in resources:
-                server_print.add(
-                    format_tool_line(
-                        resource, Result(message="skipped"), type="resource"
-                    )
-                )
+                        # check if tool is whitelisted
+                        if self.storage_file.is_whitelisted(entity):
+                            verified = Result(
+                                True,
+                                message="[bold]whitelisted[/bold] " + verified.message,
+                            )
+                        elif verified.value is False or changed.value is True:
+                            hash = self.storage_file.compute_hash(entity)
+                            message = f'[bold]You can whitelist this {type} by running `mcp-scan whitelist {type} "{entity.name}" {hash}`[/bold]'
+                            if additional_text is not None:
+                                additional_text += "\n\n" + message
+                            else:
+                                additional_text = message
+
+                        server_print.add(
+                            format_tool_line(
+                                entity,
+                                verified,
+                                changed,
+                                include_description=(
+                                    verified.value is False or changed.value is True
+                                ),
+                                additional_text=additional_text,
+                                type=type,
+                            )
+                        )
 
         if len(servers) > 0 and verbose:
             rich.print(path_print_tree)
@@ -257,18 +226,18 @@ class MCPScanner:
         # for each tool check if it referenced by tools of other servers
         cross_ref_found = False
         cross_reference_sources = set()
-        for server_name, tools in servers_with_tools.items():
+        for server_name, entities in servers_with_entities.items():
             other_server_names = set(servers.keys())
             other_server_names.remove(server_name)
-            other_tool_names = [
-                tool.name
+            other_entity_names = [
+                entity.name
                 for s in other_server_names
-                for tool in servers_with_tools.get(s, [])
+                for entity in servers_with_entities.get(s, [])
             ]
-            flagged_names = list(other_server_names) + other_tool_names
+            flagged_names = list(other_server_names) + other_entity_names
             flagged_names = set(map(str.lower, flagged_names))
-            for tool in tools:
-                tokens = tool.description.lower().split()
+            for entity in entities:
+                tokens = entity.description.lower().split()
                 for token in tokens:
                     if token in flagged_names:
                         cross_ref_found = True
@@ -277,7 +246,7 @@ class MCPScanner:
             if cross_ref_found:
                 rich.print(
                     rich.text.Text.from_markup(
-                        f"\n[bold yellow]:construction: Cross-Origin Violation: Tool descriptions of server {cross_reference_sources} explicitly mention tools of other servers, or other servers.[/bold yellow]"
+                        f"\n[bold yellow]:construction: Cross-Origin Violation: Descriptions of server {cross_reference_sources} explicitly mention tools or resources of other servers, or other servers.[/bold yellow]"
                     ),
                 )
             rich.print()

@@ -143,6 +143,14 @@ def main():
         help="Do not contribute to the global whitelist.",
     )
     whitelist_parser.add_argument(
+        "type",
+        type=str,
+        choices=["tool", "prompt", "resource"],
+        default="tool",
+        nargs="?",
+        help="Type of entity to whitelist.",
+    )
+    whitelist_parser.add_argument(
         "name",
         type=str,
         default=None,
@@ -174,15 +182,15 @@ def main():
             sf.reset_whitelist()
             rich.print("[bold]Whitelist reset[/bold]")
             sys.exit(0)
-        elif all(map(lambda x: x is None, [args.name, args.hash])): # no args
+        elif all(map(lambda x: x is None, [args.type, args.name, args.hash])): # no args
             sf.print_whitelist()
             sys.exit(0)
-        elif all(map(lambda x: x is not None, [args.name, args.hash])):
-            sf.add_to_whitelist(args.name, args.hash, base_url=args.base_url if not args.local_only else None)
+        elif all(map(lambda x: x is not None, [args.type, args.name, args.hash])):
+            sf.add_to_whitelist(args.type, args.name, args.hash, base_url=args.base_url if not args.local_only else None)
             sf.print_whitelist()
             sys.exit(0)
         else:
-            rich.print("[bold red]Please provide a name and hash.[/bold red]")
+            rich.print("[bold red]Please provide a type, name and hash.[/bold red]")
             sys.exit(1)
     elif args.command == 'inspect':
         MCPScanner(**vars(args)).inspect()
