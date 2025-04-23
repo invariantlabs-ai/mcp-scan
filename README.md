@@ -118,3 +118,4 @@ If you want to include MCP-scan results in your own project or registry, please 
 - `0.1.4.6` whitelisting of tools
 - `0.1.4.7` automatically rebalance command args
 - `0.1.4.8-10` fixes
+- `0.1.4.11` support for prompts and resources
