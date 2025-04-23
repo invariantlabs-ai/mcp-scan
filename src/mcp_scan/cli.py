@@ -1,6 +1,7 @@
 import sys
 import argparse
 from .MCPScanner import MCPScanner
+from .StorageFile import StorageFile
 import rich
 from .version import version_info
 
@@ -167,23 +168,25 @@ def main():
     if args.command == 'help':
         parser.print_help()
         sys.exit(0)
-    elif args.command == 'inspect':
-        MCPScanner(**vars(args)).inspect()
-        sys.exit(0)
     elif args.command == 'whitelist':
+        sf = StorageFile(args.storage_file)
         if args.reset:
-            MCPScanner(**vars(args)).reset_whitelist()
+            sf.reset_whitelist()
+            rich.print("[bold]Whitelist reset[/bold]")
             sys.exit(0)
         elif all(map(lambda x: x is None, [args.name, args.hash])): # no args
-            MCPScanner(**vars(args)).print_whitelist()
+            sf.print_whitelist()
             sys.exit(0)
         elif all(map(lambda x: x is not None, [args.name, args.hash])):
-            MCPScanner(**vars(args)).whitelist(args.name, args.hash, args.local_only)
-            MCPScanner(**vars(args)).print_whitelist()
+            sf.add_to_whitelist(args.name, args.hash, base_url=args.base_url if not args.local_only else None)
+            sf.print_whitelist()
             sys.exit(0)
         else:
             rich.print("[bold red]Please provide a name and hash.[/bold red]")
             sys.exit(1)
+    elif args.command == 'inspect':
+        MCPScanner(**vars(args)).inspect()
+        sys.exit(0)
     elif args.command == 'scan' or args.command is None: # default to scan
         MCPScanner(**vars(args)).start()
         sys.exit(0)

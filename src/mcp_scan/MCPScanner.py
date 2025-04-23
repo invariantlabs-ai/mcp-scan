@@ -120,15 +120,6 @@ def format_inspect_tool_line(
     text = rich.text.Text.from_markup(text)
     return text
 
-def upload_whitelist_entry(name, hash, base_url):
-    url = base_url + "/api/v1/public/mcp-whitelist"
-    headers = {"Content-Type": "application/json"}
-    data = {
-        "name": name,
-        "hash": hash,
-    }
-    response = requests.post(url, headers=headers, data=json.dumps(data))
-
 def verify_server(tools, prompts, resources, base_url):
     if len(tools) == 0:
         return []
@@ -346,22 +337,6 @@ class MCPScanner:
                     ),
                 )
             rich.print()
-
-    def reset_whitelist(self):
-        self.storage_file.reset_whitelist()
-        self.storage_file.save()
-        rich.print("Whitelist reset")
-
-    def print_whitelist(self):
-        self.storage_file.print_whitelist()
-
-    def whitelist(self, name, hash, local_only=False):
-        self.storage_file.add_to_whitelist(name, hash)
-        self.storage_file.save()
-        if not local_only:
-            upload_whitelist_entry(
-                name, hash, self.base_url
-            )
 
     def start(self):
         for i, path in enumerate(self.paths):
