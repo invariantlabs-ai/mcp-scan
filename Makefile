@@ -20,5 +20,10 @@ clean:
 build: clean
 	uv build --no-sources
 
+shiv: build
+	uv pip install -e .[dev]
+	mkdir -p dist
+	uv run shiv -c mcp-scan -o dist/mcp-scan.pyz --python "/usr/bin/env python3" dist/*.whl
+
 publish: build
 	uv publish --token ${PYPI_TOKEN}

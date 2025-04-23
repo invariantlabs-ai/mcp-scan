@@ -1,5 +1,10 @@
 from pydantic import BaseModel, ConfigDict, field_validator
 from typing import Any, Literal
+from typing import Any
+from collections import namedtuple
+
+
+Result = namedtuple("Result", field_names=["value", "message"], defaults=[None, None])
 
 class SSEServer(BaseModel):
     model_config = ConfigDict()
@@ -33,7 +38,7 @@ class ClaudeConfigFile(MCPConfig):
 class VSCodeMCPConfig(MCPConfig):
     # see https://code.visualstudio.com/docs/copilot/chat/mcp-servers
     model_config = ConfigDict()
-    inputs: list[Any]
+    inputs: list[Any] | None = None
     servers: dict[str, SSEServer | StdioServer]
     def get_servers(self) -> dict[str, SSEServer | StdioServer]:
         return self.servers
