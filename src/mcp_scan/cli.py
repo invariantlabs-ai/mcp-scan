@@ -7,7 +7,7 @@ import rich
 from .version import version_info
 
 
-def str2bool(v):
+def str2bool(v: str) -> bool:
     return v.lower() in ("true", "1", "t", "y", "yes")
 
 

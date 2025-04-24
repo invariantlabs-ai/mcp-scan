@@ -1,10 +1,53 @@
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, RootModel, field_validator
 from typing import Any, Literal
 from typing import Any
-from collections import namedtuple
+from typing import NamedTuple
+from datetime import datetime
+from mcp.types import Prompt, Resource, Tool
+
+Entity = Prompt | Resource | Tool
+
+def entity_type_to_str(entity: Entity) -> str:
+    if isinstance(entity, Prompt):
+        return "prompt"
+    elif isinstance(entity, Resource):
+        return "resource"
+    elif isinstance(entity, Tool):
+        return "tool"
+    else:
+        raise ValueError(f"Unknown entity type: {type(entity)}")
 
 
-Result = namedtuple("Result", field_names=["value", "message"], defaults=[None, None])
+class ScannedEntity(BaseModel):
+    model_config = ConfigDict()
+    hash: str
+    type: str
+    verified: bool
+    timestamp: datetime
+    description: str | None = None
+
+    @field_validator('timestamp', mode='before')
+    def parse_datetime(cls, value: str | datetime) -> datetime:
+        if isinstance(value, datetime):
+            return value
+
+        # Try standard ISO format first
+        try:
+            return datetime.fromisoformat(value)
+        except ValueError:
+            pass
+
+        # Try custom format: "DD/MM/YYYY, HH:MM:SS"
+        try:
+            return datetime.strptime(value, "%d/%m/%Y, %H:%M:%S")
+        except ValueError:
+            raise ValueError(f"Unrecognized datetime format: {value}")
+
+ScannedEntities = RootModel[dict[str, ScannedEntity]]
+
+class Result(NamedTuple):
+    value: Any = None
+    message: str | None = None
 
 class SSEServer(BaseModel):
     model_config = ConfigDict()

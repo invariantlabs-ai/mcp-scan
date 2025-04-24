@@ -1,7 +1,9 @@
 from mcp_scan.models import StdioServer, SSEServer, MCPConfig
-from mcp_scan.MCPScanner import scan_config_file, format_path_line, format_servers_line
+from mcp_scan.MCPScanner import format_path_line, format_servers_line
+from mcp_scan.mcp_client import scan_mcp_config_file
 from pydantic import BaseModel
 from rich.tree import Tree
+from rich.text import Text
 import argparse
 import json
 import os
@@ -91,7 +93,7 @@ def uninstall_gateway(
         env=new_env,
     )
 
-def format_install_line(server: str, status: str, success: bool | None) -> Tree:
+def format_install_line(server: str, status: str, success: bool | None) -> Text:
     color = {True: "[green]", False: "[red]", None: "[gray62]"}[success]
     
     if len(server) > 25:
@@ -102,7 +104,7 @@ def format_install_line(server: str, status: str, success: bool | None) -> Tree:
     ]
 
     text = f"{color}[bold]{server}[/bold]{icon} {status}{color.replace('[', '[/')}"
-    return rich.text.Text.from_markup(text)
+    return Text.from_markup(text)
 
 class MCPGatewayInstaller:
     """
@@ -116,7 +118,7 @@ class MCPGatewayInstaller:
         for path in self.paths:
             config: MCPConfig | None = None
             try:
-                config = scan_config_file(path)
+                config = scan_mcp_config_file(path)
                 status = f"found {len(config.get_servers())} server{'' if len(config.get_servers()) == 1 else 's'}"
             except FileNotFoundError:
                 status = f"file does not exist"
@@ -155,7 +157,7 @@ class MCPGatewayInstaller:
         for path in self.paths:
             config: MCPConfig | None = None
             try:
-                config = scan_config_file(path)
+                config = scan_mcp_config_file(path)
                 status = f"found {len(config.get_servers())} server{'' if len(config.get_servers()) == 1 else 's'}"
             except FileNotFoundError:
                 status = f"file does not exist"
@@ -167,7 +169,7 @@ class MCPGatewayInstaller:
                 continue
 
             path_print_tree = Tree("│")
-            config = scan_config_file(path)
+            config = scan_mcp_config_file(path)
             new_servers: dict[str, SSEServer | StdioServer] = {}
             for name, server in config.get_servers().items():
                 if isinstance(server, StdioServer):
@@ -188,24 +190,3 @@ class MCPGatewayInstaller:
                 rich.print(path_print_tree)
             with open(os.path.expanduser(path), "w") as f:
                 f.write(config.model_dump_json(indent=4) + "\n")
-
-if __name__ == "__main__":
-    gateway_conf = MCPGatewayConfig(
-        project_name="test",
-        push_explorer=True,
-        api_key="inv-bb02e19170dd24aad2a13dceb17082a6d91b16597cb7bb579b9b777d78e54aaf",
-    )
-    installer = MCPGatewayInstaller(
-        paths=["tests/test_configs.json"],
-        config=gateway_conf,
-    )
-    confs = [scan_config_file(path) for path in installer.paths]
-    installer.install()
-    print("Installed")
-    installer.uninstall()
-    print("Uninstalled")
-    new_confs = [scan_config_file(path) for path in installer.paths]
-    for conf, new_conf in zip(confs, new_confs):
-        print(conf.model_dump_json(indent=4))
-        print(new_conf.model_dump_json(indent=4))
-        assert conf == new_conf
