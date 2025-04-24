@@ -1,11 +1,9 @@
 from pydantic import BaseModel, ConfigDict, RootModel, field_validator
-from typing import Any, Literal
-from typing import Any
-from typing import NamedTuple
+from typing import Any, Literal, TypeAlias, NamedTuple
 from datetime import datetime
 from mcp.types import Prompt, Resource, Tool
 
-Entity = Prompt | Resource | Tool
+Entity: TypeAlias = Prompt | Resource | Tool
 
 def entity_type_to_str(entity: Entity) -> str:
     if isinstance(entity, Prompt):
