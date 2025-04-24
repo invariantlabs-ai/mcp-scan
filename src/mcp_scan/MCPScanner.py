@@ -29,6 +29,7 @@ from .utils import rebalance_command_args
 from .models import Result
 from .StorageFile import StorageFile
 from .verify_api import verify_server
+from typing import Literal
 
 
 def format_err_str(e: Exception, max_length: int | None=None) -> str:
@@ -75,8 +76,13 @@ def format_servers_line(server: str, status: str | None=None) -> Text:
     return Text.from_markup(text)
 
 
+<<<<<<< HEAD
 def format_entity_line(
     entity: Entity,
+=======
+def format_tool_line(
+    tool: Entity,
+>>>>>>> 5b567ef (fix: enforce type in large scale)
     verified: Result,
     changed: Result = Result(),
     include_description: bool=False,
