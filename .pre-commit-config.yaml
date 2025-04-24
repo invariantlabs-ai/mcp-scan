@@ -3,4 +3,4 @@ repos:
   rev: ''  # Use the sha / tag you want to point at
   hooks:
   - id: mypy
-    additional_dependencies: [types-requests]
+    additional_dependencies: [types-requests, types-psutil]
