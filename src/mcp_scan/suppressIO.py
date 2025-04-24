@@ -4,18 +4,23 @@ import io
 import os
 import sys
 import tempfile
+from types import TracebackType
 
 
 class SuppressStd(object):
     """Context to capture stderr and stdout at C-level.
     """
 
-    def __init__(self):
-        self.orig_stdout_fileno = sys.__stdout__.fileno()
-        self.orig_stderr_fileno = sys.__stderr__.fileno()
-        self.output = None
+    def __init__(self) -> None:
+        std_out = sys.__stdout__
+        std_err = sys.__stderr__
+        if std_out is None or std_err is None:
+            raise RuntimeError("stdout or stderr is None")
+        self.orig_stdout_fileno = std_out.fileno()
+        self.orig_stderr_fileno = std_err.fileno()
+        self.output: None | str = None
 
-    def __enter__(self):
+    def __enter__(self) -> "SuppressStd":
         # Redirect the stdout/stderr fd to temp file
         self.orig_stdout_dup = os.dup(self.orig_stdout_fileno)
         self.orig_stderr_dup = os.dup(self.orig_stderr_fileno)
@@ -31,8 +36,12 @@ class SuppressStd(object):
 
         return self
 
-    def __exit__(self, exc_class, value, traceback):
-
+    def __exit__(
+        self,
+        exc_class: type[BaseException] | None,
+        value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None: 
         # Make sure to flush stdout
         print(flush=True)
 

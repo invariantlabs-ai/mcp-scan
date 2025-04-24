@@ -11,18 +11,18 @@ from mcp_scan.models import (
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 from mcp.client.sse import sse_client
+from mcp.types import Prompt, Resource, Tool
 import asyncio
 import pyjson5
 import os
-from typing import Type
+from typing import Type, AsyncContextManager
 
 async def check_server(
-    server_config: SSEServer | StdioServer, timeout, suppress_mcpserver_io
-):
-    is_sse = isinstance(server_config, SSEServer)
+    server_config: SSEServer | StdioServer, timeout: int, suppress_mcpserver_io: bool
+) -> tuple[list[Prompt], list[Resource], list[Tool]]:
 
-    def get_client(server_config):
-        if is_sse:
+    def get_client(server_config: SSEServer | StdioServer) -> AsyncContextManager:
+        if isinstance(server_config, SSEServer):
             return sse_client(
                 url=server_config.url,
                 headers=server_config.headers,
@@ -39,35 +39,30 @@ async def check_server(
             )
             return stdio_client(server_params)
 
-    async def _check_server():
+    async def _check_server() -> tuple[list[Prompt], list[Resource], list[Tool]]:
         async with get_client(server_config) as (read, write):
             async with ClientSession(read, write) as session:
                 meta = await session.initialize()
                 # for see servers we need to check the announced capabilities
-                if not is_sse or meta.capabilities.prompts.supported:
+                prompts: list[Prompt] = []
+                resources: list[Resource] = []
+                tools: list[Tool] = []
+                if not isinstance(server_config, SSEServer) or meta.capabilities.prompts:
                     try:
-                        prompts = await session.list_prompts()
-                        prompts = list(prompts.prompts)
+                        prompts = (await session.list_prompts()).prompts
                     except:
-                        prompts = []
-                else:
-                    prompts = []
-                if not is_sse or meta.capabilities.resources.supported:
+                        pass
+
+                if not isinstance(server_config, SSEServer) or meta.capabilities.resources:
                     try:
-                        resources = await session.list_resources()
-                        resources = list(resources.resources)
+                        resources = (await session.list_resources()).resources
                     except:
-                        resources = []
-                else:
-                    resources = []
-                if not is_sse or meta.capabilities.tools.supported:
+                        pass
+                if not isinstance(server_config, SSEServer) or meta.capabilities.tools:
                     try:
-                        tools = await session.list_tools()
-                        tools = list(tools.tools)
+                        tools = (await session.list_tools()).tools
                     except:
-                        tools = []
-                else:
-                    tools = []
+                        pass
                 return prompts, resources, tools
 
     if suppress_mcpserver_io:
@@ -77,7 +72,11 @@ async def check_server(
         return await _check_server()
 
 
-async def check_server_with_timeout(server_config, timeout, suppress_mcpserver_io):
+async def check_server_with_timeout(
+    server_config: SSEServer | StdioServer,
+    timeout: int,
+    suppress_mcpserver_io: bool,
+) -> tuple[list[Prompt], list[Resource], list[Tool]]:
     return await asyncio.wait_for(
         check_server(server_config, timeout, suppress_mcpserver_io), timeout
     )
@@ -86,7 +85,7 @@ async def check_server_with_timeout(server_config, timeout, suppress_mcpserver_i
 def scan_mcp_config_file(path: str) -> MCPConfig:
     path = os.path.expanduser(path)
 
-    def parse_and_validate(config) -> MCPConfig:
+    def parse_and_validate(config: dict) -> MCPConfig:
         models: list[Type[MCPConfig]] = [
             ClaudeConfigFile,  # used by most clients
             VSCodeConfigFile,  # used by vscode settings.json

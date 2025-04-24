@@ -1,9 +1,8 @@
 """Unit tests for the mcp_client module."""
 import pytest
 from unittest.mock import patch, Mock, AsyncMock
-from mcp_scan.mcp_client import check_server_with_timeout, check_server, scan_mcp_config_file
+from mcp_scan.mcp_client import check_server, scan_mcp_config_file
 import tempfile
-import json
 from mcp_scan.models import StdioServer
 import asyncio
 
