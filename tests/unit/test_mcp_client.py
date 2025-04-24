@@ -64,7 +64,7 @@ SAMPLE_CONFIGS = [
     vscode_config,
 ]
 
-def test_scan_mcp_config():
+def test_scan_mcp_config_file():
     for config in SAMPLE_CONFIGS:
         with tempfile.NamedTemporaryFile(mode="w") as temp_file:
             temp_file.write(config)
