@@ -65,12 +65,12 @@ SAMPLE_CONFIGS = [
     vscode_config,
 ]
 
-def test_scan_mcp_config_file():
+def test_scan_mcp_config():
     for config in SAMPLE_CONFIGS:
         with tempfile.NamedTemporaryFile(mode="w") as temp_file:
             temp_file.write(config)
             temp_file.flush()
-            servers = scan_mcp_config_file(temp_file.name)
+            config = scan_mcp_config_file(temp_file.name)
 
 
 @pytest.mark.asyncio
@@ -135,7 +135,7 @@ async def test_check_server_mocked(mock_stdio_client):
 
 def test_mcp_server():
     path = "tests/mcp_servers/mcp_config.json"
-    servers = scan_mcp_config_file(path)
+    servers = scan_mcp_config_file(path).get_servers()
     for name, server in servers.items():
         prompts, resources, tools = asyncio.run(check_server(server, 5, False))
         print(f"Server: {name}")

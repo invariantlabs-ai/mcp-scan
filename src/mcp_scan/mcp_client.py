@@ -1,11 +1,12 @@
 from .utils import rebalance_command_args
 from .suppressIO import SuppressStd
-from .models import (
+from mcp_scan.models import (
     SSEServer,
     StdioServer,
     VSCodeConfigFile,
     VSCodeMCPConfig,
-    ClaudeConfigFile
+    ClaudeConfigFile,
+    MCPConfig,
 )
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
@@ -13,6 +14,7 @@ from mcp.client.sse import sse_client
 import asyncio
 import pyjson5
 import os
+from typing import Type
 
 async def check_server(
     server_config: SSEServer | StdioServer, timeout, suppress_mcpserver_io
@@ -80,11 +82,12 @@ async def check_server_with_timeout(server_config, timeout, suppress_mcpserver_i
         check_server(server_config, timeout, suppress_mcpserver_io), timeout
     )
 
-def scan_mcp_config_file(path):
+
+def scan_mcp_config_file(path: str) -> MCPConfig:
     path = os.path.expanduser(path)
 
-    def parse_and_validate(config):
-        models = [
+    def parse_and_validate(config) -> MCPConfig:
+        models: list[Type[MCPConfig]] = [
             ClaudeConfigFile,  # used by most clients
             VSCodeConfigFile,  # used by vscode settings.json
             VSCodeMCPConfig,  # used by vscode mcp.json
@@ -92,7 +95,7 @@ def scan_mcp_config_file(path):
         errors = []
         for model in models:
             try:
-                return model.parse_obj(config)
+                return model.model_validate(config)
             except Exception as e:
                 errors.append(e)
         if len(errors) > 0:
@@ -108,14 +111,4 @@ def scan_mcp_config_file(path):
         # use json5 to support comments as in vscode
         config = pyjson5.load(f)
         # try to parse model
-        model = parse_and_validate(config)
-        if isinstance(model, VSCodeConfigFile):
-            servers = model.mcp.servers
-        elif isinstance(model, VSCodeMCPConfig):
-            servers = model.servers
-        elif isinstance(model, ClaudeConfigFile):
-            servers = model.mcpServers
-        else:
-            assert False
-        return servers
-
+        return parse_and_validate(config)

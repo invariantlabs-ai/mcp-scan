@@ -1,10 +1,11 @@
 from pydantic import BaseModel, ConfigDict, field_validator
 from typing import Any, Literal
 from typing import Any
-from collections import namedtuple
+from typing import NamedTuple
 
-
-Result = namedtuple("Result", field_names=["value", "message"], defaults=[None, None])
+class Result(NamedTuple):
+    value: Any = None
+    message: str | None = None
 
 class SSEServer(BaseModel):
     model_config = ConfigDict()
