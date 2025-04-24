@@ -44,6 +44,8 @@ class MCPGatewayConfig(BaseModel):
 def is_invariant_installed(server: StdioServer) -> bool:
     if server.args is None:
         return False
+    if not server.args:
+        return False
     return server.args[0] == "invariant-gateway@latest"
 
 def install_gateway(

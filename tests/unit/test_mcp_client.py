@@ -59,9 +59,14 @@ vscode_config = """
 }
 """
 
+SAMPLE_CONFIGS = [
+    claudestyle_config,
+    vscode_mcp_config,
+    vscode_config,
+]
 
 def test_scan_mcp_config_file():
-    for config in [claudestyle_config, vscode_mcp_config, vscode_config]:
+    for config in SAMPLE_CONFIGS:
         with tempfile.NamedTemporaryFile(mode="w") as temp_file:
             temp_file.write(config)
             temp_file.flush()
