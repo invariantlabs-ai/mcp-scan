@@ -32,8 +32,10 @@ npm-package: shiv
 	uv run python npm/update_package.py
 	chmod +x npm/bin/mcp-scan.js
 
-publish: build
+publish-pypi: build
 	uv publish --token ${PYPI_TOKEN}
 
 publish-npm: npm-package
 	cd npm && npm publish
+
+publish: publish-pypi publish-npm
