@@ -40,6 +40,3 @@ def test_install_gateway(server_config: str, temp_file):
     config_dict_uninstalled = pyjson5.loads(server_config)
     
     assert config_dict_uninstalled == config_dict
-    print(f"{config_dict=}")
-    print(f"{config_dict_installed=}")
-    print(f"{config_dict_uninstalled=}")
