@@ -1,0 +1,29 @@
+{
+  "name": "mcp-scan",
+  "version": "0.1.4.11",
+  "description": "MCP Scan tool for validating MCP server configurations",
+  "main": "index.js",
+  "bin": {
+    "mcp-scan": "./bin/mcp-scan.js"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "ai",
+    "scan",
+    "security"
+  ],
+  "author": "Invariant Labs",
+  "license": "MIT",
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "files": [
+    "bin/",
+    "dist/",
+    "README.md"
+  ]
+}
