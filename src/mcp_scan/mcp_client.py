@@ -16,6 +16,7 @@ import asyncio
 import pyjson5
 import os
 from typing import Type, AsyncContextManager
+from typing import Type
 
 async def check_server(
     server_config: SSEServer | StdioServer, timeout: int, suppress_mcpserver_io: bool
