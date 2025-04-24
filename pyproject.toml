@@ -1,6 +1,6 @@
 [project]
 name = "mcp-scan"
-version = "0.1.4.11"
+version = "0.1.5"
 description = "MCP Scan tool"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -15,6 +15,7 @@ dependencies = [
     "pyjson5>=1.6.8",
     "pydantic>=2.11.2",
     "lark-parser[regex]>=0.12.0",
+    "psutil>=5.9.0",
 ]
 
 [project.scripts]

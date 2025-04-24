@@ -2,6 +2,8 @@
 
 MCP Scan is a tool for validating Model Context Protocol (MCP) server configurations.
 
+**Note**: This npm package is a thin wrapper around the [Python mcp-scan project](https://github.com/invariantlabs-ai/mcp-scan). For full documentation, feature details, and contributing guidelines, please refer to the [GitHub repository](https://github.com/invariantlabs-ai/mcp-scan).
+
 ## Installation
 
 You can run MCP Scan directly without installation using npx:
@@ -34,6 +36,8 @@ For more details, run:
 npx mcp-scan help
 ```
 
+For comprehensive documentation, contributing guidelines, and the latest updates, please visit the [GitHub repository](https://github.com/invariantlabs-ai/mcp-scan).
+
 ## License
 
-MIT
+Apache-2.0

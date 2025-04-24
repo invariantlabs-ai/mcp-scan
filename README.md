@@ -11,8 +11,14 @@ To run MCP-Scan, use the following command:
 uvx mcp-scan@latest
 ```
 
-### Example Output
-![mcp-scan-output](https://invariantlabs.ai/images/mcp-scan-output.png)
+or 
+
+```
+npx mpc-scan@latest
+```
+
+### Example Run
+[![asciicast](https://asciinema.org/a/716858.svg)](https://asciinema.org/a/716858)
 
 
 ## Features
@@ -21,7 +27,7 @@ uvx mcp-scan@latest
 - Scanning for prompt injection attacks in tool descriptions and [tool poisoning attacks](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks) using [Invariant Guardrails](https://github.com/invariantlabs-ai/invariant?tab=readme-ov-file#analyzer)
 - Detection of cross-origin escalation attacks ([tool shadowing](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks))
 - _Tool Pinning_ to detect and prevent [MCP rug pull attacks](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks), i.e. detects changes to MCP tools via hashing
-- Inspecting the tool descriptions of installed tools via `uvx mcp-scan@latest inspect`
+- Inspecting the tool descriptions of installed tools via `inspect` command (e.g., `uvx mcp-scan@latest inspect`)
 
 ## How It Works
 MCP-Scan searches through your configuration files to find MCP server configurations. It connects to these servers and retrieves tool descriptions.
@@ -34,57 +40,105 @@ MCP-scan does not store or log any usage data, i.e. the contents and results of 
 
 ## CLI parameters
 
+MCP-scan provides the following commands:
+
+```
+mcp-scan - Security scanner for Model Context Protocol servers and tools
 ```
 
-usage: uvx mcp-scan@latest [--storage-file STORAGE_FILE] [--base-url BASE_URL]
+### Common Options
 
-help
-    Prints this help message
+These options are available for all commands:
 
-whitelist 
-    Whitelists a tool, or prints the current whitelist if no arguments are provided
+```
+--storage-file FILE    Path to store scan results and whitelist information (default: ~/.mcp-scan)
+--base-url URL         Base URL for the verification server
+```
 
-    [NAME HASH]
-        Adds tool name and hash to whitelist
-        
-    [--reset]
-        Resets the whitelist
-    
-    [--local-only]
-        Do not contribute to the global whitelist.
-        Defaults to False
-    
-scan 
-    Scan MCP servers
-    Default command, when no arguments are provided
+### Commands
 
-    [FILE1] [FILE2] [FILE3] ...
-        Different file locations to scan. This can include custom file locations as long as they are in an expected format, including Claude, Cursor or VSCode format.
-        Defaults to well known locations, depending on your OS
-        
-    [--checks-per-server CHECKS_PER_SERVER]
-        Number of checks to perform on each server, values greater than 1 help catch non-deterministic behavior
-        Defaults to 1
-    [--server-timeout SERVER_TIMEOUT]
-        Number of seconds to wait while trying a mcp server
-        Defaults to 10
-    [--suppress-mcpserver-io]
-        Suppress the output of the mcp server
-        Defaults to True
+#### scan (default)
 
-inspect
-    Prints the tool descriptions of the installed tools
+Scan MCP configurations for security vulnerabilities in tools, prompts, and resources.
 
-    [FILE1] [FILE2] [FILE3] ...
-        Different file locations to scan. This can include custom file locations as long as they are in an expected format, including Claude, Cursor or VSCode format.
-        Defaults to well known locations, depending on your OS
+```
+mcp-scan [CONFIG_FILE...]
+```
 
-    [--server-timeout SERVER_TIMEOUT]
-        Number of seconds to wait while trying a mcp server
-        Defaults to 10
-    [--suppress-mcpserver-io]
-        Suppress the output of the mcp server
-        Defaults to True
+Options:
+```
+--checks-per-server NUM       Number of checks to perform on each server (default: 1)
+--server-timeout SECONDS      Seconds to wait before timing out server connections (default: 10)
+--suppress-mcpserver-io BOOL  Suppress stdout/stderr from MCP servers (default: True)
+```
+
+#### inspect
+
+Print descriptions of tools, prompts, and resources without verification.
+
+```
+mcp-scan inspect [CONFIG_FILE...]
+```
+
+Options:
+```
+--server-timeout SECONDS      Seconds to wait before timing out server connections (default: 10)
+--suppress-mcpserver-io BOOL  Suppress stdout/stderr from MCP servers (default: True)
+```
+
+#### whitelist
+
+Manage the whitelist of approved entities. When no arguments are provided, this command displays the current whitelist.
+
+```
+# View the whitelist
+mcp-scan whitelist
+
+# Add to whitelist
+mcp-scan whitelist TYPE NAME HASH
+
+# Reset the whitelist
+mcp-scan whitelist --reset
+```
+
+Options:
+```
+--reset                       Reset the entire whitelist
+--local-only                  Only update local whitelist, don't contribute to global whitelist
+```
+
+Arguments:
+```
+TYPE                          Type of entity to whitelist: "tool", "prompt", or "resource"
+NAME                          Name of the entity to whitelist
+HASH                          Hash of the entity to whitelist
+```
+
+#### help
+
+Display detailed help information and examples.
+
+```
+mcp-scan help
+```
+
+### Examples
+
+```bash
+# Scan all known MCP configs
+mcp-scan
+
+# Scan a specific config file
+mcp-scan ~/custom/config.json
+
+# Just inspect tools without verification
+mcp-scan inspect
+
+# View whitelisted tools
+mcp-scan whitelist
+
+# Whitelist a tool
+mcp-scan whitelist tool "add" "a1b2c3..."
 ```
 
 ## Contributing
@@ -110,12 +164,4 @@ If you want to include MCP-scan results in your own project or registry, please 
 - [MCP Prompt Injection](https://simonwillison.net/2025/Apr/9/mcp-prompt-injection/)
 
 ## Changelog
-- `0.1.4.0` initial public release
-- `0.1.4.1` `inspect` command, reworked output
-- `0.1.4.2` added SSE support
-- `0.1.4.3` added VSCode MCP support, better support for non-MacOS, improved error handling, better output formatting
-- `0.1.4.4-5` fixes
-- `0.1.4.6` whitelisting of tools
-- `0.1.4.7` automatically rebalance command args
-- `0.1.4.8-10` fixes
-- `0.1.4.11` support for prompts and resources
+See [CHANGELOG.md](CHANGELOG.md).

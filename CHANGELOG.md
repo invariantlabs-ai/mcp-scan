@@ -1,0 +1,10 @@
+- `0.1.4.0` initial public release
+- `0.1.4.1` `inspect` command, reworked output
+- `0.1.4.2` added SSE support
+- `0.1.4.3` added VSCode MCP support, better support for non-MacOS, improved error handling, better output formatting
+- `0.1.4.4-5` fixes
+- `0.1.4.6` whitelisting of tools
+- `0.1.4.7` automatically rebalance command args
+- `0.1.4.8-10` fixes
+- `0.1.4.11` support for prompts and resources
+- `0.1.5` semver compatible naming, npm release
