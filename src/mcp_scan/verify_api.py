@@ -2,10 +2,16 @@ import requests
 import json
 import ast
 from .models import Result
+from mcp.types import Tool, Prompt, Resource
 
-def verify_server(tools, prompts, resources, base_url):
+def verify_server(
+    tools: list[Tool],
+    prompts: list[Prompt],
+    resources: list[Resource],
+    base_url: str
+) -> tuple[list[Result], list[Result], list[Result]]:
     if len(tools) + len(prompts) + len(resources) == 0:
-        return [], []
+        return [], [], []
     messages = [
         {
             "role": "system",
@@ -35,9 +41,9 @@ def verify_server(tools, prompts, resources, base_url):
     try:
         response = requests.post(url, headers=headers, data=json.dumps(data))
         if response.status_code == 200:
-            response = response.json()
+            response_content: dict = response.json()
             results = [Result(True, "verified") for _ in messages]
-            for error in response["errors"]:
+            for error in response_content.get("errors", []):
                 key = ast.literal_eval(error["key"])
                 idx = key[1][0]
                 results[idx] = Result(False, "failed - " + " ".join(error["args"]))
