@@ -14,7 +14,7 @@ uvx mcp-scan@latest
 or 
 
 ```
-npx mpc-scan@latest
+npx mcp-scan@latest
 ```
 
 ### Example Run
