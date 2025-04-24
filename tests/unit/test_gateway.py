@@ -21,7 +21,6 @@ def test_install_gateway(server_config: str, temp_file):
     config_dict = pyjson5.loads(server_config)
     installer = MCPGatewayInstaller(paths=[temp_file])
     for server in scan_config_file(temp_file).get_servers().values():
-        print(f"{server=}")
         assert not is_invariant_installed(server)
     installer.install(gateway_config=MCPGatewayConfig(
         project_name="test",
@@ -33,7 +32,6 @@ def test_install_gateway(server_config: str, temp_file):
         assert is_invariant_installed(server)
     installer.uninstall(verbose=True)
     mcp = scan_config_file(temp_file)
-    print(f"{mcp=}")
     for server in scan_config_file(temp_file).get_servers().values():
         assert not is_invariant_installed(server)
 
