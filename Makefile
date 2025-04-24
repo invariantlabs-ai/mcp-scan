@@ -16,6 +16,7 @@ test:
 clean:
 	rm -rf ./dist
 	rm -rf ./mcp_scan/mcp_scan.egg-info
+	rm -rf ./npm/dist
 
 build: clean
 	uv build --no-sources
@@ -25,5 +26,14 @@ shiv: build
 	mkdir -p dist
 	uv run shiv -c mcp-scan -o dist/mcp-scan.pyz --python "/usr/bin/env python3" dist/*.whl
 
+npm-package: shiv
+	mkdir -p npm/dist
+	cp dist/mcp-scan.pyz npm/dist/
+	uv run python npm/update_package.py
+	chmod +x npm/bin/mcp-scan.js
+
 publish: build
 	uv publish --token ${PYPI_TOKEN}
+
+publish-npm: npm-package
+	cd npm && npm publish
