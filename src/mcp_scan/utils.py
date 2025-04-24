@@ -27,7 +27,7 @@ def rebalance_command_args(command, args):
     command = command[0]
     return command, args
 
-def upload_whitelist_entry(name, hash, base_url):
+def upload_whitelist_entry(name: str, hash: str, base_url: str):
     url = base_url + "/api/v1/public/mcp-whitelist"
     headers = {"Content-Type": "application/json"}
     data = {
