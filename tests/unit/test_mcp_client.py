@@ -131,3 +131,15 @@ async def test_check_server_mocked(mock_stdio_client):
         assert len(prompts) == 2
         assert len(resources) == 1
         assert len(tools) == 3
+
+
+def test_mcp_server():
+    path = "tests/mcp_servers/mcp_config.json"
+    servers = scan_mcp_config_file(path)
+    for name, server in servers.items():
+        prompts, resources, tools = asyncio.run(check_server(server, 5, False))
+        print(f"Server: {name}")
+        if name == "Math":
+            assert len(prompts) == 0
+            assert len(resources) == 0
+            assert set([t.name for t in tools]) == set(["add", "subtract", "multiply", "divide"])
