@@ -2,7 +2,7 @@
     "mcpServers": {
         "Math": {
             "command": "python3",
-            "args": ["tests/mcp_servers/math.py"]
+            "args": ["tests/mcp_servers/math_server.py"]
         }
     }
 }

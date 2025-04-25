@@ -137,7 +137,6 @@ def test_mcp_server():
     servers = scan_mcp_config_file(path).get_servers()
     for name, server in servers.items():
         prompts, resources, tools = asyncio.run(check_server(server, 5, False))
-        print(f"Server: {name}")
         if name == "Math":
             assert len(prompts) == 0
             assert len(resources) == 0
