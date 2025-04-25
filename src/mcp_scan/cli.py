@@ -24,7 +24,7 @@ def get_invoking_name():
             
 
 
-def str2bool(v):
+def str2bool(v: str) -> bool:
     return v.lower() in ("true", "1", "t", "y", "yes")
 
 
@@ -247,6 +247,20 @@ def main():
     elif args.command == 'inspect':
         MCPScanner(**vars(args)).inspect()
         sys.exit(0)
+    elif args.command == 'whitelist':
+        if args.reset:
+            MCPScanner(**vars(args)).reset_whitelist()
+            sys.exit(0)
+        elif all(map(lambda x: x is None, [args.name, args.hash])): # no args
+            MCPScanner(**vars(args)).print_whitelist()
+            sys.exit(0)
+        elif all(map(lambda x: x is not None, [args.name, args.hash])):
+            MCPScanner(**vars(args)).whitelist(args.name, args.hash, args.local_only)
+            MCPScanner(**vars(args)).print_whitelist()
+            sys.exit(0)
+        else:
+            rich.print("[bold red]Please provide a name and hash.[/bold red]")
+            sys.exit(1)
     elif args.command == 'scan' or args.command is None: # default to scan
         MCPScanner(**vars(args)).start()
         sys.exit(0)

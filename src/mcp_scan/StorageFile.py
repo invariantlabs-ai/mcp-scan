@@ -2,16 +2,19 @@ import os
 import json
 from datetime import datetime
 from hashlib import md5
-from .models import Result
+from pydantic import ValidationError
+from .models import Result, Entity, entity_type_to_str, ScannedEntities, ScannedEntity
 import rich
 from .utils import upload_whitelist_entry
+from typing import Any
 
 class StorageFile:
-    def __init__(self, path):
+    def __init__(self, path: str):
         self.path = os.path.expanduser(path)
         # if path is a file
-        self.scanned_entities = {}
-        self.whitelist = {}
+        self.scanned_entities: ScannedEntities = ScannedEntities({})
+        self.whitelist: dict[str, str] = {}
+
         if os.path.isfile(path):
             rich.print(f"[bold]Legacy storage file detected at {path}, converting to new format[/bold]")
             # legacy format
@@ -20,50 +23,61 @@ class StorageFile:
             if "__whitelist" in legacy_data:
                 self.whitelist = legacy_data["__whitelist"]
                 del legacy_data["__whitelist"]
-            self.scanned_entities = legacy_data
+            try:
+                self.scanned_entities = ScannedEntities.model_validate(legacy_data)
+            except ValidationError as e:
+                rich.print(f"[bold red]Could not load legacy storage file {self.path}: {e}[/bold red]")
             os.remove(path)
         
         if os.path.exists(path) and os.path.isdir(path):
-            if os.path.exists(os.path.join(path, "scanned_entities.json")):
-                with open(os.path.join(path, "scanned_entities.json"), "r") as f:
-                    self.scanned_entities = json.load(f)
+            scanned_entities_path = os.path.join(path, "scanned_entities.json")
+            if os.path.exists(scanned_entities_path):
+                with open(scanned_entities_path, "r") as f:
+                    try:
+                        self.scanned_entities = ScannedEntities.model_validate_json(f.read())
+                    except ValidationError as e:
+                        rich.print(f"[bold red]Could not load scanned entities file {scanned_entities_path}: {e}[/bold red]")
             if os.path.exists(os.path.join(path, "whitelist.json")):
                 with open(os.path.join(path, "whitelist.json"), "r") as f:
                     self.whitelist = json.load(f)
     
-    def reset_whitelist(self):
+    def reset_whitelist(self) -> None:
         self.whitelist = {}
         self.save()
         
-    def compute_hash(self, entity):
-        return md5(entity.description.encode()).hexdigest()
+    def compute_hash(self, entity: Entity|None) -> str|None:
+        if entity is None:
+            return None
+        if not hasattr(entity, "description") or entity.description is None:
+            return None
+        return md5((entity.description).encode()).hexdigest()
 
-    def check_and_update(self, server_name, entity, verified):
-        entity_type = type(entity).__name__.lower()
+    def check_and_update(self, server_name: str, entity: Entity, verified: Any) -> tuple[Result, ScannedEntity | None]:
+        entity_type = entity_type_to_str(entity)
         key = f"{server_name}.{entity_type}.{entity.name}"
         hash = self.compute_hash(entity)
-        new_data = {
-            "hash": hash,
-            "type": entity_type,
-            "verified": verified,
-            "timestamp": datetime.now().strftime("%d/%m/%Y, %H:%M:%S"),
-            "description": entity.description,
-        }
+        new_data = ScannedEntity(
+            hash=hash,
+            type=entity_type,
+            verified=verified,
+            timestamp=datetime.now(),
+            description=entity.description,
+        )
         changed = False
         message = None
         prev_data = None
-        if key in self.scanned_entities:
-            prev_data = self.scanned_entities[key]
-            changed = prev_data["hash"] != new_data["hash"]
+        if key in self.scanned_entities.root:
+            prev_data = self.scanned_entities.root[key]
+            changed = prev_data.hash != new_data.hash
             if changed:
                 message = (
                     f"{entity_type} description changed since previous scan at "
-                    + prev_data["timestamp"]
+                    + prev_data.timestamp.strftime("%d/%m/%Y, %H:%M:%S")
                 )
-        self.scanned_entities[key] = new_data
+        self.scanned_entities.root[key] = new_data
         return Result(changed, message), prev_data
 
-    def print_whitelist(self):
+    def print_whitelist(self) -> None:
         whitelist_keys = sorted(self.whitelist.keys())
         for key in whitelist_keys:
             if "." in key:
@@ -73,7 +87,7 @@ class StorageFile:
             rich.print(entity_type, name, self.whitelist[key])
         rich.print(f"[bold]{len(whitelist_keys)} entries in whitelist[/bold]")
 
-    def add_to_whitelist(self, entity_type, name, hash, base_url=None):
+    def add_to_whitelist(self, entity_type: str, name: str, hash: str, base_url: str | None = None) -> None:
         key = f"{entity_type}.{name}"
         self.whitelist[key] = hash
         self.save()
@@ -82,14 +96,14 @@ class StorageFile:
                 name, hash, base_url
             )
 
-    def is_whitelisted(self, entity):
+    def is_whitelisted(self, entity: Entity) -> bool:
         hash = self.compute_hash(entity)
         return hash in self.whitelist.values()
 
-    def save(self):
+    def save(self) -> None:
         os.makedirs(self.path, exist_ok=True)
         with open(os.path.join(self.path, "scanned_entities.json"), "w") as f:
-            json.dump(self.scanned_entities, f)
+            f.write(self.scanned_entities.model_dump_json())
         with open(os.path.join(self.path, "whitelist.json"), "w") as f:
             json.dump(self.whitelist, f)
         

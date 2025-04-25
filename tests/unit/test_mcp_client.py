@@ -1,9 +1,8 @@
 """Unit tests for the mcp_client module."""
 import pytest
 from unittest.mock import patch, Mock, AsyncMock
-from mcp_scan.mcp_client import check_server_with_timeout, check_server, scan_mcp_config_file
+from mcp_scan.mcp_client import check_server, scan_mcp_config_file
 import tempfile
-import json
 from mcp_scan.models import StdioServer
 import asyncio
 
@@ -59,13 +58,18 @@ vscode_config = """
 }
 """
 
+SAMPLE_CONFIGS = [
+    claudestyle_config,
+    vscode_mcp_config,
+    vscode_config,
+]
 
-def test_scan_mcp_config_file():
-    for config in [claudestyle_config, vscode_mcp_config, vscode_config]:
+def test_scan_mcp_config():
+    for config in SAMPLE_CONFIGS:
         with tempfile.NamedTemporaryFile(mode="w") as temp_file:
             temp_file.write(config)
             temp_file.flush()
-            servers = scan_mcp_config_file(temp_file.name)
+            config = scan_mcp_config_file(temp_file.name)
 
 
 @pytest.mark.asyncio
@@ -126,3 +130,14 @@ async def test_check_server_mocked(mock_stdio_client):
         assert len(prompts) == 2
         assert len(resources) == 1
         assert len(tools) == 3
+
+
+def test_mcp_server():
+    path = "tests/mcp_servers/mcp_config.json"
+    servers = scan_mcp_config_file(path).get_servers()
+    for name, server in servers.items():
+        prompts, resources, tools = asyncio.run(check_server(server, 5, False))
+        if name == "Math":
+            assert len(prompts) == 0
+            assert len(resources) == 0
+            assert set([t.name for t in tools]) == set(["add", "subtract", "multiply", "divide"])
