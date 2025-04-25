@@ -39,3 +39,6 @@ publish-npm: npm-package
 	cd npm && npm publish
 
 publish: publish-pypi publish-npm
+
+pre-commit:
+	pre-commit run --all-files
