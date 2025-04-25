@@ -248,18 +248,6 @@ def main():
     elif args.command == 'inspect':
         MCPScanner(**vars(args)).inspect()
         sys.exit(0)
-    elif args.command == 'install':
-        installer = MCPGatewayInstaller(paths=args.files)
-        installer.install(gateway_config=MCPGatewayConfig(
-            project_name=args.project_name,
-            push_explorer=not args.local_only,
-            api_key=args.api_key,
-        ), verbose=True)
-        # install logic here
-    elif args.command == 'uninstall':
-        installer = MCPGatewayInstaller(paths=args.files)
-        installer.uninstall(verbose=True)
-        # uninstall logic here
     elif args.command == 'whitelist':
         if args.reset:
             MCPScanner(**vars(args)).reset_whitelist()
