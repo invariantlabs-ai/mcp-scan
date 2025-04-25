@@ -1,10 +1,13 @@
-import sys
 import argparse
+import sys
+
+import psutil
+import rich
+
 from .MCPScanner import MCPScanner
 from .StorageFile import StorageFile
-import rich
 from .version import version_info
-import psutil
+
 
 def get_invoking_name():
     try:
@@ -17,11 +20,10 @@ def get_invoking_name():
                 cmd = cmd[:-1]
             else:
                 break
-        cmd = ' '.join(cmd)
-    except:
-        cmd = 'mcp-scan'
+        cmd = " ".join(cmd)
+    except Exception:
+        cmd = "mcp-scan"
     return cmd
-            
 
 
 def str2bool(v: str) -> bool:
@@ -106,10 +108,10 @@ def main():
             f"  {program_name} ~/custom/config.json # Scan a specific config file\n"
             f"  {program_name} inspect             # Just inspect tools without verification\n"
             f"  {program_name} whitelist           # View whitelisted tools\n"
-            f"  {program_name} whitelist tool \"add\" \"a1b2c3...\" # Whitelist the 'add' tool\n"
+            f'  {program_name} whitelist tool "add" "a1b2c3..." # Whitelist the \'add\' tool\n'
         ),
     )
-    
+
     # Create subparsers for commands
     subparsers = parser.add_subparsers(
         dest="command",
@@ -120,7 +122,7 @@ def main():
 
     # SCAN command
     scan_parser = subparsers.add_parser(
-        "scan", 
+        "scan",
         help="Scan MCP servers for security issues [default]",
         description="Scan MCP configurations for security vulnerabilities in tools, prompts, and resources.",
     )
@@ -144,7 +146,7 @@ def main():
 
     # INSPECT command
     inspect_parser = subparsers.add_parser(
-        "inspect", 
+        "inspect",
         help="Print descriptions of tools, prompts, and resources without verification",
         description="Inspect and display MCP tools, prompts, and resources without security verification.",
     )
@@ -158,18 +160,17 @@ def main():
         help="Configuration files to inspect (default: known MCP config locations)",
         metavar="CONFIG_FILE",
     )
-    
+
     # WHITELIST command
     whitelist_parser = subparsers.add_parser(
-        "whitelist", 
+        "whitelist",
         help="Manage the whitelist of approved entities",
         description=(
-            "View, add, or reset whitelisted entities. "
-            "Whitelisted entities bypass security checks during scans."
+            "View, add, or reset whitelisted entities. " "Whitelisted entities bypass security checks during scans."
         ),
     )
     add_common_arguments(whitelist_parser)
-    
+
     whitelist_group = whitelist_parser.add_argument_group("Whitelist Options")
     whitelist_group.add_argument(
         "--reset",
@@ -183,7 +184,7 @@ def main():
         action="store_true",
         help="Only update local whitelist, don't contribute to global whitelist",
     )
-    
+
     whitelist_parser.add_argument(
         "type",
         type=str,
@@ -211,8 +212,8 @@ def main():
     )
 
     # HELP command
-    help_parser = subparsers.add_parser(
-        "help", 
+    help_parser = subparsers.add_parser(  # noqa: F841
+        "help",
         help="Show detailed help information",
         description="Display detailed help information and examples.",
     )
@@ -221,37 +222,42 @@ def main():
     rich.print(f"[bold blue]Invariant MCP-scan v{version_info}[/bold blue]\n")
 
     # Parse arguments (default to 'scan' if no command provided)
-    args = parser.parse_args(['scan'] if len(sys.argv) == 1 else None)
-    
+    args = parser.parse_args(["scan"] if len(sys.argv) == 1 else None)
+
     # Handle commands
-    if args.command == 'help':
+    if args.command == "help":
         parser.print_help()
         sys.exit(0)
-    elif args.command == 'whitelist':
+    elif args.command == "whitelist":
         sf = StorageFile(args.storage_file)
         if args.reset:
             sf.reset_whitelist()
             rich.print("[bold]Whitelist reset[/bold]")
             sys.exit(0)
-        elif all(map(lambda x: x is None, [args.type, args.name, args.hash])): # no args
+        elif all(map(lambda x: x is None, [args.type, args.name, args.hash])):  # no args
             sf.print_whitelist()
             sys.exit(0)
         elif all(map(lambda x: x is not None, [args.type, args.name, args.hash])):
-            sf.add_to_whitelist(args.type, args.name, args.hash, base_url=args.base_url if not args.local_only else None)
+            sf.add_to_whitelist(
+                args.type,
+                args.name,
+                args.hash,
+                base_url=args.base_url if not args.local_only else None,
+            )
             sf.print_whitelist()
             sys.exit(0)
         else:
             rich.print("[bold red]Please provide all three parameters: type, name, and hash.[/bold red]")
             whitelist_parser.print_help()
             sys.exit(1)
-    elif args.command == 'inspect':
+    elif args.command == "inspect":
         MCPScanner(**vars(args)).inspect()
         sys.exit(0)
-    elif args.command == 'whitelist':
+    elif args.command == "whitelist":
         if args.reset:
             MCPScanner(**vars(args)).reset_whitelist()
             sys.exit(0)
-        elif all(map(lambda x: x is None, [args.name, args.hash])): # no args
+        elif all(map(lambda x: x is None, [args.name, args.hash])):  # no args
             MCPScanner(**vars(args)).print_whitelist()
             sys.exit(0)
         elif all(map(lambda x: x is not None, [args.name, args.hash])):
@@ -261,7 +267,7 @@ def main():
         else:
             rich.print("[bold red]Please provide a name and hash.[/bold red]")
             sys.exit(1)
-    elif args.command == 'scan' or args.command is None: # default to scan
+    elif args.command == "scan" or args.command is None:  # default to scan
         MCPScanner(**vars(args)).start()
         sys.exit(0)
     else:

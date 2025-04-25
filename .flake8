@@ -1,0 +1,5 @@
+[flake8]
+max-line-length = 120
+extend-ignore = E203,D100,D101,D102,D103,D104,D105,D106,D107
+# E203: Whitespace before ':' (conflicts with Black)
+# D100-D107: Missing docstring in various contexts

@@ -1,10 +1,13 @@
 """Unit tests for the mcp_client module."""
-import pytest
-from unittest.mock import patch, Mock, AsyncMock
-from mcp_scan.mcp_client import check_server, scan_mcp_config_file
-import tempfile
-from mcp_scan.models import StdioServer
+
 import asyncio
+import tempfile
+from unittest.mock import AsyncMock, Mock, patch
+
+import pytest
+
+from mcp_scan.mcp_client import check_server, scan_mcp_config_file
+from mcp_scan.models import StdioServer
 
 claudestyle_config = """
 {
@@ -64,6 +67,7 @@ SAMPLE_CONFIGS = [
     vscode_config,
 ]
 
+
 def test_scan_mcp_config():
     for config in SAMPLE_CONFIGS:
         with tempfile.NamedTemporaryFile(mode="w") as temp_file:
@@ -73,13 +77,13 @@ def test_scan_mcp_config():
 
 
 @pytest.mark.asyncio
-@patch('mcp_scan.mcp_client.stdio_client')
+@patch("mcp_scan.mcp_client.stdio_client")
 async def test_check_server_mocked(mock_stdio_client):
     # Create mock objects
     mock_session = Mock()
     mock_read = AsyncMock()
     mock_write = AsyncMock()
-    
+
     # Mock initialize response
     mock_meta = Mock()
     mock_meta.capabilities = Mock()
@@ -90,42 +94,42 @@ async def test_check_server_mocked(mock_stdio_client):
     mock_meta.capabilities.resources.supported = True
     mock_meta.capabilities.tools.supported = True
     mock_session.initialize = AsyncMock(return_value=mock_meta)
-    
+
     # Mock list responses
     mock_prompts = Mock()
     mock_prompts.prompts = ["prompt1", "prompt2"]
     mock_session.list_prompts = AsyncMock(return_value=mock_prompts)
-    
+
     mock_resources = Mock()
     mock_resources.resources = ["resource1"]
     mock_session.list_resources = AsyncMock(return_value=mock_resources)
-    
+
     mock_tools = Mock()
     mock_tools.tools = ["tool1", "tool2", "tool3"]
     mock_session.list_tools = AsyncMock(return_value=mock_tools)
-    
+
     # Set up the mock stdio client to return our mocked read/write pair
     mock_client = AsyncMock()
     mock_client.__aenter__.return_value = (mock_read, mock_write)
     mock_stdio_client.return_value = mock_client
-    
+
     # Mock ClientSession with proper async context manager protocol
     class MockClientSession:
         def __init__(self, read, write):
             self.read = read
             self.write = write
-            
+
         async def __aenter__(self):
             return mock_session
-        
+
         async def __aexit__(self, exc_type, exc_val, exc_tb):
             pass
-    
+
     # Test function with mocks
-    with patch('mcp_scan.mcp_client.ClientSession', MockClientSession):
+    with patch("mcp_scan.mcp_client.ClientSession", MockClientSession):
         server = StdioServer(command="mcp", args=["run", "some_file.py"])
         prompts, resources, tools = await check_server(server, 2, True)
-        
+
         # Verify results
         assert len(prompts) == 2
         assert len(resources) == 1

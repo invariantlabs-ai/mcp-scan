@@ -1,6 +1,4 @@
 """Unit tests for the MCPScanner module."""
-import pytest
-from mcp_scan.MCPScanner import MCPScanner
 
 
 class TestMCPScanner:

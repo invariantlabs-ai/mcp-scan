@@ -1,4 +1,5 @@
 """Unit test fixtures for mcp-scan."""
+
 import pytest
 
 

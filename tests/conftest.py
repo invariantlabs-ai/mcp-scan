@@ -1,4 +1,5 @@
 """Global pytest fixtures for mcp-scan tests."""
+
 import pytest
 
 

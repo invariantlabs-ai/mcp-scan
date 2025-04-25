@@ -11,7 +11,7 @@ const pyzPath = path.join(__dirname, '../dist/mcp-scan.pyz');
 function checkPython() {
   return new Promise((resolve, reject) => {
     const python = spawn('python3', ['--version']);
-    
+
     python.on('close', (code) => {
       if (code === 0) {
         resolve(true);
@@ -19,7 +19,7 @@ function checkPython() {
         reject(new Error('Python 3 is required but not found. Please install Python 3.'));
       }
     });
-    
+
     python.on('error', () => {
       reject(new Error('Python 3 is required but not found. Please install Python 3.'));
     });
@@ -30,7 +30,7 @@ function checkPython() {
 async function runPyz() {
   try {
     await checkPython();
-    
+
     if (!fs.existsSync(pyzPath)) {
       console.error('MCP Scan executable not found!');
       process.exit(1);
@@ -38,12 +38,12 @@ async function runPyz() {
 
     // Get all arguments passed to the script
     const args = process.argv.slice(2);
-    
+
     // Spawn a Python process to run the .pyz file with the provided arguments
     const mcp = spawn('python3', [pyzPath, ...args], {
       stdio: 'inherit' // This makes the output visible in the terminal
     });
-    
+
     mcp.on('close', (code) => {
       process.exit(code);
     });
