@@ -1,7 +1,4 @@
 """End-to-end tests for complete MCP scanning workflow."""
-import pytest
-import os
-import tempfile
 
 
 class TestFullScanFlow:

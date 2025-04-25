@@ -2,11 +2,7 @@
     "mcpServers": {
         "Math": {
             "command": "python3",
-<<<<<<< HEAD
             "args": ["tests/mcp_servers/math_server.py"]
-=======
-            "args": ["tests/mcp_servers/math.py"]
->>>>>>> daaa3d9 (fix: add test to use mcp client)
         }
     }
 }

@@ -8,8 +8,7 @@ from types import TracebackType
 
 
 class SuppressStd(object):
-    """Context to capture stderr and stdout at C-level.
-    """
+    """Context to capture stderr and stdout at C-level."""
 
     def __init__(self) -> None:
         std_out = sys.__stdout__
@@ -24,7 +23,7 @@ class SuppressStd(object):
         # Redirect the stdout/stderr fd to temp file
         self.orig_stdout_dup = os.dup(self.orig_stdout_fileno)
         self.orig_stderr_dup = os.dup(self.orig_stderr_fileno)
-        self.tfile = tempfile.TemporaryFile(mode='w+b')
+        self.tfile = tempfile.TemporaryFile(mode="w+b")
         os.dup2(self.tfile.fileno(), self.orig_stdout_fileno)
         os.dup2(self.tfile.fileno(), self.orig_stderr_fileno)
 
@@ -41,7 +40,7 @@ class SuppressStd(object):
         exc_class: type[BaseException] | None,
         value: BaseException | None,
         traceback: TracebackType | None,
-    ) -> None: 
+    ) -> None:
         # Make sure to flush stdout
         print(flush=True)
 

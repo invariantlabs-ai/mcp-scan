@@ -1,12 +1,15 @@
-import os
 import json
+import os
 from datetime import datetime
 from hashlib import md5
-from pydantic import ValidationError
-from .models import Result, Entity, entity_type_to_str, ScannedEntities, ScannedEntity
-import rich
-from .utils import upload_whitelist_entry
 from typing import Any
+
+import rich
+from pydantic import ValidationError
+
+from .models import Entity, Result, ScannedEntities, ScannedEntity, entity_type_to_str
+from .utils import upload_whitelist_entry
+
 
 class StorageFile:
     def __init__(self, path: str):
@@ -28,7 +31,7 @@ class StorageFile:
             except ValidationError as e:
                 rich.print(f"[bold red]Could not load legacy storage file {self.path}: {e}[/bold red]")
             os.remove(path)
-        
+
         if os.path.exists(path) and os.path.isdir(path):
             scanned_entities_path = os.path.join(path, "scanned_entities.json")
             if os.path.exists(scanned_entities_path):
@@ -36,16 +39,18 @@ class StorageFile:
                     try:
                         self.scanned_entities = ScannedEntities.model_validate_json(f.read())
                     except ValidationError as e:
-                        rich.print(f"[bold red]Could not load scanned entities file {scanned_entities_path}: {e}[/bold red]")
+                        rich.print(
+                            f"[bold red]Could not load scanned entities file {scanned_entities_path}: {e}[/bold red]"
+                        )
             if os.path.exists(os.path.join(path, "whitelist.json")):
                 with open(os.path.join(path, "whitelist.json"), "r") as f:
                     self.whitelist = json.load(f)
-    
+
     def reset_whitelist(self) -> None:
         self.whitelist = {}
         self.save()
-        
-    def compute_hash(self, entity: Entity|None) -> str|None:
+
+    def compute_hash(self, entity: Entity | None) -> str | None:
         if entity is None:
             return None
         if not hasattr(entity, "description") or entity.description is None:
@@ -70,9 +75,8 @@ class StorageFile:
             prev_data = self.scanned_entities.root[key]
             changed = prev_data.hash != new_data.hash
             if changed:
-                message = (
-                    f"{entity_type} description changed since previous scan at "
-                    + prev_data.timestamp.strftime("%d/%m/%Y, %H:%M:%S")
+                message = f"{entity_type} description changed since previous scan at " + prev_data.timestamp.strftime(
+                    "%d/%m/%Y, %H:%M:%S"
                 )
         self.scanned_entities.root[key] = new_data
         return Result(changed, message), prev_data
@@ -92,9 +96,7 @@ class StorageFile:
         self.whitelist[key] = hash
         self.save()
         if base_url is not None:
-            upload_whitelist_entry(
-                name, hash, base_url
-            )
+            upload_whitelist_entry(name, hash, base_url)
 
     def is_whitelisted(self, entity: Entity) -> bool:
         hash = self.compute_hash(entity)
@@ -106,5 +108,3 @@ class StorageFile:
             f.write(self.scanned_entities.model_dump_json())
         with open(os.path.join(self.path, "whitelist.json"), "w") as f:
             json.dump(self.whitelist, f)
-        
-

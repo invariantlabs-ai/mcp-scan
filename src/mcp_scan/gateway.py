@@ -1,13 +1,14 @@
-from mcp_scan.models import StdioServer, SSEServer, MCPConfig
-from mcp_scan.MCPScanner import format_path_line, format_servers_line
-from mcp_scan.mcp_client import scan_mcp_config_file
-from pydantic import BaseModel
-from rich.tree import Tree
-from rich.text import Text
 import argparse
-import json
 import os
+
 import rich
+from pydantic import BaseModel
+from rich.text import Text
+from rich.tree import Tree
+
+from mcp_scan.mcp_client import scan_mcp_config_file
+from mcp_scan.MCPScanner import format_path_line
+from mcp_scan.models import MCPConfig, SSEServer, StdioServer
 
 parser = argparse.ArgumentParser(
     description="MCP-scan CLI",
@@ -23,12 +24,8 @@ parser.add_argument(
     "--push-explorer",
     action="store_true",
 )
-parser.add_argument(
-    "--exec",
-    type=str,
-    required=True,
-    nargs=argparse.REMAINDER
-)
+parser.add_argument("--exec", type=str, required=True, nargs=argparse.REMAINDER)
+
 
 class MCPServerIsNotGateway(Exception):
     pass
@@ -43,6 +40,7 @@ class MCPGatewayConfig(BaseModel):
     push_explorer: bool
     api_key: str
 
+
 def is_invariant_installed(server: StdioServer) -> bool:
     if server.args is None:
         return False
@@ -50,35 +48,33 @@ def is_invariant_installed(server: StdioServer) -> bool:
         return False
     return server.args[0] == "invariant-gateway@latest"
 
+
 def install_gateway(
-    server: StdioServer, config: MCPGatewayConfig,
+    server: StdioServer,
+    config: MCPGatewayConfig,
 ) -> StdioServer:
-    """
-    Install the gateway for the given server.
-    """
+    """Install the gateway for the given server."""
     if is_invariant_installed(server):
         raise MCPServerAlreadyGateway()
     return StdioServer(
         command="uvx",
-        args= [
+        args=[
             "invariant-gateway@latest",
             "mcp",
             "--project-name",
             config.project_name,
-        ] + (["--push-explorer"] if config.push_explorer else []) + [
-            "--exec",
-            server.command
-        ] + (server.args if server.args else []),
+        ]
+        + (["--push-explorer"] if config.push_explorer else [])
+        + ["--exec", server.command]
+        + (server.args if server.args else []),
         env=server.env | {"INVARIANT_API_KEY": config.api_key},
     )
+
 
 def uninstall_gateway(
     server: StdioServer,
 ) -> StdioServer:
-    """
-    Uninstall the gateway for the given server.
-    """
-
+    """Uninstall the gateway for the given server."""
     if not is_invariant_installed(server):
         raise MCPServerIsNotGateway()
 
@@ -93,37 +89,42 @@ def uninstall_gateway(
         env=new_env,
     )
 
+
 def format_install_line(server: str, status: str, success: bool | None) -> Text:
     color = {True: "[green]", False: "[red]", None: "[gray62]"}[success]
-    
+
     if len(server) > 25:
         server = server[:22] + "..."
     server = server + " " * (25 - len(server))
-    icon = {True: ":white_heavy_check_mark:", False: ":cross_mark:", None: ""}[
-        success
-    ]
+    icon = {True: ":white_heavy_check_mark:", False: ":cross_mark:", None: ""}[success]
 
     text = f"{color}[bold]{server}[/bold]{icon} {status}{color.replace('[', '[/')}"
     return Text.from_markup(text)
 
+
 class MCPGatewayInstaller:
-    """
-    A class to install and uninstall the gateway for a given server.
-    """
-    def __init__(self, paths: list[str], ) -> None:
+    """A class to install and uninstall the gateway for a given server."""
+
+    def __init__(
+        self,
+        paths: list[str],
+    ) -> None:
         self.paths = paths
 
-
-    def install(self, gateway_config: MCPGatewayConfig, verbose: bool = False, ) -> None:
+    def install(
+        self,
+        gateway_config: MCPGatewayConfig,
+        verbose: bool = False,
+    ) -> None:
         for path in self.paths:
             config: MCPConfig | None = None
             try:
                 config = scan_mcp_config_file(path)
                 status = f"found {len(config.get_servers())} server{'' if len(config.get_servers()) == 1 else 's'}"
             except FileNotFoundError:
-                status = f"file does not exist"
+                status = "file does not exist"
             except Exception:
-                status = f"could not parse file"
+                status = "could not parse file"
             if verbose:
                 rich.print(format_path_line(path, status, operation="Installing Gateway"))
             if config is None:
@@ -142,10 +143,12 @@ class MCPGatewayInstaller:
                     except Exception:
                         new_servers[name] = server
                         path_print_tree.add(format_install_line(server=name, status="Failed to install", success=False))
-                    
+
                 else:
                     new_servers[name] = server
-                    path_print_tree.add(format_install_line(server=name, status="sse servers not supported yet", success=False))
+                    path_print_tree.add(
+                        format_install_line(server=name, status="sse servers not supported yet", success=False)
+                    )
 
             if verbose:
                 rich.print(path_print_tree)
@@ -160,9 +163,9 @@ class MCPGatewayInstaller:
                 config = scan_mcp_config_file(path)
                 status = f"found {len(config.get_servers())} server{'' if len(config.get_servers()) == 1 else 's'}"
             except FileNotFoundError:
-                status = f"file does not exist"
+                status = "file does not exist"
             except Exception:
-                status = f"could not parse file"
+                status = "could not parse file"
             if verbose:
                 rich.print(format_path_line(path, status, operation="Installing Gateway"))
             if config is None:
@@ -178,13 +181,19 @@ class MCPGatewayInstaller:
                         path_print_tree.add(format_install_line(server=name, status="Uninstalled", success=True))
                     except MCPServerIsNotGateway:
                         new_servers[name] = server
-                        path_print_tree.add(format_install_line(server=name, status="Already not installed", success=True))
+                        path_print_tree.add(
+                            format_install_line(server=name, status="Already not installed", success=True)
+                        )
                     except Exception:
                         new_servers[name] = server
-                        path_print_tree.add(format_install_line(server=name, status="Failed to uninstall", success=False))
+                        path_print_tree.add(
+                            format_install_line(server=name, status="Failed to uninstall", success=False)
+                        )
                 else:
                     new_servers[name] = server
-                    path_print_tree.add(format_install_line(server=name, status="sse servers not supported yet", success=None))
+                    path_print_tree.add(
+                        format_install_line(server=name, status="sse servers not supported yet", success=None)
+                    )
             config.set_servers(new_servers)
             if verbose:
                 rich.print(path_print_tree)

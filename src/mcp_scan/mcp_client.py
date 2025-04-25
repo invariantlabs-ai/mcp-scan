@@ -1,21 +1,25 @@
-from .utils import rebalance_command_args
-from .suppressIO import SuppressStd
+import asyncio
+import os
+from typing import AsyncContextManager, Type
+
+import pyjson5
+from mcp import ClientSession, StdioServerParameters
+from mcp.client.sse import sse_client
+from mcp.client.stdio import stdio_client
+from mcp.types import Prompt, Resource, Tool
+
 from mcp_scan.models import (
+    ClaudeConfigFile,
+    MCPConfig,
     SSEServer,
     StdioServer,
     VSCodeConfigFile,
     VSCodeMCPConfig,
-    ClaudeConfigFile,
-    MCPConfig,
 )
-from mcp import ClientSession, StdioServerParameters
-from mcp.client.stdio import stdio_client
-from mcp.client.sse import sse_client
-from mcp.types import Prompt, Resource, Tool
-import asyncio
-import pyjson5
-import os
-from typing import Type, AsyncContextManager
+
+from .suppressIO import SuppressStd
+from .utils import rebalance_command_args
+
 
 async def check_server(
     server_config: SSEServer | StdioServer, timeout: int, suppress_mcpserver_io: bool
@@ -50,18 +54,18 @@ async def check_server(
                 if not isinstance(server_config, SSEServer) or meta.capabilities.prompts:
                     try:
                         prompts = (await session.list_prompts()).prompts
-                    except:
+                    except Exception:
                         pass
 
                 if not isinstance(server_config, SSEServer) or meta.capabilities.resources:
                     try:
                         resources = (await session.list_resources()).resources
-                    except:
+                    except Exception:
                         pass
                 if not isinstance(server_config, SSEServer) or meta.capabilities.tools:
                     try:
                         tools = (await session.list_tools()).tools
-                    except:
+                    except Exception:
                         pass
                 return prompts, resources, tools
 
@@ -77,9 +81,7 @@ async def check_server_with_timeout(
     timeout: int,
     suppress_mcpserver_io: bool,
 ) -> tuple[list[Prompt], list[Resource], list[Tool]]:
-    return await asyncio.wait_for(
-        check_server(server_config, timeout, suppress_mcpserver_io), timeout
-    )
+    return await asyncio.wait_for(check_server(server_config, timeout, suppress_mcpserver_io), timeout)
 
 
 def scan_mcp_config_file(path: str) -> MCPConfig:

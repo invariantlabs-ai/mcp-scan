@@ -1,14 +1,14 @@
-import requests
-import json
 import ast
+import json
+
+import requests
+from mcp.types import Prompt, Resource, Tool
+
 from .models import Result
-from mcp.types import Tool, Prompt, Resource
+
 
 def verify_server(
-    tools: list[Tool],
-    prompts: list[Prompt],
-    resources: list[Resource],
-    base_url: str
+    tools: list[Tool], prompts: list[Prompt], resources: list[Resource], base_url: str
 ) -> tuple[list[Result], list[Result], list[Result]]:
     if len(tools) + len(prompts) + len(resources) == 0:
         return [], [], []
@@ -47,8 +47,8 @@ def verify_server(
                 key = ast.literal_eval(error["key"])
                 idx = key[1][0]
                 results[idx] = Result(False, "failed - " + " ".join(error["args"]))
-            results_tools, results = results[:len(tools)], results[len(tools):]
-            results_prompts, results = results[:len(prompts)], results[len(prompts):]
+            results_tools, results = results[: len(tools)], results[len(tools) :]
+            results_prompts, results = results[: len(prompts)], results[len(prompts) :]
             results_resources = results
             return results_tools, results_prompts, results_resources
         else:
@@ -59,11 +59,8 @@ def verify_server(
             errstr = errstr.splitlines()[0]
         except Exception:
             errstr = ""
-        return [
-            Result(None, "could not reach verification server " + errstr) for _ in tools
-        ], [
-            Result(None, "could not reach verification server " + errstr) for _ in prompts
-        ], [
-            Result(None, "could not reach verification server " + errstr) for _ in resources
-        ]
-
+        return (
+            [Result(None, "could not reach verification server " + errstr) for _ in tools],
+            [Result(None, "could not reach verification server " + errstr) for _ in prompts],
+            [Result(None, "could not reach verification server " + errstr) for _ in resources],
+        )
