@@ -15,7 +15,6 @@ class StorageFile:
         self.scanned_entities: ScannedEntities = ScannedEntities({})
         self.whitelist: dict[str, str] = {}
 
-        self.save_scanned_entities: bool = True
         if os.path.isfile(path):
             rich.print(f"[bold]Legacy storage file detected at {path}, converting to new format[/bold]")
             # legacy format
@@ -27,9 +26,7 @@ class StorageFile:
             try:
                 self.scanned_entities = ScannedEntities.model_validate(legacy_data)
             except ValidationError as e:
-                rich.print(f"[bold red]Error loading legacy storage file: {e}[/bold red]")
-                rich.print(f"[bold red]Please fix the file {self.path}, or delete it.[/bold red]")
-                self.save_scanned_entities = False
+                rich.print(f"[bold red]Could not load legacy storage file {self.path}: {e}[/bold red]")
             os.remove(path)
         
         if os.path.exists(path) and os.path.isdir(path):
@@ -39,9 +36,7 @@ class StorageFile:
                     try:
                         self.scanned_entities = ScannedEntities.model_validate_json(f.read())
                     except ValidationError as e:
-                        print(f"[bold red]Error loading scanned entities file: {e}[/bold red]")
-                        rich.print(f"[bold red]Please fix the file {scanned_entities_path}, or delete it.[/bold red]")
-                        self.save_scanned_entities = False
+                        rich.print(f"[bold red]Could not load scanned entities file {scanned_entities_path}: {e}[/bold red]")
             if os.path.exists(os.path.join(path, "whitelist.json")):
                 with open(os.path.join(path, "whitelist.json"), "r") as f:
                     self.whitelist = json.load(f)
@@ -50,8 +45,12 @@ class StorageFile:
         self.whitelist = {}
         self.save()
         
-    def compute_hash(self, entity: Entity) -> str:
-        return md5((entity.description or "no description").encode()).hexdigest()
+    def compute_hash(self, entity: Entity|None) -> str|None:
+        if entity is None:
+            return None
+        if not hasattr(entity, "description") or entity.description is None:
+            return None
+        return md5((entity.description).encode()).hexdigest()
 
     def check_and_update(self, server_name: str, entity: Entity, verified: Any) -> tuple[Result, ScannedEntity | None]:
         entity_type = entity_type_to_str(entity)

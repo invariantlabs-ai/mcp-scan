@@ -3,6 +3,7 @@ import os
 import json
 import textwrap
 import asyncio
+from uu import Error
 import requests
 import ast
 import rich
@@ -30,7 +31,7 @@ def format_err_str(e: Exception, max_length: int | None=None) -> str:
         name = type(e).__name__
         try:
 
-            def _mapper(e: Exception) -> str:
+            def _mapper(e: Exception|Error|str) -> str:
                 if isinstance(e, Exception):
                     return format_err_str(e)
                 return str(e)
@@ -60,8 +61,8 @@ def format_servers_line(server: str, status: str | None=None) -> Text:
     return Text.from_markup(text)
 
 
-def format_tool_line(
-    tool: Entity,
+def format_entity_line(
+    entity: Entity,
     verified: Result,
     changed: Result = Result(),
     include_description: bool=False,
@@ -79,20 +80,20 @@ def format_tool_line(
     ]
     
     # right-pad & truncate name
-    name = tool.name
+    name = entity.name
     if len(name) > 25:
         name = name[:22] + "..."
     name = name + " " * (25 - len(name))
     
     # right-pad type
-    type = entity_type_to_str(tool)
+    type = entity_type_to_str(entity)
     type = type + " " * (len('resource') - len(type))
     
     text = f"{type} {color}[bold]{name}[/bold] {icon} {message}"
 
     if include_description:
-        if hasattr(tool, "description") and tool.description is not None:
-            description = textwrap.dedent(tool.description)
+        if hasattr(entity, "description") and entity.description is not None:
+            description = textwrap.dedent(entity.description)
         else:
             description = "<no description available>"
         text += f"\n[gray62][bold]Current description:[/bold]\n{description}[/gray62]"
@@ -113,7 +114,7 @@ class MCPScanner:
         storage_file: str="~/.mcp-scan",
         server_timeout: int=10,
         suppress_mcpserver_io: bool=True,
-        command: Literal["scan", "inspect", "whitelist"] | None = None,
+        **kwargs: Any,
     ):
         self.paths = files
         self.base_url = base_url
@@ -161,7 +162,7 @@ class MCPScanner:
             if inspect_only:
                 for entity in entities:
                     server_print.add(
-                        format_tool_line(
+                        format_entity_line(
                             entity,
                             Result(None),
                             Result(None),
