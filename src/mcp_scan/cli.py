@@ -1,7 +1,6 @@
 import sys
 import argparse
 from .MCPScanner import MCPScanner
-from mcp_scan.gateway import MCPGatewayInstaller, MCPGatewayConfig
 from .StorageFile import StorageFile
 import rich
 from .version import version_info

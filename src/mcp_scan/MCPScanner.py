@@ -1,11 +1,7 @@
-import inspect
 import os
-import json
 import textwrap
 import asyncio
 from uu import Error
-import requests
-import ast
 import rich
 from rich.tree import Tree
 from rich.text import Text
@@ -14,7 +10,7 @@ from mcp_scan.models import Entity, entity_type_to_str
 from .models import Result
 from .StorageFile import StorageFile
 from .verify_api import verify_server
-from typing import Literal
+from typing import Any
 
 
 def format_err_str(e: Exception, max_length: int | None=None) -> str:
@@ -202,7 +198,7 @@ class MCPScanner:
                             additional_text = message
 
                     server_print.add(
-                        format_tool_line(
+                        format_entity_line(
                             entity,
                             verified,
                             changed,
