@@ -1,19 +1,22 @@
+import asyncio
 import os
 import textwrap
-import asyncio
+from typing import Any
 from uu import Error
+
 import rich
-from rich.tree import Tree
 from rich.text import Text
-from .mcp_client import check_server_with_timeout, scan_mcp_config_file
+from rich.tree import Tree
+
 from mcp_scan.models import Entity, entity_type_to_str
+
+from .mcp_client import check_server_with_timeout, scan_mcp_config_file
 from .models import Result
 from .StorageFile import StorageFile
 from .verify_api import verify_server
-from typing import Any
 
 
-def format_err_str(e: Exception, max_length: int | None=None) -> str:
+def format_err_str(e: Exception, max_length: int | None = None) -> str:
     try:
         if isinstance(e, ExceptionGroup):
             text = ", ".join([format_err_str(e) for e in e.exceptions])
@@ -21,13 +24,13 @@ def format_err_str(e: Exception, max_length: int | None=None) -> str:
             text = "Could not reach server within timeout"
         else:
             raise Exception()
-    except:
+    except Exception:
         text = None
     if text is None:
         name = type(e).__name__
         try:
 
-            def _mapper(e: Exception|Error|str) -> str:
+            def _mapper(e: Exception | Error | str) -> str:
                 if isinstance(e, Exception):
                     return format_err_str(e)
                 return str(e)
@@ -45,12 +48,12 @@ def format_err_str(e: Exception, max_length: int | None=None) -> str:
     return text
 
 
-def format_path_line(path: str, status: str | None, operation: str="Scanning") -> Text:
+def format_path_line(path: str, status: str | None, operation: str = "Scanning") -> Text:
     text = f"● {operation} [bold]{path}[/bold] [gray62]{status or ''}[/gray62]"
     return Text.from_markup(text)
 
 
-def format_servers_line(server: str, status: str | None=None) -> Text:
+def format_servers_line(server: str, status: str | None = None) -> Text:
     text = f"[bold]{server}[/bold]"
     if status:
         text += f" [gray62]{status}[/gray62]"
@@ -61,8 +64,8 @@ def format_entity_line(
     entity: Entity,
     verified: Result,
     changed: Result = Result(),
-    include_description: bool=False,
-    additional_text: str | None=None,
+    include_description: bool = False,
+    additional_text: str | None = None,
 ) -> Text:
     is_verified = verified.value
     if is_verified is not None and changed.value is not None:
@@ -71,20 +74,18 @@ def format_entity_line(
     message = ", ".join([m for m in [verified.message, changed.message] if m is not None])
 
     color = {True: "[green]", False: "[red]", None: "[gray62]"}[is_verified]
-    icon = {True: ":white_heavy_check_mark:", False: ":cross_mark:", None: ""}[
-        is_verified
-    ]
-    
+    icon = {True: ":white_heavy_check_mark:", False: ":cross_mark:", None: ""}[is_verified]
+
     # right-pad & truncate name
     name = entity.name
     if len(name) > 25:
         name = name[:22] + "..."
     name = name + " " * (25 - len(name))
-    
+
     # right-pad type
     type = entity_type_to_str(entity)
-    type = type + " " * (len('resource') - len(type))
-    
+    type = type + " " * (len("resource") - len(type))
+
     text = f"{type} {color}[bold]{name}[/bold] {icon} {message}"
 
     if include_description:
@@ -104,12 +105,12 @@ def format_entity_line(
 class MCPScanner:
     def __init__(
         self,
-        files: list[str]=[],
-        base_url: str="https://mcp.invariantlabs.ai/",
-        checks_per_server: int=1,
-        storage_file: str="~/.mcp-scan",
-        server_timeout: int=10,
-        suppress_mcpserver_io: bool=True,
+        files: list[str] = [],
+        base_url: str = "https://mcp.invariantlabs.ai/",
+        checks_per_server: int = 1,
+        storage_file: str = "~/.mcp-scan",
+        server_timeout: int = 10,
+        suppress_mcpserver_io: bool = True,
         **kwargs: Any,
     ):
         self.paths = files
@@ -120,16 +121,16 @@ class MCPScanner:
         self.server_timeout = server_timeout
         self.suppress_mcpserver_io = suppress_mcpserver_io
 
-    def scan(self, path: str, verbose: bool=True, inspect_only:bool=False) -> None:
+    def scan(self, path: str, verbose: bool = True, inspect_only: bool = False) -> None:
         status: str | None = None
         try:
             servers = scan_mcp_config_file(path).get_servers()
             status = f"found {len(servers)} server{'' if len(servers) == 1 else 's'}"
         except FileNotFoundError:
-            status = f"file does not exist"
+            status = "file does not exist"
             return
         except Exception:
-            status = f"could not parse file"
+            status = "could not parse file"
             return
         finally:
             if verbose:
@@ -140,18 +141,14 @@ class MCPScanner:
         for server_name, server_config in servers.items():
             try:
                 prompts, resources, tools = asyncio.run(
-                    check_server_with_timeout(
-                        server_config, self.server_timeout, self.suppress_mcpserver_io
-                    )
+                    check_server_with_timeout(server_config, self.server_timeout, self.suppress_mcpserver_io)
                 )
                 status = None
             except Exception as e:
                 status = format_err_str(e)
                 continue
             finally:
-                server_print = path_print_tree.add(
-                    format_servers_line(server_name, status)
-                )
+                server_print = path_print_tree.add(format_servers_line(server_name, status))
             entities: list[Entity] = tools + prompts + resources
             servers_with_entities[server_name] = entities
 
@@ -171,17 +168,20 @@ class MCPScanner:
                     verification_result_prompts,
                     verification_result_resources,
                 ) = verify_server(tools, prompts, resources, base_url=self.base_url)
+                verification_results = (
+                    verification_result_tools + verification_result_prompts + verification_result_resources
+                )
                 for entity, verified in zip(
                     entities,
-                    verification_result_tools + verification_result_prompts + verification_result_resources,
+                    verification_results,
                 ):
                     additional_text = None
                     # check if tool has changed
-                    changed, prev_data = self.storage_file.check_and_update(
-                        server_name, entity, verified.value
-                    )
+                    changed, prev_data = self.storage_file.check_and_update(server_name, entity, verified.value)
                     if changed.value is True and prev_data is not None:
-                        additional_text = f"[bold]Previous description({prev_data.timestamp}):[/bold]\n{prev_data.description}"
+                        additional_text = (
+                            f"[bold]Previous description({prev_data.timestamp}):[/bold]\n{prev_data.description}"
+                        )
 
                     # check if tool is whitelisted
                     if self.storage_file.is_whitelisted(entity):
@@ -191,7 +191,11 @@ class MCPScanner:
                         )
                     elif verified.value is False or changed.value is True:
                         hash = self.storage_file.compute_hash(entity)
-                        message = f'[bold]You can whitelist this {type} by running `mcp-scan whitelist {type} "{entity.name}" {hash}`[/bold]'
+                        message = (
+                            f"[bold]You can whitelist this {entity_type_to_str(entity)} "
+                            f"by running `mcp-scan whitelist {entity_type_to_str(entity)} "
+                            f"'{entity.name}' {hash}`[/bold]"
+                        )
                         if additional_text is not None:
                             additional_text += "\n\n" + message
                         else:
@@ -202,9 +206,7 @@ class MCPScanner:
                             entity,
                             verified,
                             changed,
-                            include_description=(
-                                verified.value is False or changed.value is True
-                            ),
+                            include_description=(verified.value is False or changed.value is True),
                             additional_text=additional_text,
                         )
                     )
@@ -220,9 +222,7 @@ class MCPScanner:
             other_server_names = set(servers.keys())
             other_server_names.remove(server_name)
             other_entity_names = [
-                entity.name
-                for s in other_server_names
-                for entity in servers_with_entities.get(s, [])
+                entity.name for s in other_server_names for entity in servers_with_entities.get(s, [])
             ]
             flagged_names = set(map(str.lower, list(other_server_names) + other_entity_names))
             for entity in entities:
@@ -235,7 +235,9 @@ class MCPScanner:
             if cross_ref_found:
                 rich.print(
                     rich.text.Text.from_markup(
-                        f"\n[bold yellow]:construction: Cross-Origin Violation: Descriptions of server {cross_reference_sources} explicitly mention tools or resources of other servers, or other servers.[/bold yellow]"
+                        f"\n[bold yellow]:construction: Cross-Origin Violation: "
+                        f"Descriptions of server {cross_reference_sources} explicitly mention "
+                        f"tools or resources of other servers, or other servers.[/bold yellow]"
                     ),
                 )
             rich.print()

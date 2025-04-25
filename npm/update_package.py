@@ -1,5 +1,6 @@
 # read pyproject.toml
 import json
+
 from mcp_scan.version import version_info
 
 with open("npm/package.json", "r") as f:

@@ -11,7 +11,7 @@ To run MCP-Scan, use the following command:
 uvx mcp-scan@latest
 ```
 
-or 
+or
 
 ```
 npx mcp-scan@latest
