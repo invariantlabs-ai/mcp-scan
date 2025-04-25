@@ -210,43 +210,6 @@ def main():
         help="Hash of the entity to whitelist",
         metavar="HASH",
     )
-    # install
-    install_parser = subparsers.add_parser("install", help="Install Invariant Gateway")
-    install_parser.add_argument(
-        "files",
-        type=str,
-        nargs="*",
-        default=WELL_KNOWN_MCP_PATHS,
-        help="Different file locations to scan. This can include custom file locations as long as they are in an expected format, including Claude, Cursor or VSCode format.",
-    )
-    install_parser.add_argument(
-        "--project_name",
-        type=str,
-        default="mcp-gateway",
-        help="Project name for the Invariant Gateway",
-    )
-    install_parser.add_argument(
-        "--api-key",
-        type=str,
-        required=True,
-        help="api key for the Invariant Gateway",
-    )
-    install_parser.add_argument(
-        "--local-only",
-        default=False,
-        action="store_true",
-        help="Prevent pushing traces to the explorer.",
-    )
-
-    # uninstall
-    uninstall_parser = subparsers.add_parser("uninstall", help="Uninstall Invariant Gateway")
-    uninstall_parser.add_argument(
-        "files",
-        type=str,
-        nargs="*",
-        default=WELL_KNOWN_MCP_PATHS,
-        help="Different file locations to scan. This can include custom file locations as long as they are in an expected format, including Claude, Cursor or VSCode format.",
-    )
 
     # HELP command
     help_parser = subparsers.add_parser(
