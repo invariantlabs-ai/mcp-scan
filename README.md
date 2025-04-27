@@ -18,7 +18,7 @@ npx mcp-scan@latest
 ```
 
 ### Example Run
-[![asciicast](https://asciinema.org/a/716858.svg)](https://asciinema.org/a/716858)
+[![demo](demo.svg)](https://asciinema.org/a/716858)
 
 
 ## Features
