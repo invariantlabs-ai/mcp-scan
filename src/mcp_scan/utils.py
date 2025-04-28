@@ -20,7 +20,7 @@ def rebalance_command_args(command, args):
         %ignore WS
         """,
         parser="lalr",
-        lexer="standard",
+        lexer="basic",
         start="command",
         regex=True,
     )

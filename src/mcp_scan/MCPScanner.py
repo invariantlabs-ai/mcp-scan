@@ -2,7 +2,6 @@ import asyncio
 import os
 import textwrap
 from typing import Any
-from uu import Error
 
 import rich
 from rich.text import Text
@@ -30,7 +29,7 @@ def format_err_str(e: Exception, max_length: int | None = None) -> str:
         name = type(e).__name__
         try:
 
-            def _mapper(e: Exception | Error | str) -> str:
+            def _mapper(e: Exception | str) -> str:
                 if isinstance(e, Exception):
                     return format_err_str(e)
                 return str(e)
