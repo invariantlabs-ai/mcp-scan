@@ -5,6 +5,7 @@ import psutil
 import rich
 
 from mcp_scan.gateway import MCPGatewayConfig, MCPGatewayInstaller
+from mcp_scan_server.server import MCPScanServer
 
 from .MCPScanner import MCPScanner
 from .StorageFile import StorageFile
@@ -266,6 +267,17 @@ def main():
         description="Display detailed help information and examples.",
     )
 
+    # SERVER command
+    server_parser = subparsers.add_parser("server", help="Start the MCP scan server")
+    server_parser.add_argument(
+        "--port",
+        type=int,
+        default=8000,
+        help="Port to run the server on (default: 8000)",
+        metavar="PORT",
+    )
+    add_common_arguments(server_parser)
+
     # Display version banner
     rich.print(f"[bold blue]Invariant MCP-scan v{version_info}[/bold blue]\n")
 
@@ -332,6 +344,12 @@ def main():
             sys.exit(1)
     elif args.command == "scan" or args.command is None:  # default to scan
         MCPScanner(**vars(args)).start()
+        sys.exit(0)
+    elif args.command == "server":
+        sf = StorageFile(args.storage_file)
+        guardrails_config_path = sf.create_guardrails_config()
+        mcp_scan_server = MCPScanServer(port=args.port, config_file_path=guardrails_config_path)
+        mcp_scan_server.run()
         sys.exit(0)
     else:
         # This shouldn't happen due to argparse's handling

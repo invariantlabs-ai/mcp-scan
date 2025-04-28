@@ -9,19 +9,22 @@ from pydantic import ValidationError
 
 from .models import Entity, Result, ScannedEntities, ScannedEntity, entity_type_to_str
 from .utils import upload_whitelist_entry
-
+from mcp_scan_server.models import GuardrailConfig
+import yaml
 
 class StorageFile:
     def __init__(self, path: str):
         self.path = os.path.expanduser(path)
+
         # if path is a file
         self.scanned_entities: ScannedEntities = ScannedEntities({})
         self.whitelist: dict[str, str] = {}
+        self.guardrails_config: GuardrailConfig = GuardrailConfig({})
 
-        if os.path.isfile(path):
-            rich.print(f"[bold]Legacy storage file detected at {path}, converting to new format[/bold]")
+        if os.path.isfile(self.path):
+            rich.print(f"[bold]Legacy storage file detected at {self.path}, converting to new format[/bold]")
             # legacy format
-            with open(path, "r") as f:
+            with open(self.path, "r") as f:
                 legacy_data = json.load(f)
             if "__whitelist" in legacy_data:
                 self.whitelist = legacy_data["__whitelist"]
@@ -32,8 +35,9 @@ class StorageFile:
                 rich.print(f"[bold red]Could not load legacy storage file {self.path}: {e}[/bold red]")
             os.remove(path)
 
-        if os.path.exists(path) and os.path.isdir(path):
-            scanned_entities_path = os.path.join(path, "scanned_entities.json")
+        print(path, os.path.exists(path), os.path.isdir(path))
+        if os.path.exists(self.path) and os.path.isdir(self.path):
+            scanned_entities_path = os.path.join(self.path, "scanned_entities.json")
             if os.path.exists(scanned_entities_path):
                 with open(scanned_entities_path, "r") as f:
                     try:
@@ -42,9 +46,26 @@ class StorageFile:
                         rich.print(
                             f"[bold red]Could not load scanned entities file {scanned_entities_path}: {e}[/bold red]"
                         )
-            if os.path.exists(os.path.join(path, "whitelist.json")):
-                with open(os.path.join(path, "whitelist.json"), "r") as f:
+            if os.path.exists(os.path.join(self.path, "whitelist.json")):
+                with open(os.path.join(self.path, "whitelist.json"), "r") as f:
                     self.whitelist = json.load(f)
+            
+            guardrails_config_path = os.path.join(self.path, "guardrails_config.yml")
+            print(guardrails_config_path)
+            if os.path.exists(guardrails_config_path):
+                print("Reading guardrails config")
+                with open(guardrails_config_path, "r") as f:
+                    try:
+                        guardrails_config_data = yaml.safe_load(f.read()) or {}
+                        self.guardrails_config = GuardrailConfig.model_validate(guardrails_config_data)
+                    except yaml.YAMLError as e:
+                        rich.print(
+                            f"[bold red]Could not parse guardrails config file {guardrails_config_path}: {e}[/bold red]"
+                        )
+                    except ValidationError as e:
+                        rich.print(
+                            f"[bold red]Could not validate guardrails config file {guardrails_config_path}: {e}[/bold red]"
+                        )
 
     def reset_whitelist(self) -> None:
         self.whitelist = {}
@@ -101,10 +122,25 @@ class StorageFile:
     def is_whitelisted(self, entity: Entity) -> bool:
         hash = self.compute_hash(entity)
         return hash in self.whitelist.values()
+    
+    def create_guardrails_config(self) -> str:
+        """
+        If the guardrails config file does not exist, create it with default values.
 
+        Returns the path to the guardrails config file.
+        """
+        guardrails_config_path = os.path.join(self.path, "guardrails_config.yml")
+        if not os.path.exists(guardrails_config_path):
+            with open(guardrails_config_path, "w") as f:
+                if self.guardrails_config is not None:
+                    f.write(self.guardrails_config)
+        return guardrails_config_path
+    
     def save(self) -> None:
         os.makedirs(self.path, exist_ok=True)
         with open(os.path.join(self.path, "scanned_entities.json"), "w") as f:
             f.write(self.scanned_entities.model_dump_json())
         with open(os.path.join(self.path, "whitelist.json"), "w") as f:
             json.dump(self.whitelist, f)
+        with open(os.path.join(self.path, "guardrails_config.yml"), "w") as f:
+            f.write(self.guardrails_config)
