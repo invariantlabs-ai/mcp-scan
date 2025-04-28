@@ -142,5 +142,3 @@ class StorageFile:
             f.write(self.scanned_entities.model_dump_json())
         with open(os.path.join(self.path, "whitelist.json"), "w") as f:
             json.dump(self.whitelist, f)
-        with open(os.path.join(self.path, "guardrails_config.yml"), "w") as f:
-            f.write(self.guardrails_config)
