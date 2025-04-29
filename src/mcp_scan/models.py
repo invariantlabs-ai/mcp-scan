@@ -164,8 +164,6 @@ class ServerScanResult(BaseModel):
         else:
             return [(entity, None) for entity in self.entities]
 
-    # TODO add a verifier on the list length of result
-
 
 class ScanPathResult(BaseModel):
     model_config = ConfigDict()
