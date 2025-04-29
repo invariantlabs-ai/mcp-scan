@@ -3,7 +3,7 @@ from hashlib import md5
 from typing import Any, Literal, TypeAlias
 
 from mcp.types import Prompt, Resource, Tool
-from pydantic import BaseModel, ConfigDict, RootModel, field_validator
+from pydantic import BaseModel, ConfigDict, RootModel, field_serializer, field_validator, model_serializer
 
 Entity: TypeAlias = Prompt | Resource | Tool
 
@@ -119,6 +119,10 @@ class ScanException(BaseModel):
     message: str | None = None
     error: Exception | None = None
 
+    @field_serializer("error")
+    def serialize_error(self, error: Exception | None, _info) -> str | None:
+        return str(error) if error else None
+
     @property
     def text(self) -> str:
         return self.message or (str(self.error) or "")
@@ -136,7 +140,7 @@ class EntityScanResult(BaseModel):
 class CrossRefResult(BaseModel):
     model_config = ConfigDict()
     found: bool | None = None
-    sources: set[str] = set()
+    sources: list[str] = []
 
 
 class ServerScanResult(BaseModel):
@@ -148,6 +152,22 @@ class ServerScanResult(BaseModel):
     tools: list[Tool] = []
     result: list[EntityScanResult] | None = None
     error: ScanException | None = None
+
+    @model_serializer
+    def serialize(self, _info):
+        entities_with_result = self.entities_with_result
+        prompts_with_result = entities_with_result[: len(self.prompts)]
+        resources_with_result = entities_with_result[len(self.prompts) : len(self.prompts) + len(self.resources)]
+        tools_with_result = entities_with_result[len(self.prompts) + len(self.resources) :]
+
+        return {
+            "name": self.name,
+            "server": self.server,
+            "prompts": prompts_with_result,
+            "resources": resources_with_result,
+            "tools": tools_with_result,
+            "error": self.error,
+        }
 
     @property
     def entities(self) -> list[Entity]:

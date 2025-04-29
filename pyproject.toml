@@ -34,7 +34,7 @@ packages = ["mcp_scan"]
 [project.optional-dependencies]
 test = [
     "pytest>=7.4.0",
-    "pytest-asyncio>=0.21.0",
+    "anyio>=4.0.0"
 ]
 dev = [
     "shiv>=1.0.4",
@@ -45,6 +45,7 @@ testpaths = ["tests"]
 python_files = "test_*.py"
 python_classes = "Test*"
 python_functions = "test_*"
+
 
 [tool.black]
 line-length = 120

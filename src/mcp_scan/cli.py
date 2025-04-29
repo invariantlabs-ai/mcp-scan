@@ -1,5 +1,6 @@
 import argparse
 import asyncio
+import json
 import sys
 
 import psutil
@@ -145,6 +146,11 @@ async def main():
         help="Configuration files to scan (default: known MCP config locations)",
         metavar="CONFIG_FILE",
     )
+    scan_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Output results in JSON format in non-interactive mode",
+    )
 
     # INSPECT command
     inspect_parser = subparsers.add_parser(
@@ -161,6 +167,11 @@ async def main():
         default=WELL_KNOWN_MCP_PATHS,
         help="Configuration files to inspect (default: known MCP config locations)",
         metavar="CONFIG_FILE",
+    )
+    inspect_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Output results in JSON format in non-interactive mode",
     )
 
     # WHITELIST command
@@ -254,7 +265,11 @@ async def main():
             sys.exit(1)
     elif args.command == "inspect":
         result = await MCPScanner(**vars(args)).inspect()
-        print_scan_result(result)
+        if args.json:
+            result = dict((r.path, r.model_dump()) for r in result)
+            rich.print(json.dumps(result, indent=2))
+        else:
+            print_scan_result(result)
         sys.exit(0)
     elif args.command == "whitelist":
         if args.reset:
@@ -274,7 +289,11 @@ async def main():
         async with MCPScanner(**vars(args)) as scanner:
             # scanner.hook('path_scanned', print_path_scanned)
             result = await scanner.scan()
-        print_scan_result(result)
+        if args.json:
+            result = dict((r.path, r.model_dump()) for r in result)
+            rich.print(json.dumps(result, indent=2))
+        else:
+            print_scan_result(result)
         sys.exit(0)
     else:
         # This shouldn't happen due to argparse's handling

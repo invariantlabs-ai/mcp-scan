@@ -67,7 +67,7 @@ SAMPLE_CONFIGS = [
 ]
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_scan_mcp_config():
     for config in SAMPLE_CONFIGS:
         with tempfile.NamedTemporaryFile(mode="w") as temp_file:
@@ -76,7 +76,7 @@ async def test_scan_mcp_config():
             config = await scan_mcp_config_file(temp_file.name)
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 @patch("mcp_scan.mcp_client.stdio_client")
 async def test_check_server_mocked(mock_stdio_client):
     # Create mock objects
@@ -136,7 +136,7 @@ async def test_check_server_mocked(mock_stdio_client):
         assert len(tools) == 3
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_mcp_server():
     path = "tests/mcp_servers/mcp_config.json"
     servers = (await scan_mcp_config_file(path)).get_servers()

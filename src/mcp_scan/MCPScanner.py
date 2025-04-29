@@ -144,7 +144,6 @@ class MCPScanner:
 
     async def check_cross_references(self, path_result: ScanPathResult) -> CrossRefResult:
         cross_ref_result = CrossRefResult(found=False)
-        cross_reference_sources = set()
         for server in path_result.servers:
             other_servers = [s for s in path_result.servers if s != server]
             other_server_names = [s.name for s in other_servers]
@@ -155,7 +154,7 @@ class MCPScanner:
                 for token in tokens:
                     if token in flagged_names:
                         cross_ref_result.found = True
-                        cross_reference_sources.add(token)
+                        cross_ref_result.sources.append(token)
         return cross_ref_result
 
     async def scan(self) -> list[ScanPathResult]:
