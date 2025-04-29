@@ -4,6 +4,7 @@ import textwrap
 from typing import Any
 
 import rich
+from exceptiongroup import ExceptionGroup
 from rich.text import Text
 from rich.tree import Tree
 

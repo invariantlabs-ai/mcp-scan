@@ -1,7 +1,9 @@
 import asyncio
+import os
 
 import fastapi
-import yaml
+import rich
+import yaml  # type: ignore
 from fastapi import APIRouter, Request
 from invariant.analyzer.policy import LocalPolicy
 from invariant.analyzer.runtime.runtime_errors import (
@@ -10,21 +12,29 @@ from invariant.analyzer.runtime.runtime_errors import (
     MissingPolicyParameter,
 )
 from pydantic import ValidationError
+
 from ..models import (
     BatchCheckRequest,
     BatchCheckResponse,
     DatasetPolicy,
-    PolicyCheckResult,
     GuardrailConfig,
+    PolicyCheckResult,
 )
 
 router = APIRouter()
 
 
 async def get_all_policies(config_file_path: str) -> list[DatasetPolicy]:
-    """
-    Get all policies from local config file.
-    """
+    """Get all policies from local config file."""
+    if not os.path.exists(config_file_path):
+        # Format this as multiple lines without printing it like this
+        rich.print(
+            f"""[bold red]Guardrail config file not found: {config_file_path}. Creating an empty one.[/bold red]"""
+        )
+        config = GuardrailConfig.model_validate({})
+        with open(config_file_path, "w") as f:
+            f.write(config.model_dump_yaml())
+
     with open(config_file_path, "r") as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
         try:
@@ -56,16 +66,12 @@ async def get_all_policies(config_file_path: str) -> list[DatasetPolicy]:
 
 @router.get("/dataset/byuser/{username}/{dataset_name}/policy")
 async def get_policy(username: str, dataset_name: str, request: Request):
-    """
-    Get a policy from local config file.
-    """
+    """Get a policy from local config file."""
     policies = await get_all_policies(request.app.state.config_file_path)
     return {"policies": policies}
 
 
-async def check_policy(
-    policy_str: str, messages: list[dict], parameters: dict = {}
-) -> PolicyCheckResult:
+async def check_policy(policy_str: str, messages: list[dict], parameters: dict = {}) -> PolicyCheckResult:
     """
     Check a policy using the invariant analyzer.
 
@@ -110,9 +116,7 @@ async def check_policy(
 
 
 def to_json_serializable_dict(obj):
-    """
-    Converts a dictionary to a JSON serializable dictionary.
-    """
+    """Convert a dictionary to a JSON serializable dictionary."""
     if isinstance(obj, dict):
         return {k: to_json_serializable_dict(v) for k, v in obj.items()}
     elif isinstance(obj, list):
@@ -127,20 +131,11 @@ def to_json_serializable_dict(obj):
 
 @router.post("/policy/check/batch", response_model=BatchCheckResponse)
 async def batch_check_policies(request: BatchCheckRequest):
-    """
-    Check a policy using the invariant analyzer.
-    """
+    """Check a policy using the invariant analyzer."""
     results = await asyncio.gather(
-        *[
-            check_policy(policy, request.messages, request.parameters)
-            for policy in request.policies
-        ]
+        *[check_policy(policy, request.messages, request.parameters) for policy in request.policies]
     )
 
     return fastapi.responses.JSONResponse(
-        content={
-            "result": [
-                to_json_serializable_dict(result.to_dict()) for result in results
-            ]
-        }
+        content={"result": [to_json_serializable_dict(result.to_dict()) for result in results]}
     )

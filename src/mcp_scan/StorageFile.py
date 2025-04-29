@@ -5,12 +5,14 @@ from hashlib import md5
 from typing import Any
 
 import rich
+import yaml  # type: ignore
 from pydantic import ValidationError
+
+from mcp_scan_server.models import GuardrailConfig
 
 from .models import Entity, Result, ScannedEntities, ScannedEntity, entity_type_to_str
 from .utils import upload_whitelist_entry
-from mcp_scan_server.models import GuardrailConfig
-import yaml
+
 
 class StorageFile:
     def __init__(self, path: str):
@@ -35,7 +37,6 @@ class StorageFile:
                 rich.print(f"[bold red]Could not load legacy storage file {self.path}: {e}[/bold red]")
             os.remove(path)
 
-        print(path, os.path.exists(path), os.path.isdir(path))
         if os.path.exists(self.path) and os.path.isdir(self.path):
             scanned_entities_path = os.path.join(self.path, "scanned_entities.json")
             if os.path.exists(scanned_entities_path):
@@ -49,22 +50,22 @@ class StorageFile:
             if os.path.exists(os.path.join(self.path, "whitelist.json")):
                 with open(os.path.join(self.path, "whitelist.json"), "r") as f:
                     self.whitelist = json.load(f)
-            
+
             guardrails_config_path = os.path.join(self.path, "guardrails_config.yml")
-            print(guardrails_config_path)
             if os.path.exists(guardrails_config_path):
-                print("Reading guardrails config")
                 with open(guardrails_config_path, "r") as f:
                     try:
                         guardrails_config_data = yaml.safe_load(f.read()) or {}
                         self.guardrails_config = GuardrailConfig.model_validate(guardrails_config_data)
                     except yaml.YAMLError as e:
                         rich.print(
-                            f"[bold red]Could not parse guardrails config file {guardrails_config_path}: {e}[/bold red]"
+                            f"[bold red]Could not parse guardrails config file "
+                            f"{guardrails_config_path}: {e}[/bold red]"
                         )
                     except ValidationError as e:
                         rich.print(
-                            f"[bold red]Could not validate guardrails config file {guardrails_config_path}: {e}[/bold red]"
+                            f"[bold red]Could not validate guardrails config file "
+                            f"{guardrails_config_path}: {e}[/bold red]"
                         )
 
     def reset_whitelist(self) -> None:
@@ -122,7 +123,7 @@ class StorageFile:
     def is_whitelisted(self, entity: Entity) -> bool:
         hash = self.compute_hash(entity)
         return hash in self.whitelist.values()
-    
+
     def create_guardrails_config(self) -> str:
         """
         If the guardrails config file does not exist, create it with default values.
@@ -133,12 +134,14 @@ class StorageFile:
         if not os.path.exists(guardrails_config_path):
             with open(guardrails_config_path, "w") as f:
                 if self.guardrails_config is not None:
-                    f.write(self.guardrails_config)
+                    f.write(self.guardrails_config.model_dump_yaml())
         return guardrails_config_path
-    
+
     def save(self) -> None:
         os.makedirs(self.path, exist_ok=True)
         with open(os.path.join(self.path, "scanned_entities.json"), "w") as f:
             f.write(self.scanned_entities.model_dump_json())
         with open(os.path.join(self.path, "whitelist.json"), "w") as f:
             json.dump(self.whitelist, f)
+        with open(os.path.join(self.path, "guardrails_config.yml"), "w") as f:
+            f.write(self.guardrails_config.model_dump_yaml())

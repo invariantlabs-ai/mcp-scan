@@ -8,8 +8,5 @@ router = APIRouter()
 
 @router.post("/trace")
 async def push_trace():
-    """
-    Push a trace. For now, this is a dummy response.
-    """
+    """Push a trace. For now, this is a dummy response."""
     return PushTracesResponse(id=[str(uuid.uuid4())], success=True)
-    

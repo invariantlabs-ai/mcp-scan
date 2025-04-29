@@ -2,15 +2,16 @@ import datetime
 from enum import Enum
 from typing import Optional
 
+import yaml  # type: ignore
 from invariant.analyzer.policy import AnalysisResult
-from pydantic import BaseModel, Field, RootModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, RootModel
 
 
 class PolicyRunsOn(str, Enum):
     """Policy runs on enum."""
 
-    local: str = "local"
-    remote: str = "remote"
+    local = "local"
+    remote = "remote"
 
 
 class Policy(BaseModel):
@@ -26,9 +27,7 @@ class PolicyCheckResult(BaseModel):
 
     policy: str = Field(description="The policy that was applied.")
     result: Optional[AnalysisResult] = None
-    success: bool = Field(
-        description="Whether this policy check was successful (loaded and ran)."
-    )
+    success: bool = Field(description="Whether this policy check was successful (loaded and ran).")
     error_message: str = Field(
         default="",
         description="Error message in case of failure to load or execute the policy.",
@@ -54,8 +53,12 @@ class BatchCheckRequest(BaseModel):
     policies: list[str] = Field(
         examples=[
             [
-                'raise Violation("Disallowed message content", reason="found ignore keyword") if:\n   (msg: Message)\n   "ignore" in msg.content\n',
-                'raise "get_capital is called with France as argument" if:\n    (call: ToolCall)\n    call is tool:get_capital\n    call.function.arguments["country_name"] == "France"',
+                """raise Violation("Disallowed message content", reason="found ignore keyword") if:\n
+                    (msg: Message)\n   "ignore" in msg.content\n""",
+                """raise "get_capital is called with France as argument" if:\n
+                    (call: ToolCall)\n    call is tool:get_capital\n
+                    call.function.arguments["country_name"] == "France"
+                """,
             ]
         ],
         description="The policy (rules) to check for.",
@@ -69,9 +72,7 @@ class BatchCheckRequest(BaseModel):
 class BatchCheckResponse(BaseModel):
     """Batch check response model."""
 
-    results: list[PolicyCheckResult] = Field(
-        default=[], description="List of results for each policy."
-    )
+    results: list[PolicyCheckResult] = Field(default=[], description="List of results for each policy.")
 
 
 class DatasetPolicy(BaseModel):
@@ -87,21 +88,25 @@ class DatasetPolicy(BaseModel):
     # extra metadata for the policy (can be used to store internal extra data about a guardrail)
     extra_metadata: dict = Field(default_factory=dict)
 
-    last_updated_time: str = Field(
-        default_factory=lambda: datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    )
+    last_updated_time: str = Field(default_factory=lambda: datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
     def to_dict(self) -> dict:
-        """Represents the object as a dictionary."""
+        """Represent the object as a dictionary."""
         return self.model_dump()
 
 
 class ServerGuardrails(BaseModel):
     """Server guardrails model."""
+
     guardrails: list[DatasetPolicy]
 
 
 class GuardrailConfig(RootModel[dict[str, dict[str, ServerGuardrails]]]):
     """Guardrail config model."""
+
     model_config = ConfigDict(populate_by_name=True)
 
+    def model_dump_yaml(self) -> str:
+        """Dump the object as a YAML string."""
+        data = self.model_dump()
+        return yaml.dump(data, sort_keys=False, default_flow_style=False)

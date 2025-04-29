@@ -1,5 +1,3 @@
-import os
-
 import uvicorn
 from fastapi import FastAPI
 
@@ -11,13 +9,14 @@ from .routes.user import router as user_router
 
 class MCPScanServer:
     """
-    MCP Scan Server
+    MCP Scan Server.
 
     Args:
         port: The port to run the server on.
         config_file_path: The path to the config file.
     """
-    def __init__(self, port: int = 8000, config_file_path: str = None):
+
+    def __init__(self, port: int = 8000, config_file_path: str | None = None):
         self.port = port
         self.config_file_path = config_file_path
 
@@ -30,8 +29,5 @@ class MCPScanServer:
         self.app.include_router(user_router, prefix="/api/v1/user")
 
     def run(self):
-        """
-        Run the MCP scan server.
-        """
+        """Run the MCP scan server."""
         uvicorn.run(self.app, host="0.0.0.0", port=self.port)
-
