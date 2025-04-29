@@ -17,6 +17,8 @@ dependencies = [
     "lark>=1.1.9",
     "psutil>=5.9.0",
     "openai-agents>=0.0.13",
+    "rapidfuzz>=3.13.0",
+    "regex>=2024.11.6",
 ]
 
 [project.scripts]

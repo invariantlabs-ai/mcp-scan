@@ -13,6 +13,10 @@ from .mcp_client import check_server_with_timeout, scan_mcp_config_file
 from .models import Result
 from .StorageFile import StorageFile
 from .verify_api import verify_server
+from rapidfuzz.distance import Levenshtein
+
+def calculate_distance(response: str, reference: str):
+    return sorted([(w, Levenshtein.distance(w, reference)) for w in response.split()], key=lambda x: x[1])
 
 
 def format_err_str(e: Exception, max_length: int | None = None) -> str:
@@ -217,6 +221,8 @@ class MCPScanner:
         # for each tool check if it referenced by tools of other servers
         cross_ref_found = False
         cross_reference_sources = set()
+        potential_cross_ref_found = False
+        potential_cross_reference_sources = set()
         for server_name, entities in servers_with_entities.items():
             other_server_names = set(servers.keys())
             other_server_names.remove(server_name)
@@ -230,6 +236,10 @@ class MCPScanner:
                     if token in flagged_names:
                         cross_ref_found = True
                         cross_reference_sources.add(token)
+                    if Levenshtein.distance(token, entity.name.lower()) <= 2:
+                        potential_cross_ref_found = True
+                        potential_cross_reference_sources.add(token)
+                
         if verbose:
             if cross_ref_found:
                 rich.print(
@@ -237,6 +247,14 @@ class MCPScanner:
                         f"\n[bold yellow]:construction: Cross-Origin Violation: "
                         f"Descriptions of server {cross_reference_sources} explicitly mention "
                         f"tools or resources of other servers, or other servers.[/bold yellow]"
+                    ),
+                )
+            if potential_cross_ref_found:
+                rich.print(
+                    rich.text.Text.from_markup(
+                        f"\n[bold purple]:construction: Potential Cross-Origin Violation: "
+                        f"Descriptions of server {potential_cross_reference_sources} mention similar "
+                        f"tools or resources of other servers, or other servers.[/bold purple]"
                     ),
                 )
             rich.print()
