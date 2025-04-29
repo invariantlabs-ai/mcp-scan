@@ -1,3 +1,4 @@
+import asyncio
 import os
 from typing import Any
 
@@ -119,11 +120,13 @@ class MCPScanner:
     async def scan(self) -> list[ScanPathResult]:
         for _ in range(self.checks_per_server):
             # intentionally overwrite and only report the last scan
-            result = [await self.scan_path(path) for path in self.paths]
+            result = [self.scan_path(path) for path in self.paths]
+            result_awaited = await asyncio.gather(*result)
         self.storage_file.save()
-        return result
+        return result_awaited
 
     async def inspect(self) -> list[ScanPathResult]:
-        result = [await self.scan_path(path, inspect_only=True) for path in self.paths]
+        result = [self.scan_path(path, inspect_only=True) for path in self.paths]
+        result_awaited = await asyncio.gather(*result)
         self.storage_file.save()
-        return result
+        return result_awaited
