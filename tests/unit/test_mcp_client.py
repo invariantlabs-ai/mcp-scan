@@ -8,71 +8,14 @@ import pytest
 from mcp_scan.mcp_client import check_server, scan_mcp_config_file
 from mcp_scan.models import StdioServer
 
-claudestyle_config = """
-{
-    "mcpServers": {
-        "claude": {
-            "command": "mcp",
-            "args": ["--server", "http://localhost:8000"],
-        }
-    }
-}
-"""
-
-vscode_mcp_config = """
-{
-  // Inputs are prompted on first server start, then stored securely by VS Code.
-  "inputs": [
-    {
-      "type": "promptString",
-      "id": "perplexity-key",
-      "description": "Perplexity API Key",
-      "password": true
-    }
-  ],
-  "servers": {
-    // https://github.com/ppl-ai/modelcontextprotocol/
-    "Perplexity": {
-      "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-perplexity-ask"],
-      "env": {
-        "PERPLEXITY_API_KEY": "ASDF"
-      }
-    }
-  }
-}
-
-"""
-
-vscode_config = """
-// settings.json
-{
-  "mcp": {
-    "servers": {
-      "my-mcp-server": {
-        "type": "stdio",
-        "command": "my-command",
-        "args": []
-      }
-    }
-  }
-}
-"""
-
-SAMPLE_CONFIGS = [
-    claudestyle_config,
-    vscode_mcp_config,
-    vscode_config,
-]
-
 
 @pytest.mark.anyio
-async def test_scan_mcp_config():
-    for config in SAMPLE_CONFIGS:
+async def test_scan_mcp_config(sample_configs):
+    for config in sample_configs:
         with tempfile.NamedTemporaryFile(mode="w") as temp_file:
             temp_file.write(config)
             temp_file.flush()
+
             config = await scan_mcp_config_file(temp_file.name)
 
 
@@ -130,10 +73,10 @@ async def test_check_server_mocked(mock_stdio_client):
         server = StdioServer(command="mcp", args=["run", "some_file.py"])
         prompts, resources, tools = await check_server(server, 2, True)
 
-        # Verify results
-        assert len(prompts) == 2
-        assert len(resources) == 1
-        assert len(tools) == 3
+    # Verify the results
+    assert len(prompts) == 2
+    assert len(resources) == 1
+    assert len(tools) == 3
 
 
 @pytest.mark.anyio

@@ -231,11 +231,12 @@ async def main():
         description="Display detailed help information and examples.",
     )
 
-    # Display version banner
-    rich.print(f"[bold blue]Invariant MCP-scan v{version_info}[/bold blue]\n")
-
     # Parse arguments (default to 'scan' if no command provided)
     args = parser.parse_args(["scan"] if len(sys.argv) == 1 else None)
+
+    # Display version banner
+    if not args.json:
+        rich.print(f"[bold blue]Invariant MCP-scan v{version_info}[/bold blue]\n")
 
     # Handle commands
     if args.command == "help":
@@ -267,7 +268,7 @@ async def main():
         result = await MCPScanner(**vars(args)).inspect()
         if args.json:
             result = dict((r.path, r.model_dump()) for r in result)
-            rich.print(json.dumps(result, indent=2))
+            print(json.dumps(result, indent=2))
         else:
             print_scan_result(result)
         sys.exit(0)
@@ -291,7 +292,7 @@ async def main():
             result = await scanner.scan()
         if args.json:
             result = dict((r.path, r.model_dump()) for r in result)
-            rich.print(json.dumps(result, indent=2))
+            print(json.dumps(result, indent=2))
         else:
             print_scan_result(result)
         sys.exit(0)
