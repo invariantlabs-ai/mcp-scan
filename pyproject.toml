@@ -10,13 +10,15 @@ classifiers = [
 ]
 dependencies = [
     "mcp[cli]>=1.6.0",
-    "requests>=2.32.3",
     "rich>=14.0.0",
+    "aiofiles>=23.1.0",
+    "types-aiofiles",
     "pyjson5>=1.6.8",
     "pydantic>=2.11.2",
     "lark>=1.1.9",
     "psutil>=5.9.0",
     "regex>=2024.11.6",
+    "aiohttp>=3.11.16",
 ]
 
 [project.scripts]
@@ -33,7 +35,7 @@ packages = ["mcp_scan"]
 [project.optional-dependencies]
 test = [
     "pytest>=7.4.0",
-    "pytest-asyncio>=0.21.0",
+    "anyio>=4.0.0"
 ]
 dev = [
     "shiv>=1.0.4",
@@ -44,6 +46,7 @@ testpaths = ["tests"]
 python_files = "test_*.py"
 python_classes = "Test*"
 python_functions = "test_*"
+
 
 [tool.black]
 line-length = 120

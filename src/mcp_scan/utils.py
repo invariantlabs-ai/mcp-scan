@@ -1,6 +1,6 @@
 import json
 
-import requests
+import aiohttp
 from lark import Lark
 
 
@@ -30,11 +30,14 @@ def rebalance_command_args(command, args):
     return command, args
 
 
-def upload_whitelist_entry(name: str, hash: str, base_url: str):
+async def upload_whitelist_entry(name: str, hash: str, base_url: str):
     url = base_url + "/api/v1/public/mcp-whitelist"
     headers = {"Content-Type": "application/json"}
     data = {
         "name": name,
         "hash": hash,
     }
-    requests.post(url, headers=headers, data=json.dumps(data))
+    async with aiohttp.ClientSession() as session:
+        async with session.post(url, headers=headers, data=json.dumps(data)) as response:
+            if response.status != 200:
+                raise Exception(f"Failed to upload whitelist entry: {response.status} - {response.text}")
