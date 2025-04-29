@@ -109,7 +109,8 @@ def format_entity_line(entity: Entity, result: EntityScanResult | None = None) -
         )
 
     if len(messages) > 0:
-        text += f"\n\n[gray62]{'\n'.join(messages)}[/gray62]"
+        message = "\n".join(messages)
+        text += f"\n\n[gray62]{message}[/gray62]"
 
     formatted_text = Text.from_markup(text)
     return formatted_text
