@@ -15,8 +15,8 @@ from .StorageFile import StorageFile
 from .verify_api import verify_server
 from rapidfuzz.distance import Levenshtein
 
-def calculate_distance(response: str, reference: str):
-    return sorted([(w, Levenshtein.distance(w, reference)) for w in response.split()], key=lambda x: x[1])
+def calculate_distance(responses: list[str], reference: str):
+    return sorted([(w, Levenshtein.distance(w, reference)) for w in responses], key=lambda x: x[1])
 
 
 def format_err_str(e: Exception, max_length: int | None = None) -> str:
@@ -236,9 +236,10 @@ class MCPScanner:
                     if token in flagged_names:
                         cross_ref_found = True
                         cross_reference_sources.add(token)
-                    if Levenshtein.distance(token, entity.name.lower()) <= 2:
+                    best_distance = calculate_distance(reference=token, responses=list(flagged_names))[0]
+                    if (best_distance[1] <= 2) and (len(token)>=5):
                         potential_cross_ref_found = True
-                        potential_cross_reference_sources.add(token)
+                        potential_cross_reference_sources.add(f"{entity.name}:{token}")
                 
         if verbose:
             if cross_ref_found:
@@ -253,7 +254,7 @@ class MCPScanner:
                 rich.print(
                     rich.text.Text.from_markup(
                         f"\n[bold purple]:construction: Potential Cross-Origin Violation: "
-                        f"Descriptions of server {potential_cross_reference_sources} mention similar "
+                        f"Descriptions of server:mention {potential_cross_reference_sources} mention similar "
                         f"tools or resources of other servers, or other servers.[/bold purple]"
                     ),
                 )
