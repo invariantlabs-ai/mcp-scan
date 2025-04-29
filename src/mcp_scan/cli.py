@@ -97,7 +97,7 @@ def add_server_arguments(parser):
     )
 
 
-def main():
+async def main():
     # Create main parser with description
     program_name = get_invoking_name()
     parser = argparse.ArgumentParser(
@@ -253,7 +253,7 @@ def main():
             whitelist_parser.print_help()
             sys.exit(1)
     elif args.command == "inspect":
-        result = asyncio.run(MCPScanner(**vars(args)).inspect())
+        result = await MCPScanner(**vars(args)).inspect()
         print_scan_result(result)
         sys.exit(0)
     elif args.command == "whitelist":
@@ -271,7 +271,9 @@ def main():
             rich.print("[bold red]Please provide a name and hash.[/bold red]")
             sys.exit(1)
     elif args.command == "scan" or args.command is None:  # default to scan
-        result = asyncio.run(MCPScanner(**vars(args)).scan())
+        async with MCPScanner(**vars(args)) as scanner:
+            # scanner.hook('path_scanned', print_path_scanned)
+            result = await scanner.scan()
         print_scan_result(result)
         sys.exit(0)
     else:
@@ -282,4 +284,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

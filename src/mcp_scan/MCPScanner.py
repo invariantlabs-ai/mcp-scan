@@ -1,6 +1,7 @@
 import asyncio
 import os
-from typing import Any
+from collections import defaultdict
+from typing import Any, Callable
 
 from mcp_scan.models import CrossRefResult, ScanException, ScanPathResult, ServerScanResult
 
@@ -13,7 +14,26 @@ class ContextManager:
     def __init__(
         self,
     ):
-        pass
+        self.enabled = True
+        self.callbacks = defaultdict(list)
+        self.running = []
+
+    def enable(self):
+        self.enabled = True
+
+    def disable(self):
+        self.enabled = False
+
+    def hook(self, signal: str, async_callback: Callable[[str, Any], None]):
+        self.callbacks[signal].append(async_callback)
+
+    async def emit(self, signal: str, data: Any):
+        if self.enabled:
+            for callback in self.callbacks[signal]:
+                self.running.append(callback(signal, data))
+
+    async def wait(self):
+        await asyncio.gather(*self.running)
 
 
 class MCPScanner:
@@ -39,10 +59,26 @@ class MCPScanner:
     def __enter__(self):
         if self.context_manager is None:
             self.context_manager = ContextManager()
-        return self.context_manager
+        return self
 
     async def __aenter__(self):
         return self.__enter__()
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        if self.context_manager is not None:
+            await self.context_manager.wait()
+            self.context_manager = None
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.context_manager is not None:
+            asyncio.run(self.context_manager.wait())
+            self.context_manager = None
+
+    def hook(self, signal: str, async_callback: Callable[[str, Any], None]):
+        if self.context_manager is not None:
+            self.context_manager.hook(signal, async_callback)
+        else:
+            raise RuntimeError("Context manager not initialized")
 
     async def get_servers_from_path(self, path: str) -> ScanPathResult:
         result = ScanPathResult(path=path)
@@ -80,25 +116,30 @@ class MCPScanner:
                 result.result[i].whitelisted = False
         return result
 
+    async def emit(self, signal: str, data: Any):
+        if self.context_manager is not None:
+            await self.context_manager.emit(signal, data)
+
+    async def scan_server(self, server: ServerScanResult, inspect_only: bool = False) -> ServerScanResult:
+        result = server.model_copy(deep=True)
+        try:
+            entities = await check_server_with_timeout(server.server, self.server_timeout, self.suppress_mcpserver_io)
+            result.prompts, result.resources, result.tools = entities
+            if not inspect_only:
+                result = await verify_server(result, base_url=self.base_url)
+                result = await self.check_server_changed(result)
+                result = await self.check_whitelist(result)
+        except Exception as e:
+            result.error = ScanException(error=e)
+        await self.emit("server_scanned", result)
+        return result
+
     async def scan_path(self, path: str, inspect_only: bool = False) -> ScanPathResult:
         path_result = await self.get_servers_from_path(path)
         for i, server in enumerate(path_result.servers):
-            try:
-                entities = await check_server_with_timeout(
-                    server.server, self.server_timeout, self.suppress_mcpserver_io
-                )
-                server.prompts, server.resources, server.tools = entities
-                if not inspect_only:
-                    server = await verify_server(server, base_url=self.base_url)
-                    server = await self.check_server_changed(server)
-                    server = await self.check_whitelist(server)
-            except Exception as e:
-                server.error = ScanException(error=e)
-                continue
-            finally:
-                path_result.servers[i] = server
-
-            path_result.cross_ref_result = await self.check_cross_references(path_result)
+            path_result.servers[i] = await self.scan_server(server, inspect_only)
+        path_result.cross_ref_result = await self.check_cross_references(path_result)
+        await self.emit("path_scanned", path_result)
         return path_result
 
     async def check_cross_references(self, path_result: ScanPathResult) -> CrossRefResult:
@@ -118,8 +159,12 @@ class MCPScanner:
         return cross_ref_result
 
     async def scan(self) -> list[ScanPathResult]:
-        for _ in range(self.checks_per_server):
+        if self.context_manager is not None:
+            self.context_manager.disable()
+        for i in range(self.checks_per_server):
             # intentionally overwrite and only report the last scan
+            if i == self.checks_per_server - 1 and self.context_manager is not None:
+                self.context_manager.enable()  # only print on last run
             result = [self.scan_path(path) for path in self.paths]
             result_awaited = await asyncio.gather(*result)
         self.storage_file.save()
