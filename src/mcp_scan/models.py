@@ -31,7 +31,7 @@ class ScannedEntity(BaseModel):
     model_config = ConfigDict()
     hash: str
     type: str
-    verified: bool
+    verified: bool | None
     timestamp: datetime
     description: str | None = None
 

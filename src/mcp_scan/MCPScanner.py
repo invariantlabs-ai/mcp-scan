@@ -44,10 +44,9 @@ class MCPScanner:
         return self.__enter__()
 
     async def get_servers_from_path(self, path: str) -> ScanPathResult:
-        # TODO use async file reading
         result = ScanPathResult(path=path)
         try:
-            servers = scan_mcp_config_file(path).get_servers()
+            servers = (await scan_mcp_config_file(path)).get_servers()
             result.servers = [
                 ServerScanResult(name=server_name, server=server) for server_name, server in servers.items()
             ]
@@ -59,7 +58,6 @@ class MCPScanner:
         return result
 
     async def check_server_changed(self, server: ServerScanResult) -> ServerScanResult:
-        # TODO use async file reading
         result = server.model_copy(deep=True)
         for i, (entity, entity_result) in enumerate(server.entities_with_result):
             if entity_result is None:
@@ -85,39 +83,14 @@ class MCPScanner:
         path_result = await self.get_servers_from_path(path)
         for i, server in enumerate(path_result.servers):
             try:
-                # todo, simplify
-                prompts, resources, tools = await check_server_with_timeout(
+                entities = await check_server_with_timeout(
                     server.server, self.server_timeout, self.suppress_mcpserver_io
                 )
-                server.prompts = prompts
-                server.resources = resources
-                server.tools = tools
+                server.prompts, server.resources, server.tools = entities
                 if not inspect_only:
-                    # TODO make async
-                    server = verify_server(server, base_url=self.base_url)
+                    server = await verify_server(server, base_url=self.base_url)
                     server = await self.check_server_changed(server)
-                    #     if changed.value is True and prev_data is not None:
-                    #         additional_text = (
-                    #         )
                     server = await self.check_whitelist(server)
-                #     # check if tool is whitelisted
-                #     if self.storage_file.is_whitelisted(entity):
-                #         verified = Result(
-                #             True,
-                #             message="[bold]whitelisted[/bold] " + (verified.message or ""),
-                #         )
-                #     elif verified.value is False or changed.value is True:
-                #         hash = self.storage_file.compute_hash(entity)
-                #         message = (
-                #             f"[bold]You can whitelist this {entity_type_to_str(entity)} "
-                #             f"by running `mcp-scan whitelist {entity_type_to_str(entity)} "
-                #             f"'{entity.name}' {hash}`[/bold]"
-                #         )
-                #         if additional_text is not None:
-                #             additional_text += "\n\n" + message
-                #         else:
-                #             additional_text = message
-
             except Exception as e:
                 server.error = ScanException(error=e)
                 continue

@@ -1,12 +1,12 @@
 import ast
 import json
 
-import requests
+import aiohttp
 
 from .models import EntityScanResult, ServerScanResult, entity_type_to_str
 
 
-def verify_server(server_scan_result: ServerScanResult, base_url: str) -> ServerScanResult:
+async def verify_server(server_scan_result: ServerScanResult, base_url: str) -> ServerScanResult:
     result = server_scan_result.model_copy(deep=True)
     if len(server_scan_result.entities) == 0:
         return result
@@ -20,24 +20,29 @@ def verify_server(server_scan_result: ServerScanResult, base_url: str) -> Server
         }
         for entity in server_scan_result.entities
     ]
-    url = base_url + "/api/v1/public/mcp"
+    if base_url.endswith("/"):
+        url = base_url[:-1]
+    else:
+        url = base_url
+    url = url + "/api/v1/public/mcp"
     headers = {"Content-Type": "application/json"}
     data = {
         "messages": messages,
     }
     try:
-        response = requests.post(url, headers=headers, data=json.dumps(data))
-        if response.status_code == 200:
-            response_content: dict = response.json()
-            result.result = [EntityScanResult(verified=True) for _ in messages]
-            for error in response_content.get("errors", []):
-                key = ast.literal_eval(error["key"])
-                idx = key[1][0]
-                result.result[idx].verified = False
-                result.result[idx].status = "failed - " + " ".join(error["args"])
-            return result
-        else:
-            raise Exception(f"Error: {response.status_code} - {response.text}")
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, headers=headers, data=json.dumps(data)) as response:
+                if response.status == 200:
+                    response_content: dict = await response.json()
+                    result.result = [EntityScanResult(verified=True) for _ in messages]
+                    for error in response_content.get("errors", []):
+                        key = ast.literal_eval(error["key"])
+                        idx = key[1][0]
+                        result.result[idx].verified = False
+                        result.result[idx].status = "failed - " + " ".join(error["args"])
+                    return result
+                else:
+                    raise Exception(f"Error: {response.status} - {await response.text()}")
     except Exception as e:
         try:
             errstr = str(e.args[0])

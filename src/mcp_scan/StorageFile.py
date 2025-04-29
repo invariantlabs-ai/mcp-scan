@@ -1,3 +1,4 @@
+import asyncio
 import json
 import os
 from datetime import datetime
@@ -88,7 +89,10 @@ class StorageFile:
         self.whitelist[key] = hash
         self.save()
         if base_url is not None:
-            upload_whitelist_entry(name, hash, base_url)
+            try:
+                asyncio.run(upload_whitelist_entry(name, hash, base_url))
+            except Exception:
+                pass  # no logging for now, can fail silently
 
     def is_whitelisted(self, entity: Entity) -> bool:
         hash = hash_entity(entity)
