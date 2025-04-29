@@ -1,13 +1,11 @@
 import json
 import os
 from datetime import datetime
-from hashlib import md5
-from typing import Any
 
 import rich
 from pydantic import ValidationError
 
-from .models import Entity, Result, ScannedEntities, ScannedEntity, entity_type_to_str
+from .models import Entity, ScannedEntities, ScannedEntity, entity_type_to_str, hash_entity
 from .utils import upload_whitelist_entry
 
 
@@ -50,17 +48,10 @@ class StorageFile:
         self.whitelist = {}
         self.save()
 
-    def compute_hash(self, entity: Entity | None) -> str | None:
-        if entity is None:
-            return None
-        if not hasattr(entity, "description") or entity.description is None:
-            return None
-        return md5((entity.description).encode()).hexdigest()
-
-    def check_and_update(self, server_name: str, entity: Entity, verified: Any) -> tuple[Result, ScannedEntity | None]:
+    def check_and_update(self, server_name: str, entity: Entity, verified: bool | None) -> tuple[bool, list[str]]:
         entity_type = entity_type_to_str(entity)
         key = f"{server_name}.{entity_type}.{entity.name}"
-        hash = self.compute_hash(entity)
+        hash = hash_entity(entity)
         new_data = ScannedEntity(
             hash=hash,
             type=entity_type,
@@ -69,17 +60,18 @@ class StorageFile:
             description=entity.description,
         )
         changed = False
-        message = None
+        messages = []
         prev_data = None
         if key in self.scanned_entities.root:
             prev_data = self.scanned_entities.root[key]
             changed = prev_data.hash != new_data.hash
             if changed:
-                message = f"{entity_type} description changed since previous scan at " + prev_data.timestamp.strftime(
-                    "%d/%m/%Y, %H:%M:%S"
+                messages.append(
+                    f"[bold]Previous description[/bold] ({prev_data.timestamp.strftime('%d/%m/%Y, %H:%M:%S')})"
                 )
+                messages.append(prev_data.description)
         self.scanned_entities.root[key] = new_data
-        return Result(changed, message), prev_data
+        return changed, messages
 
     def print_whitelist(self) -> None:
         whitelist_keys = sorted(self.whitelist.keys())
@@ -99,7 +91,7 @@ class StorageFile:
             upload_whitelist_entry(name, hash, base_url)
 
     def is_whitelisted(self, entity: Entity) -> bool:
-        hash = self.compute_hash(entity)
+        hash = hash_entity(entity)
         return hash in self.whitelist.values()
 
     def save(self) -> None:

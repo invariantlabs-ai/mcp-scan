@@ -1,10 +1,12 @@
 import argparse
+import asyncio
 import sys
 
 import psutil
 import rich
 
 from .MCPScanner import MCPScanner
+from .printer import print_scan_result
 from .StorageFile import StorageFile
 from .version import version_info
 
@@ -251,7 +253,8 @@ def main():
             whitelist_parser.print_help()
             sys.exit(1)
     elif args.command == "inspect":
-        MCPScanner(**vars(args)).inspect()
+        result = asyncio.run(MCPScanner(**vars(args)).inspect())
+        print_scan_result(result)
         sys.exit(0)
     elif args.command == "whitelist":
         if args.reset:
@@ -268,7 +271,8 @@ def main():
             rich.print("[bold red]Please provide a name and hash.[/bold red]")
             sys.exit(1)
     elif args.command == "scan" or args.command is None:  # default to scan
-        MCPScanner(**vars(args)).start()
+        result = asyncio.run(MCPScanner(**vars(args)).scan())
+        print_scan_result(result)
         sys.exit(0)
     else:
         # This shouldn't happen due to argparse's handling
