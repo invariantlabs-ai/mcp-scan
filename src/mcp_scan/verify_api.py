@@ -1,66 +1,53 @@
 import ast
 import json
 
-import requests
-from mcp.types import Prompt, Resource, Tool
+import aiohttp
 
-from .models import Result
+from .models import EntityScanResult, ServerScanResult, entity_type_to_str
 
 
-def verify_server(
-    tools: list[Tool], prompts: list[Prompt], resources: list[Resource], base_url: str
-) -> tuple[list[Result], list[Result], list[Result]]:
-    if len(tools) + len(prompts) + len(resources) == 0:
-        return [], [], []
+async def verify_server(server_scan_result: ServerScanResult, base_url: str) -> ServerScanResult:
+    result = server_scan_result.model_copy(deep=True)
+    if len(server_scan_result.entities) == 0:
+        return result
     messages = [
         {
             "role": "system",
-            "content": f"Tool Name:{tool.name}\nTool Description:{tool.description}",
+            "content": (
+                f"{entity_type_to_str(entity).capitalize()} Name:{entity.name}\n"
+                f"{entity_type_to_str(entity).capitalize()} Description:{entity.description}"
+            ),
         }
-        for tool in tools
+        for entity in server_scan_result.entities
     ]
-    messages += [
-        {
-            "role": "system",
-            "content": f"Prompt Name:{prompt.name}\nPrompt Description:{prompt.description}",
-        }
-        for prompt in prompts
-    ]
-    messages += [
-        {
-            "role": "system",
-            "content": f"Resource Name:{resource.name}\nResource Description:{resource.description}",
-        }
-        for resource in resources
-    ]
-    url = base_url + "/api/v1/public/mcp"
+    if base_url.endswith("/"):
+        url = base_url[:-1]
+    else:
+        url = base_url
+    url = url + "/api/v1/public/mcp"
     headers = {"Content-Type": "application/json"}
     data = {
         "messages": messages,
     }
     try:
-        response = requests.post(url, headers=headers, data=json.dumps(data))
-        if response.status_code == 200:
-            response_content: dict = response.json()
-            results = [Result(True, "verified") for _ in messages]
-            for error in response_content.get("errors", []):
-                key = ast.literal_eval(error["key"])
-                idx = key[1][0]
-                results[idx] = Result(False, "failed - " + " ".join(error["args"]))
-            results_tools, results = results[: len(tools)], results[len(tools) :]
-            results_prompts, results = results[: len(prompts)], results[len(prompts) :]
-            results_resources = results
-            return results_tools, results_prompts, results_resources
-        else:
-            raise Exception(f"Error: {response.status_code} - {response.text}")
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, headers=headers, data=json.dumps(data)) as response:
+                if response.status == 200:
+                    response_content: dict = await response.json()
+                    result.result = [EntityScanResult(verified=True) for _ in messages]
+                    for error in response_content.get("errors", []):
+                        key = ast.literal_eval(error["key"])
+                        idx = key[1][0]
+                        result.result[idx].verified = False
+                        result.result[idx].status = "failed - " + " ".join(error["args"])
+                    return result
+                else:
+                    raise Exception(f"Error: {response.status} - {await response.text()}")
     except Exception as e:
         try:
             errstr = str(e.args[0])
             errstr = errstr.splitlines()[0]
         except Exception:
             errstr = ""
-        return (
-            [Result(None, "could not reach verification server " + errstr) for _ in tools],
-            [Result(None, "could not reach verification server " + errstr) for _ in prompts],
-            [Result(None, "could not reach verification server " + errstr) for _ in resources],
-        )
+        result.result = [EntityScanResult(status="could not reach verification server " + errstr) for _ in messages]
+        return result

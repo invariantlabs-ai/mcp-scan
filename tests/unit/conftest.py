@@ -3,6 +3,11 @@
 import pytest
 
 
+@pytest.fixture(params=["asyncio"])
+def anyio_backend(request):
+    return request.param
+
+
 @pytest.fixture
 def unit_test_fixture():
     """Fixture specific to unit tests."""

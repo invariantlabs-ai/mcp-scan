@@ -1,6 +1,5 @@
 """Unit tests for the mcp_client module."""
 
-import asyncio
 import tempfile
 from unittest.mock import AsyncMock, Mock, patch
 
@@ -68,15 +67,16 @@ SAMPLE_CONFIGS = [
 ]
 
 
-def test_scan_mcp_config():
+@pytest.mark.anyio
+async def test_scan_mcp_config():
     for config in SAMPLE_CONFIGS:
         with tempfile.NamedTemporaryFile(mode="w") as temp_file:
             temp_file.write(config)
             temp_file.flush()
-            config = scan_mcp_config_file(temp_file.name)
+            config = await scan_mcp_config_file(temp_file.name)
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 @patch("mcp_scan.mcp_client.stdio_client")
 async def test_check_server_mocked(mock_stdio_client):
     # Create mock objects
@@ -136,11 +136,12 @@ async def test_check_server_mocked(mock_stdio_client):
         assert len(tools) == 3
 
 
-def test_mcp_server():
+@pytest.mark.anyio
+async def test_mcp_server():
     path = "tests/mcp_servers/mcp_config.json"
-    servers = scan_mcp_config_file(path).get_servers()
+    servers = (await scan_mcp_config_file(path)).get_servers()
     for name, server in servers.items():
-        prompts, resources, tools = asyncio.run(check_server(server, 5, False))
+        prompts, resources, tools = await check_server(server, 5, False)
         if name == "Math":
             assert len(prompts) == 0
             assert len(resources) == 0
