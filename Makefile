@@ -42,7 +42,7 @@ publish: publish-pypi publish-npm
 
 pre-commit:
 	pre-commit run --all-files
-	
+
 reset-uv:
 	rm -rf .venv || true
 	rm uv.lock || true

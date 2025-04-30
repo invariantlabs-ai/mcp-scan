@@ -7,8 +7,8 @@ from rich.text import Text
 from rich.tree import Tree
 
 from mcp_scan.mcp_client import scan_mcp_config_file
-from mcp_scan.MCPScanner import format_path_line
 from mcp_scan.models import MCPConfig, SSEServer, StdioServer
+from mcp_scan.printer import format_path_line
 
 parser = argparse.ArgumentParser(
     description="MCP-scan CLI",

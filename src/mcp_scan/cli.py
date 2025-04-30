@@ -1,4 +1,6 @@
 import argparse
+import asyncio
+import json
 import sys
 
 import psutil
@@ -8,6 +10,7 @@ from mcp_scan.gateway import MCPGatewayConfig, MCPGatewayInstaller
 from mcp_scan_server.server import MCPScanServer
 
 from .MCPScanner import MCPScanner
+from .printer import print_scan_result
 from .StorageFile import StorageFile
 from .version import version_info
 
@@ -103,7 +106,7 @@ def check_install_args(args):
         raise argparse.ArgumentError(None, "argument --api-key is required when --local-only is not set")
 
 
-def main():
+async def main():
     # Create main parser with description
     program_name = get_invoking_name()
     parser = argparse.ArgumentParser(
@@ -151,6 +154,11 @@ def main():
         help="Configuration files to scan (default: known MCP config locations)",
         metavar="CONFIG_FILE",
     )
+    scan_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Output results in JSON format in non-interactive mode",
+    )
 
     # INSPECT command
     inspect_parser = subparsers.add_parser(
@@ -167,6 +175,11 @@ def main():
         default=WELL_KNOWN_MCP_PATHS,
         help="Configuration files to inspect (default: known MCP config locations)",
         metavar="CONFIG_FILE",
+    )
+    inspect_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Output results in JSON format in non-interactive mode",
     )
 
     # WHITELIST command
@@ -289,11 +302,12 @@ def main():
     )
     add_common_arguments(server_parser)
 
-    # Display version banner
-    rich.print(f"[bold blue]Invariant MCP-scan v{version_info}[/bold blue]\n")
-
     # Parse arguments (default to 'scan' if no command provided)
     args = parser.parse_args(["scan"] if len(sys.argv) == 1 else None)
+
+    # Display version banner
+    if not args.json:
+        rich.print(f"[bold blue]Invariant MCP-scan v{version_info}[/bold blue]\n")
 
     # Handle commands
     if args.command == "help":
@@ -322,7 +336,12 @@ def main():
             whitelist_parser.print_help()
             sys.exit(1)
     elif args.command == "inspect":
-        MCPScanner(**vars(args)).inspect()
+        result = await MCPScanner(**vars(args)).inspect()
+        if args.json:
+            result = dict((r.path, r.model_dump()) for r in result)
+            print(json.dumps(result, indent=2))
+        else:
+            print_scan_result(result)
         sys.exit(0)
     elif args.command == "install":
         try:
@@ -362,7 +381,20 @@ def main():
             rich.print("[bold red]Please provide a name and hash.[/bold red]")
             sys.exit(1)
     elif args.command == "scan" or args.command is None:  # default to scan
-        MCPScanner(**vars(args)).start()
+        async with MCPScanner(**vars(args)) as scanner:
+            # scanner.hook('path_scanned', print_path_scanned)
+            result = await scanner.scan()
+        if args.json:
+            result = dict((r.path, r.model_dump()) for r in result)
+            print(json.dumps(result, indent=2))
+        else:
+            print_scan_result(result)
+        sys.exit(0)
+    elif args.command == "server":
+        sf = StorageFile(args.storage_file)
+        guardrails_config_path = sf.create_guardrails_config()
+        mcp_scan_server = MCPScanServer(port=args.port, config_file_path=guardrails_config_path)
+        mcp_scan_server.run()
         sys.exit(0)
     elif args.command == "server":
         sf = StorageFile(args.storage_file)
@@ -378,4 +410,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

@@ -3,11 +3,11 @@ import tempfile
 
 import pyjson5
 import pytest
+from pytest_lazy_fixtures import lf
 
 from mcp_scan.gateway import MCPGatewayConfig, MCPGatewayInstaller, is_invariant_installed
-from mcp_scan.MCPScanner import scan_mcp_config_file
+from mcp_scan.mcp_client import scan_mcp_config_file
 from mcp_scan.models import StdioServer
-from tests.unit.test_mcp_client import SAMPLE_CONFIGS
 
 
 @pytest.fixture
@@ -17,12 +17,13 @@ def temp_file():
     os.remove(tf.name)
 
 
-@pytest.mark.parametrize("server_config", SAMPLE_CONFIGS)
-def test_install_gateway(server_config: str, temp_file):
+@pytest.mark.parametrize("sample_config", [lf("claudestyle_config"), lf("vscode_mcp_config"), lf("vscode_config")])
+def test_install_gateway(sample_config, temp_file):
+    # TODO iterate over all sample configs
     with open(temp_file, "w") as f:
-        f.write(server_config)
+        f.write(sample_config)
 
-    config_dict = pyjson5.loads(server_config)
+    config_dict = pyjson5.loads(sample_config)
     installer = MCPGatewayInstaller(paths=[temp_file])
     for server in scan_mcp_config_file(temp_file).get_servers().values():
         if isinstance(server, StdioServer):
@@ -33,7 +34,7 @@ def test_install_gateway(server_config: str, temp_file):
     )
 
     # try to load the config
-    pyjson5.loads(server_config)
+    pyjson5.loads(sample_config)
 
     for server in scan_mcp_config_file(temp_file).get_servers().values():
         if isinstance(server, StdioServer):
@@ -45,7 +46,7 @@ def test_install_gateway(server_config: str, temp_file):
         if isinstance(server, StdioServer):
             assert not is_invariant_installed(server), "Invariant should be uninstalled"
 
-    config_dict_uninstalled = pyjson5.loads(server_config)
+    config_dict_uninstalled = pyjson5.loads(sample_config)
 
     assert (
         config_dict_uninstalled == config_dict

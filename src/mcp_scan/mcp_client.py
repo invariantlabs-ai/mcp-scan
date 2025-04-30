@@ -2,6 +2,7 @@ import asyncio
 import os
 from typing import AsyncContextManager, Type
 
+import aiofiles  # type: ignore
 import pyjson5
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.sse import sse_client
@@ -85,6 +86,10 @@ async def check_server_with_timeout(
 
 
 def scan_mcp_config_file(path: str) -> MCPConfig:
+    return asyncio.run(a_scan_mcp_config_file(path))
+
+
+async def a_scan_mcp_config_file(path: str) -> MCPConfig:
     path = os.path.expanduser(path)
 
     def parse_and_validate(config: dict) -> MCPConfig:
@@ -108,8 +113,9 @@ def scan_mcp_config_file(path: str) -> MCPConfig:
             )
         raise Exception("Could not parse config file")
 
-    with open(path, "r") as f:
-        # use json5 to support comments as in vscode
-        config = pyjson5.load(f)
-        # try to parse model
-        return parse_and_validate(config)
+    async with aiofiles.open(path, "r") as f:
+        content = await f.read()
+    # use json5 to support comments as in vscode
+    config = pyjson5.loads(content)
+    # try to parse model
+    return parse_and_validate(config)
