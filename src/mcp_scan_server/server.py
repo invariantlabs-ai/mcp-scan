@@ -1,3 +1,4 @@
+import rich
 import uvicorn
 from fastapi import FastAPI
 
@@ -30,4 +31,5 @@ class MCPScanServer:
 
     def run(self):
         """Run the MCP scan server."""
+        rich.print("[bold green]Starting MCP-scan server.[/bold green]")
         uvicorn.run(self.app, host="0.0.0.0", port=self.port)

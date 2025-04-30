@@ -98,6 +98,11 @@ def add_server_arguments(parser):
     )
 
 
+def check_install_args(args):
+    if args.command == "install" and not args.local_only and not args.api_key:
+        raise argparse.ArgumentError(None, "argument --api-key is required when --local-only is not set")
+
+
 def main():
     # Create main parser with description
     program_name = get_invoking_name()
@@ -236,14 +241,20 @@ def main():
     install_parser.add_argument(
         "--api-key",
         type=str,
-        required=True,
-        help="api key for the Invariant Gateway",
+        help="API key for the Invariant Gateway",
     )
     install_parser.add_argument(
         "--local-only",
         default=False,
         action="store_true",
         help="Prevent pushing traces to the explorer.",
+    )
+    install_parser.add_argument(
+        "--mcp-scan-server-port",
+        type=int,
+        default=8000,
+        help="MCP scan server port (default: 8000).",
+        metavar="PORT",
     )
 
     # uninstall
@@ -314,12 +325,20 @@ def main():
         MCPScanner(**vars(args)).inspect()
         sys.exit(0)
     elif args.command == "install":
-        installer = MCPGatewayInstaller(paths=args.files)
+        try:
+            check_install_args(args)
+        except argparse.ArgumentError as e:
+            parser.error(e)
+
+        invariant_api_url = (
+            f"http://localhost:{args.mcp_scan_server_port}" if args.local_only else "https://explorer.invariantlabs.ai"
+        )
+        installer = MCPGatewayInstaller(paths=args.files, invariant_api_url=invariant_api_url)
         installer.install(
             gateway_config=MCPGatewayConfig(
                 project_name=args.project_name,
                 push_explorer=not args.local_only,
-                api_key=args.api_key,
+                api_key=args.api_key or "",
             ),
             verbose=True,
         )

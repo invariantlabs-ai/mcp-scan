@@ -52,6 +52,7 @@ def is_invariant_installed(server: StdioServer) -> bool:
 def install_gateway(
     server: StdioServer,
     config: MCPGatewayConfig,
+    invariant_api_url: str = "https://explorer.invariantlabs.ai",
 ) -> StdioServer:
     """Install the gateway for the given server."""
     if is_invariant_installed(server):
@@ -67,7 +68,7 @@ def install_gateway(
         + (["--push-explorer"] if config.push_explorer else [])
         + ["--exec", server.command]
         + (server.args if server.args else []),
-        env=server.env | {"INVARIANT_API_KEY": config.api_key},
+        env=server.env | {"INVARIANT_API_KEY": config.api_key, "INVARIANT_API_URL": invariant_api_url},
     )
 
 
@@ -80,7 +81,7 @@ def uninstall_gateway(
 
     assert isinstance(server.args, list), "args is not a list"
     args = parser.parse_args(server.args[2:])
-    new_env = {k: v for k, v in server.env.items() if k != "INVARIANT_API_KEY"}
+    new_env = {k: v for k, v in server.env.items() if k != "INVARIANT_API_KEY" and k != "INVARIANT_API_URL"}
     assert args.exec is not None, "exec is None"
     assert args.exec, "exec is empty"
     return StdioServer(
@@ -108,8 +109,10 @@ class MCPGatewayInstaller:
     def __init__(
         self,
         paths: list[str],
+        invariant_api_url: str = "https://explorer.invariantlabs.ai",
     ) -> None:
         self.paths = paths
+        self.invariant_api_url = invariant_api_url
 
     def install(
         self,
@@ -135,7 +138,7 @@ class MCPGatewayInstaller:
             for name, server in config.get_servers().items():
                 if isinstance(server, StdioServer):
                     try:
-                        new_servers[name] = install_gateway(server, gateway_config)
+                        new_servers[name] = install_gateway(server, gateway_config, self.invariant_api_url)
                         path_print_tree.add(format_install_line(server=name, status="Installed", success=True))
                     except MCPServerAlreadyGateway:
                         new_servers[name] = server
