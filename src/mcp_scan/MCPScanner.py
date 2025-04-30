@@ -4,6 +4,7 @@ import textwrap
 from typing import Any
 
 import rich
+from rapidfuzz.distance import Levenshtein
 from rich.text import Text
 from rich.tree import Tree
 
@@ -13,7 +14,7 @@ from .mcp_client import check_server_with_timeout, scan_mcp_config_file
 from .models import Result
 from .StorageFile import StorageFile
 from .verify_api import verify_server
-from rapidfuzz.distance import Levenshtein
+
 
 def calculate_distance(responses: list[str], reference: str):
     return sorted([(w, Levenshtein.distance(w, reference)) for w in responses], key=lambda x: x[1])
@@ -237,10 +238,10 @@ class MCPScanner:
                         cross_ref_found = True
                         cross_reference_sources.add(token)
                     best_distance = calculate_distance(reference=token, responses=list(flagged_names))[0]
-                    if (best_distance[1] <= 2) and (len(token)>=5):
+                    if (best_distance[1] <= 2) and (len(token) >= 5):
                         potential_cross_ref_found = True
                         potential_cross_reference_sources.add(f"{entity.name}:{token}")
-                
+
         if verbose:
             if cross_ref_found:
                 rich.print(
