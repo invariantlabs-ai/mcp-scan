@@ -111,7 +111,7 @@ async def scan_mcp_config_file(path: str) -> MCPConfig:
 
     async with aiofiles.open(path, "r") as f:
         content = await f.read()
-        # use json5 to support comments as in vscode
-        config = pyjson5.loads(content)
-        # try to parse model
-        return parse_and_validate(config)
+    # use json5 to support comments as in vscode
+    config = pyjson5.loads(content)
+    # try to parse model
+    return parse_and_validate(config)
