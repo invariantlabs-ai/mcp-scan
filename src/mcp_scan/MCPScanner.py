@@ -3,17 +3,12 @@ import os
 from collections import defaultdict
 from typing import Any, Callable
 
-from rapidfuzz.distance import Levenshtein
-
 from mcp_scan.models import CrossRefResult, ScanException, ScanPathResult, ServerScanResult
 
 from .mcp_client import check_server_with_timeout, scan_mcp_config_file
 from .StorageFile import StorageFile
+from .utils import calculate_distance
 from .verify_api import verify_server
-
-
-def calculate_distance(responses: list[str], reference: str):
-    return sorted([(w, Levenshtein.distance(w, reference)) for w in responses], key=lambda x: x[1])
 
 
 class ContextManager:
