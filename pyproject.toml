@@ -11,8 +11,6 @@ classifiers = [
 dependencies = [
     "mcp[cli]>=1.6.0",
     "rich>=14.0.0",
-    "aiofiles>=23.1.0",
-    "types-aiofiles",
     "pyjson5>=1.6.8",
     "pydantic>=2.11.2",
     "lark>=1.1.9",

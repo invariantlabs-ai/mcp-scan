@@ -6,18 +6,18 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 from pytest_lazy_fixtures import lf
 
-from mcp_scan.mcp_client import a_scan_mcp_config_file, check_server
+from mcp_scan.mcp_client import check_server, scan_mcp_config_file
 from mcp_scan.models import StdioServer
 
 
 @pytest.mark.anyio
 @pytest.mark.parametrize("sample_config", [lf("claudestyle_config"), lf("vscode_mcp_config"), lf("vscode_config")])
-async def test_scan_mcp_config(sample_config):
+def test_scan_mcp_config(sample_config):
     with tempfile.NamedTemporaryFile(mode="w") as temp_file:
         temp_file.write(sample_config)
         temp_file.flush()
 
-        await a_scan_mcp_config_file(temp_file.name)
+        scan_mcp_config_file(temp_file.name)
 
 
 @pytest.mark.anyio
@@ -83,7 +83,7 @@ async def test_check_server_mocked(mock_stdio_client):
 @pytest.mark.anyio
 async def test_mcp_server():
     path = "tests/mcp_servers/mcp_config.json"
-    servers = (await a_scan_mcp_config_file(path)).get_servers()
+    servers = scan_mcp_config_file(path).get_servers()
     for name, server in servers.items():
         prompts, resources, tools = await check_server(server, 5, False)
         if name == "Math":

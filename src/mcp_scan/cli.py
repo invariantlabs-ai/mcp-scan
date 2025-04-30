@@ -106,7 +106,7 @@ def check_install_args(args):
         raise argparse.ArgumentError(None, "argument --api-key is required when --local-only is not set")
 
 
-async def main():
+def main():
     # Create main parser with description
     program_name = get_invoking_name()
     parser = argparse.ArgumentParser(
@@ -306,7 +306,7 @@ async def main():
     args = parser.parse_args(["scan"] if len(sys.argv) == 1 else None)
 
     # Display version banner
-    if not args.json:
+    if not (hasattr(args, "json") and args.json):
         rich.print(f"[bold blue]Invariant MCP-scan v{version_info}[/bold blue]\n")
 
     # Handle commands
@@ -336,12 +336,7 @@ async def main():
             whitelist_parser.print_help()
             sys.exit(1)
     elif args.command == "inspect":
-        result = await MCPScanner(**vars(args)).inspect()
-        if args.json:
-            result = dict((r.path, r.model_dump()) for r in result)
-            print(json.dumps(result, indent=2))
-        else:
-            print_scan_result(result)
+        asyncio.run(run_scan_inspect(mode="inspect", args=args))
         sys.exit(0)
     elif args.command == "install":
         try:
@@ -361,11 +356,9 @@ async def main():
             ),
             verbose=True,
         )
-        # install logic here
     elif args.command == "uninstall":
         installer = MCPGatewayInstaller(paths=args.files)
         installer.uninstall(verbose=True)
-        # uninstall logic here
     elif args.command == "whitelist":
         if args.reset:
             MCPScanner(**vars(args)).reset_whitelist()
@@ -381,14 +374,7 @@ async def main():
             rich.print("[bold red]Please provide a name and hash.[/bold red]")
             sys.exit(1)
     elif args.command == "scan" or args.command is None:  # default to scan
-        async with MCPScanner(**vars(args)) as scanner:
-            # scanner.hook('path_scanned', print_path_scanned)
-            result = await scanner.scan()
-        if args.json:
-            result = dict((r.path, r.model_dump()) for r in result)
-            print(json.dumps(result, indent=2))
-        else:
-            print_scan_result(result)
+        asyncio.run(run_scan_inspect(args=args))
         sys.exit(0)
     elif args.command == "server":
         sf = StorageFile(args.storage_file)
@@ -409,5 +395,19 @@ async def main():
         sys.exit(1)
 
 
+async def run_scan_inspect(mode="scan", args=None):
+    async with MCPScanner(**vars(args)) as scanner:
+        # scanner.hook('path_scanned', print_path_scanned)
+        if mode == "scan":
+            result = await scanner.scan()
+        elif mode == "inspect":
+            result = await scanner.inspect()
+    if args.json:
+        result = dict((r.path, r.model_dump()) for r in result)
+        print(json.dumps(result, indent=2))
+    else:
+        print_scan_result(result)
+
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()

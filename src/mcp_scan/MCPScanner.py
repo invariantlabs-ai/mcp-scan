@@ -5,7 +5,7 @@ from typing import Any, Callable
 
 from mcp_scan.models import CrossRefResult, ScanException, ScanPathResult, ServerScanResult
 
-from .mcp_client import a_scan_mcp_config_file, check_server_with_timeout
+from .mcp_client import check_server_with_timeout, scan_mcp_config_file
 from .StorageFile import StorageFile
 from .verify_api import verify_server
 
@@ -83,7 +83,7 @@ class MCPScanner:
     async def get_servers_from_path(self, path: str) -> ScanPathResult:
         result = ScanPathResult(path=path)
         try:
-            servers = (await a_scan_mcp_config_file(path)).get_servers()
+            servers = scan_mcp_config_file(path).get_servers()
             result.servers = [
                 ServerScanResult(name=server_name, server=server) for server_name, server in servers.items()
             ]
