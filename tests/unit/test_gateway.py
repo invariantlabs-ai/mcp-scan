@@ -47,4 +47,6 @@ def test_install_gateway(server_config: str, temp_file):
 
     config_dict_uninstalled = pyjson5.loads(server_config)
 
-    assert config_dict_uninstalled == config_dict, "Installation and uninstallation of the gateway should not change the config file"
+    assert (
+        config_dict_uninstalled == config_dict
+    ), "Installation and uninstallation of the gateway should not change the config file"

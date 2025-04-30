@@ -27,7 +27,6 @@ router = APIRouter()
 async def get_all_policies(config_file_path: str) -> list[DatasetPolicy]:
     """Get all policies from local config file."""
     if not os.path.exists(config_file_path):
-        # Format this as multiple lines without printing it like this
         rich.print(
             f"""[bold red]Guardrail config file not found: {config_file_path}. Creating an empty one.[/bold red]"""
         )
@@ -93,7 +92,7 @@ async def check_policy(policy_str: str, messages: list[dict], parameters: dict =
                 error_message=str(policy),
             )
 
-        result = await policy.a_analyze(messages, **parameters)
+        result = await policy.a_analyze_pending(messages[:-1], [messages[-1]], **parameters)
 
         return PolicyCheckResult(
             policy=policy_str,
