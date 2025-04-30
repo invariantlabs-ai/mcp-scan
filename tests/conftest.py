@@ -4,12 +4,6 @@ import pytest
 
 
 @pytest.fixture
-def sample_fixture():
-    """Sample fixture for demonstration purposes."""
-    return "sample_value"
-
-
-@pytest.fixture
 def claudestyle_config():
     """Sample Claude-style MCP config."""
     return """{
@@ -65,9 +59,3 @@ def vscode_config():
     }
   }
 }"""
-
-
-@pytest.fixture
-def sample_configs(claudestyle_config, vscode_mcp_config, vscode_config):
-    """List of all sample configs."""
-    return [claudestyle_config, vscode_mcp_config, vscode_config]

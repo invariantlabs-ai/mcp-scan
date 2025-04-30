@@ -5,16 +5,18 @@ import subprocess
 import tempfile
 
 import pytest
+from pytest_lazy_fixtures import lf
 
 
 class TestFullScanFlow:
     """Test cases for end-to-end scanning workflows."""
 
-    def test_basic(self, sample_configs):
+    @pytest.mark.parametrize("sample_config", [lf("claudestyle_config"), lf("vscode_mcp_config"), lf("vscode_config")])
+    def test_basic(self, sample_config):
         """Test a basic complete scan workflow from CLI to results."""
         # Run mcp-scan with JSON output mode
         with tempfile.NamedTemporaryFile(mode="w") as temp_file:
-            temp_file.write(sample_configs[0])  # Use the first config from the fixture
+            temp_file.write(sample_config)
             temp_file.flush()
             result = subprocess.run(
                 ["uv", "run", "-m", "src.mcp_scan.cli", "scan", "--json", temp_file.name],
@@ -31,6 +33,7 @@ class TestFullScanFlow:
             output = json.loads(result.stdout)
             assert fn in output
         except json.JSONDecodeError:
+            print(result.stdout)
             pytest.fail("Failed to parse JSON output")
 
     def vscode_settings_no_mcp(self):

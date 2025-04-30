@@ -83,7 +83,7 @@ class MCPScanner:
     async def get_servers_from_path(self, path: str) -> ScanPathResult:
         result = ScanPathResult(path=path)
         try:
-            servers = (await scan_mcp_config_file(path)).get_servers()
+            servers = scan_mcp_config_file(path).get_servers()
             result.servers = [
                 ServerScanResult(name=server_name, server=server) for server_name, server in servers.items()
             ]

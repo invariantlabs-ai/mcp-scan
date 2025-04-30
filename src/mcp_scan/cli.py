@@ -6,6 +6,9 @@ import sys
 import psutil
 import rich
 
+from mcp_scan.gateway import MCPGatewayConfig, MCPGatewayInstaller
+from mcp_scan_server.server import MCPScanServer
+
 from .MCPScanner import MCPScanner
 from .printer import print_scan_result
 from .StorageFile import StorageFile
@@ -98,7 +101,12 @@ def add_server_arguments(parser):
     )
 
 
-async def main():
+def check_install_args(args):
+    if args.command == "install" and not args.local_only and not args.api_key:
+        raise argparse.ArgumentError(None, "argument --api-key is required when --local-only is not set")
+
+
+def main():
     # Create main parser with description
     program_name = get_invoking_name()
     parser = argparse.ArgumentParser(
@@ -223,6 +231,58 @@ async def main():
         help="Hash of the entity to whitelist",
         metavar="HASH",
     )
+    # install
+    install_parser = subparsers.add_parser("install", help="Install Invariant Gateway")
+    install_parser.add_argument(
+        "files",
+        type=str,
+        nargs="*",
+        default=WELL_KNOWN_MCP_PATHS,
+        help=(
+            "Different file locations to scan. "
+            "This can include custom file locations as long as "
+            "they are in an expected format, including Claude, "
+            "Cursor or VSCode format."
+        ),
+    )
+    install_parser.add_argument(
+        "--project_name",
+        type=str,
+        default="mcp-gateway",
+        help="Project name for the Invariant Gateway",
+    )
+    install_parser.add_argument(
+        "--api-key",
+        type=str,
+        help="API key for the Invariant Gateway",
+    )
+    install_parser.add_argument(
+        "--local-only",
+        default=False,
+        action="store_true",
+        help="Prevent pushing traces to the explorer.",
+    )
+    install_parser.add_argument(
+        "--mcp-scan-server-port",
+        type=int,
+        default=8000,
+        help="MCP scan server port (default: 8000).",
+        metavar="PORT",
+    )
+
+    # uninstall
+    uninstall_parser = subparsers.add_parser("uninstall", help="Uninstall Invariant Gateway")
+    uninstall_parser.add_argument(
+        "files",
+        type=str,
+        nargs="*",
+        default=WELL_KNOWN_MCP_PATHS,
+        help=(
+            "Different file locations to scan. "
+            "This can include custom file locations as long as "
+            "they are in an expected format, including Claude, Cursor or VSCode format."
+        ),
+    )
 
     # HELP command
     help_parser = subparsers.add_parser(  # noqa: F841
@@ -231,11 +291,22 @@ async def main():
         description="Display detailed help information and examples.",
     )
 
+    # SERVER command
+    server_parser = subparsers.add_parser("server", help="Start the MCP scan server")
+    server_parser.add_argument(
+        "--port",
+        type=int,
+        default=8000,
+        help="Port to run the server on (default: 8000)",
+        metavar="PORT",
+    )
+    add_common_arguments(server_parser)
+
     # Parse arguments (default to 'scan' if no command provided)
     args = parser.parse_args(["scan"] if len(sys.argv) == 1 else None)
 
     # Display version banner
-    if not args.json:
+    if not (hasattr(args, "json") and args.json):
         rich.print(f"[bold blue]Invariant MCP-scan v{version_info}[/bold blue]\n")
 
     # Handle commands
@@ -265,13 +336,29 @@ async def main():
             whitelist_parser.print_help()
             sys.exit(1)
     elif args.command == "inspect":
-        result = await MCPScanner(**vars(args)).inspect()
-        if args.json:
-            result = dict((r.path, r.model_dump()) for r in result)
-            print(json.dumps(result, indent=2))
-        else:
-            print_scan_result(result)
+        asyncio.run(run_scan_inspect(mode="inspect", args=args))
         sys.exit(0)
+    elif args.command == "install":
+        try:
+            check_install_args(args)
+        except argparse.ArgumentError as e:
+            parser.error(e)
+
+        invariant_api_url = (
+            f"http://localhost:{args.mcp_scan_server_port}" if args.local_only else "https://explorer.invariantlabs.ai"
+        )
+        installer = MCPGatewayInstaller(paths=args.files, invariant_api_url=invariant_api_url)
+        installer.install(
+            gateway_config=MCPGatewayConfig(
+                project_name=args.project_name,
+                push_explorer=not args.local_only,
+                api_key=args.api_key or "",
+            ),
+            verbose=True,
+        )
+    elif args.command == "uninstall":
+        installer = MCPGatewayInstaller(paths=args.files)
+        installer.uninstall(verbose=True)
     elif args.command == "whitelist":
         if args.reset:
             MCPScanner(**vars(args)).reset_whitelist()
@@ -287,14 +374,19 @@ async def main():
             rich.print("[bold red]Please provide a name and hash.[/bold red]")
             sys.exit(1)
     elif args.command == "scan" or args.command is None:  # default to scan
-        async with MCPScanner(**vars(args)) as scanner:
-            # scanner.hook('path_scanned', print_path_scanned)
-            result = await scanner.scan()
-        if args.json:
-            result = dict((r.path, r.model_dump()) for r in result)
-            print(json.dumps(result, indent=2))
-        else:
-            print_scan_result(result)
+        asyncio.run(run_scan_inspect(args=args))
+        sys.exit(0)
+    elif args.command == "server":
+        sf = StorageFile(args.storage_file)
+        guardrails_config_path = sf.create_guardrails_config()
+        mcp_scan_server = MCPScanServer(port=args.port, config_file_path=guardrails_config_path)
+        mcp_scan_server.run()
+        sys.exit(0)
+    elif args.command == "server":
+        sf = StorageFile(args.storage_file)
+        guardrails_config_path = sf.create_guardrails_config()
+        mcp_scan_server = MCPScanServer(port=args.port, config_file_path=guardrails_config_path)
+        mcp_scan_server.run()
         sys.exit(0)
     else:
         # This shouldn't happen due to argparse's handling
@@ -303,5 +395,19 @@ async def main():
         sys.exit(1)
 
 
+async def run_scan_inspect(mode="scan", args=None):
+    async with MCPScanner(**vars(args)) as scanner:
+        # scanner.hook('path_scanned', print_path_scanned)
+        if mode == "scan":
+            result = await scanner.scan()
+        elif mode == "inspect":
+            result = await scanner.inspect()
+    if args.json:
+        result = dict((r.path, r.model_dump()) for r in result)
+        print(json.dumps(result, indent=2))
+    else:
+        print_scan_result(result)
+
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
