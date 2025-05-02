@@ -3,7 +3,7 @@ import textwrap
 
 import rich
 from rich.text import Text
-from rich.traceback import rTraceback
+from rich.traceback import Traceback as rTraceback
 from rich.tree import Tree
 
 from .models import Entity, EntityScanResult, ScanError, ScanPathResult, entity_type_to_str, hash_entity
