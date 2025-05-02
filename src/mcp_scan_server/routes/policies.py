@@ -17,48 +17,59 @@ from ..models import (
     BatchCheckRequest,
     BatchCheckResponse,
     DatasetPolicy,
-    GuardrailConfig,
+    GuardrailConfigFile,
     PolicyCheckResult,
 )
 
 router = APIRouter()
 
 
-async def get_all_policies(config_file_path: str) -> list[DatasetPolicy]:
-    """Get all policies from local config file."""
+async def get_all_policies(
+    config_file_path: str, client_names: list[str] | None = None, server_names: list[str] | None = None
+) -> list[DatasetPolicy]:
+    """Get all policies from local config file.
+
+    Args:
+        config_file_path: The path to the config file.
+        client_names: List of client names to include guardrails for.
+        server_names: List of server names to include guardrails for.
+
+    Returns:
+        A list of DatasetPolicy objects.
+    """
     if not os.path.exists(config_file_path):
         rich.print(
             f"""[bold red]Guardrail config file not found: {config_file_path}. Creating an empty one.[/bold red]"""
         )
-        config = GuardrailConfig.model_validate({})
+        config = GuardrailConfigFile()
         with open(config_file_path, "w") as f:
             f.write(config.model_dump_yaml())
 
     with open(config_file_path, "r") as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
         try:
-            config = GuardrailConfig.model_validate(config)
+            config = GuardrailConfigFile.model_validate(config)
         except ValidationError as e:
+            rich.print(f"[bold red]Error validating guardrail config file: {e}[/bold red]")
             raise fastapi.HTTPException(status_code=400, detail=str(e))
         except Exception as e:
             raise fastapi.HTTPException(status_code=400, detail=str(e))
 
-    policies = [
-        DatasetPolicy(
-            id=guardrail.id,
-            name=guardrail.name,
-            content=guardrail.content,
-            enabled=guardrail.enabled,
-            action=guardrail.action,
-            extra_metadata={
-                "platform": platform_name,
-                "tool": tool_name,
-            },
-        )
-        for platform_name, platform_data in config.root.items()
-        for tool_name, server_guardrails in platform_data.items()
-        for guardrail in server_guardrails.guardrails
-    ]
+    policies: list[DatasetPolicy] = []
+    for client_name, client_conf in config:
+        # If no filter is set or the client name is not in the filter, skip
+        if client_names and client_name not in client_names or client_conf is None:
+            continue
+
+        for server_name, server_conf in client_conf.items():
+            # If no filter is set or the server name is not in the filter, skip
+            if server_names and server_name not in server_names or server_conf is None:
+                continue
+
+            # Add guardrails
+            for policy in server_conf.guardrails.custom_guardrails:
+                if policy.enabled:
+                    policies.append(policy)
 
     return policies
 

@@ -20,26 +20,53 @@ def valid_guardrail_config_file(tmp_path):
     config_file.write_text(
         """
 cursor:
-  browsermcp:
+  server1:
     guardrails:
-      - name: "Guardrail 1"
-        id: "guardrail_1"
-        runs-on: "local"
-        enabled: true
-        action: "block"
-        content: |
-          raise "error" if:
-            (msg: ToolOutput)
-            "Test1" in msg.content
-      - name: "Guardrail 2"
-        id: "guardrail_2"
-        runs-on: "local"
-        enabled: true
-        action: "block"
-        content: |
-          raise "error" if:
-            (msg: ToolOutput)
-            "Test2" in msg.content
+      pii: "block"
+      moderated: "block"
+      links: "block"
+      secrets: "block"
+
+      custom_guardrails:
+        - name: "Guardrail 1"
+          id: "guardrail_1"
+          enabled: true
+          action: "block"
+          content: |
+            raise "error" if:
+              (msg: ToolOutput)
+              "Test1" in msg.content
+
+        - name: "Guardrail 2"
+          id: "guardrail_2"
+          enabled: true
+          action: "block"
+          content: |
+            raise "error" if:
+              (msg: ToolOutput)
+              "Test2" in msg.content
+
+    tools:
+        tool_name:
+            enabled: true
+            pii: "block"
+            moderated: "block"
+            links: "block"
+            secrets: "block"
+  server2:
+    guardrails:
+      pii: "block"
+      moderated: "block"
+      links: "block"
+      secrets: "block"
+
+    tools:
+        tool_name:
+            enabled: true
+            pii: "block"
+            moderated: "block"
+            links: "block"
+            secrets: "block"
 """
     )
     return str(config_file)
