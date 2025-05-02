@@ -77,6 +77,12 @@ def add_common_arguments(parser):
         help="Base URL for the verification server",
         metavar="URL",
     )
+    parser.add_argument(
+        "--verbose",
+        default=False,
+        action="store_true",
+        help="Show verbose output",
+    )
 
 
 def add_server_arguments(parser):
@@ -265,12 +271,7 @@ async def main():
             whitelist_parser.print_help()
             sys.exit(1)
     elif args.command == "inspect":
-        result = await MCPScanner(**vars(args)).inspect()
-        if args.json:
-            result = dict((r.path, r.model_dump()) for r in result)
-            print(json.dumps(result, indent=2))
-        else:
-            print_scan_result(result)
+        await run_scan_inspect("inspect", args)
         sys.exit(0)
     elif args.command == "whitelist":
         if args.reset:
@@ -287,20 +288,27 @@ async def main():
             rich.print("[bold red]Please provide a name and hash.[/bold red]")
             sys.exit(1)
     elif args.command == "scan" or args.command is None:  # default to scan
-        async with MCPScanner(**vars(args)) as scanner:
-            # scanner.hook('path_scanned', print_path_scanned)
-            result = await scanner.scan()
-        if args.json:
-            result = dict((r.path, r.model_dump()) for r in result)
-            print(json.dumps(result, indent=2))
-        else:
-            print_scan_result(result)
+        await run_scan_inspect("scan", args)
         sys.exit(0)
     else:
         # This shouldn't happen due to argparse's handling
         rich.print(f"[bold red]Unknown command: {args.command}[/bold red]")
         parser.print_help()
         sys.exit(1)
+
+
+async def run_scan_inspect(mode="scan", args=None):
+    async with MCPScanner(**vars(args)) as scanner:
+        # scanner.hook('path_scanned', print_path_scanned)
+        if mode == "scan":
+            result = await scanner.scan()
+        elif mode == "inspect":
+            result = await scanner.inspect()
+    if args.json:
+        result = dict((r.path, r.model_dump()) for r in result)
+        print(json.dumps(result, indent=2))
+    else:
+        print_scan_result(result, args.verbose)
 
 
 if __name__ == "__main__":

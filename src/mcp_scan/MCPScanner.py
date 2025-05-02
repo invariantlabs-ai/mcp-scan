@@ -3,7 +3,7 @@ import os
 from collections import defaultdict
 from typing import Any, Callable
 
-from mcp_scan.models import CrossRefResult, ScanException, ScanPathResult, ServerScanResult
+from mcp_scan.models import CrossRefResult, ScanError, ScanPathResult, ServerScanResult
 
 from .mcp_client import check_server_with_timeout, scan_mcp_config_file
 from .StorageFile import StorageFile
@@ -88,10 +88,9 @@ class MCPScanner:
                 ServerScanResult(name=server_name, server=server) for server_name, server in servers.items()
             ]
         except FileNotFoundError as e:
-            result.error = ScanException(message="file does not exist", error=e)
+            result.error = ScanError(message="file does not exist", exception=e)
         except Exception as e:
-            print(e)
-            result.error = ScanException(message="could not parse file", error=e)
+            result.error = ScanError(message="could not parse file", exception=e)
         return result
 
     async def check_server_changed(self, server: ServerScanResult) -> ServerScanResult:
@@ -130,7 +129,7 @@ class MCPScanner:
                 result = await self.check_server_changed(result)
                 result = await self.check_whitelist(result)
         except Exception as e:
-            result.error = ScanException(error=e)
+            result.error = ScanError(message="could not start server", exception=e)
         await self.emit("server_scanned", result)
         return result
 
