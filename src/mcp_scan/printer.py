@@ -7,38 +7,6 @@ from rich.tree import Tree
 from .models import Entity, EntityScanResult, ScanPathResult, entity_type_to_str, hash_entity
 
 
-def format_err_str(e: Exception, max_length: int | None = None) -> str:
-    try:
-        if isinstance(e, ExceptionGroup):
-            text = ", ".join([format_err_str(e) for e in e.exceptions])
-        elif isinstance(e, TimeoutError):
-            text = "Could not reach server within timeout"
-        else:
-            raise Exception()
-    except Exception:
-        text = None
-    if text is None:
-        name = type(e).__name__
-        try:
-
-            def _mapper(e: Exception | str) -> str:
-                if isinstance(e, Exception):
-                    return format_err_str(e)
-                return str(e)
-
-            message = ",".join(map(_mapper, e.args))
-        except Exception:
-            message = str(e)
-        message = message.strip()
-        if len(message) > 0:
-            text = f"{name}: {message}"
-        else:
-            text = name
-    if max_length is not None and len(text) > max_length:
-        text = text[: (max_length - 3)] + "..."
-    return text
-
-
 def format_path_line(path: str, status: str | None, operation: str = "Scanning") -> Text:
     text = f"● {operation} [bold]{path}[/bold] [gray62]{status or ''}[/gray62]"
     return Text.from_markup(text)
@@ -101,11 +69,9 @@ def format_entity_line(entity: Entity, result: EntityScanResult | None = None) -
     if not is_verified:
         hash = hash_entity(entity)
         messages.append(
-            (
-                f"[bold]You can whitelist this {entity_type_to_str(entity)} "
-                f"by running `mcp-scan whitelist {entity_type_to_str(entity)} "
-                f"'{entity.name}' {hash}`[/bold]"
-            )
+            f"[bold]You can whitelist this {entity_type_to_str(entity)} "
+            f"by running `mcp-scan whitelist {entity_type_to_str(entity)} "
+            f"'{entity.name}' {hash}`[/bold]"
         )
 
     if len(messages) > 0:

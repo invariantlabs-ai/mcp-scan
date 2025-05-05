@@ -1,7 +1,8 @@
 import asyncio
 import os
 from collections import defaultdict
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from mcp_scan.models import CrossRefResult, ScanException, ScanPathResult, ServerScanResult
 
@@ -40,7 +41,7 @@ class ContextManager:
 class MCPScanner:
     def __init__(
         self,
-        files: list[str] = [],
+        files: list[str] | None = None,
         base_url: str = "https://mcp.invariantlabs.ai/",
         checks_per_server: int = 1,
         storage_file: str = "~/.mcp-scan",
@@ -48,7 +49,7 @@ class MCPScanner:
         suppress_mcpserver_io: bool = True,
         **kwargs: Any,
     ):
-        self.paths = files
+        self.paths = files or []
         self.base_url = base_url
         self.checks_per_server = checks_per_server
         self.storage_file_path = os.path.expanduser(storage_file)

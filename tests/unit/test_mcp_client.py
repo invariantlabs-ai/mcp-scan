@@ -88,4 +88,4 @@ async def test_mcp_server():
         if name == "Math":
             assert len(prompts) == 0
             assert len(resources) == 0
-            assert set([t.name for t in tools]) == set(["add", "subtract", "multiply", "divide"])
+            assert {t.name for t in tools} == {"add", "subtract", "multiply", "divide"}

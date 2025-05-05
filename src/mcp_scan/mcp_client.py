@@ -1,6 +1,7 @@
 import asyncio
+import contextlib
 import os
-from typing import AsyncContextManager, Type
+from typing import AsyncContextManager  # noqa: UP035
 
 import aiofiles  # type: ignore
 import pyjson5
@@ -25,7 +26,6 @@ from .utils import rebalance_command_args
 async def check_server(
     server_config: SSEServer | StdioServer, timeout: int, suppress_mcpserver_io: bool
 ) -> tuple[list[Prompt], list[Resource], list[Tool]]:
-
     def get_client(server_config: SSEServer | StdioServer) -> AsyncContextManager:
         if isinstance(server_config, SSEServer):
             return sse_client(
@@ -53,21 +53,15 @@ async def check_server(
                 resources: list[Resource] = []
                 tools: list[Tool] = []
                 if not isinstance(server_config, SSEServer) or meta.capabilities.prompts:
-                    try:
+                    with contextlib.suppress(Exception):
                         prompts = (await session.list_prompts()).prompts
-                    except Exception:
-                        pass
 
                 if not isinstance(server_config, SSEServer) or meta.capabilities.resources:
-                    try:
+                    with contextlib.suppress(Exception):
                         resources = (await session.list_resources()).resources
-                    except Exception:
-                        pass
                 if not isinstance(server_config, SSEServer) or meta.capabilities.tools:
-                    try:
+                    with contextlib.suppress(Exception):
                         tools = (await session.list_tools()).tools
-                    except Exception:
-                        pass
                 return prompts, resources, tools
 
     if suppress_mcpserver_io:
@@ -89,7 +83,7 @@ async def scan_mcp_config_file(path: str) -> MCPConfig:
     path = os.path.expanduser(path)
 
     def parse_and_validate(config: dict) -> MCPConfig:
-        models: list[Type[MCPConfig]] = [
+        models: list[type[MCPConfig]] = [
             ClaudeConfigFile,  # used by most clients
             VSCodeConfigFile,  # used by vscode settings.json
             VSCodeMCPConfig,  # used by vscode mcp.json
@@ -109,7 +103,7 @@ async def scan_mcp_config_file(path: str) -> MCPConfig:
             )
         raise Exception("Could not parse config file")
 
-    async with aiofiles.open(path, "r") as f:
+    async with aiofiles.open(path) as f:
         content = await f.read()
     # use json5 to support comments as in vscode
     config = pyjson5.loads(content)

@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import json
 import os
 from datetime import datetime
@@ -20,7 +21,7 @@ class StorageFile:
         if os.path.isfile(path):
             rich.print(f"[bold]Legacy storage file detected at {path}, converting to new format[/bold]")
             # legacy format
-            with open(path, "r") as f:
+            with open(path) as f:
                 legacy_data = json.load(f)
             if "__whitelist" in legacy_data:
                 self.whitelist = legacy_data["__whitelist"]
@@ -34,7 +35,7 @@ class StorageFile:
         if os.path.exists(path) and os.path.isdir(path):
             scanned_entities_path = os.path.join(path, "scanned_entities.json")
             if os.path.exists(scanned_entities_path):
-                with open(scanned_entities_path, "r") as f:
+                with open(scanned_entities_path) as f:
                     try:
                         self.scanned_entities = ScannedEntities.model_validate_json(f.read())
                     except ValidationError as e:
@@ -42,7 +43,7 @@ class StorageFile:
                             f"[bold red]Could not load scanned entities file {scanned_entities_path}: {e}[/bold red]"
                         )
             if os.path.exists(os.path.join(path, "whitelist.json")):
-                with open(os.path.join(path, "whitelist.json"), "r") as f:
+                with open(os.path.join(path, "whitelist.json")) as f:
                     self.whitelist = json.load(f)
 
     def reset_whitelist(self) -> None:
@@ -89,10 +90,8 @@ class StorageFile:
         self.whitelist[key] = hash
         self.save()
         if base_url is not None:
-            try:
+            with contextlib.suppress(Exception):
                 asyncio.run(upload_whitelist_entry(name, hash, base_url))
-            except Exception:
-                pass  # no logging for now, can fail silently
 
     def is_whitelisted(self, entity: Entity) -> bool:
         hash = hash_entity(entity)

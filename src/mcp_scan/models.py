@@ -49,8 +49,8 @@ class ScannedEntity(BaseModel):
         # Try custom format: "DD/MM/YYYY, HH:MM:SS"
         try:
             return datetime.strptime(value, "%d/%m/%Y, %H:%M:%S")
-        except ValueError:
-            raise ValueError(f"Unrecognized datetime format: {value}")
+        except ValueError as e:
+            raise ValueError(f"Unrecognized datetime format: {value}") from e
 
 
 ScannedEntities = RootModel[dict[str, ScannedEntity]]
@@ -180,7 +180,7 @@ class ServerScanResult(BaseModel):
     @property
     def entities_with_result(self) -> list[tuple[Entity, EntityScanResult | None]]:
         if self.result is not None:
-            return list(zip(self.entities, self.result))
+            return list(zip(self.entities, self.result, strict=False))
         else:
             return [(entity, None) for entity in self.entities]
 

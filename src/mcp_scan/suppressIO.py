@@ -7,7 +7,7 @@ import tempfile
 from types import TracebackType
 
 
-class SuppressStd(object):
+class SuppressStd:
     """Context to capture stderr and stdout at C-level."""
 
     def __init__(self) -> None:
