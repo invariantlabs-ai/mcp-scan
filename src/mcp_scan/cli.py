@@ -99,11 +99,73 @@ def add_server_arguments(parser):
         help="Suppress stdout/stderr from MCP servers (default: True)",
         metavar="BOOL",
     )
+    server_group.add_argument(
+        "--pretty",
+        type=str,
+        default="oneline",
+        choices=["oneline", "compact", "full"],
+        help="Pretty print the output (default: compact)",
+    )
+
+
+def add_install_arguments(parser):
+    parser.add_argument(
+        "files",
+        type=str,
+        nargs="*",
+        default=WELL_KNOWN_MCP_PATHS,
+        help=(
+            "Different file locations to scan. "
+            "This can include custom file locations as long as "
+            "they are in an expected format, including Claude, "
+            "Cursor or VSCode format."
+        ),
+    )
+    parser.add_argument(
+        "--project_name",
+        type=str,
+        default="mcp-gateway",
+        help="Project name for the Invariant Gateway",
+    )
+    parser.add_argument(
+        "--api-key",
+        type=str,
+        help="API key for the Invariant Gateway",
+    )
+    parser.add_argument(
+        "--local-only",
+        default=False,
+        action="store_true",
+        help="Prevent pushing traces to the explorer.",
+    )
+    parser.add_argument(
+        "--mcp-scan-server-port",
+        type=int,
+        default=8000,
+        help="MCP scan server port (default: 8000).",
+        metavar="PORT",
+    )
+
+
+def add_uninstall_arguments(parser):
+    parser.add_argument(
+        "files",
+        type=str,
+        nargs="*",
+        default=WELL_KNOWN_MCP_PATHS,
+        help=(
+            "Different file locations to scan. "
+            "This can include custom file locations as long as "
+            "they are in an expected format, including Claude, Cursor or VSCode format."
+        ),
+    )
 
 
 def check_install_args(args):
     if args.command == "install" and not args.local_only and not args.api_key:
-        raise argparse.ArgumentError(None, "argument --api-key is required when --local-only is not set")
+        raise argparse.ArgumentError(
+            None, "argument --api-key is required when --local-only is not set"
+        )
 
 
 def main():
@@ -187,7 +249,8 @@ def main():
         "whitelist",
         help="Manage the whitelist of approved entities",
         description=(
-            "View, add, or reset whitelisted entities. " "Whitelisted entities bypass security checks during scans."
+            "View, add, or reset whitelisted entities. "
+            "Whitelisted entities bypass security checks during scans."
         ),
     )
     add_common_arguments(whitelist_parser)
@@ -233,56 +296,13 @@ def main():
     )
     # install
     install_parser = subparsers.add_parser("install", help="Install Invariant Gateway")
-    install_parser.add_argument(
-        "files",
-        type=str,
-        nargs="*",
-        default=WELL_KNOWN_MCP_PATHS,
-        help=(
-            "Different file locations to scan. "
-            "This can include custom file locations as long as "
-            "they are in an expected format, including Claude, "
-            "Cursor or VSCode format."
-        ),
-    )
-    install_parser.add_argument(
-        "--project_name",
-        type=str,
-        default="mcp-gateway",
-        help="Project name for the Invariant Gateway",
-    )
-    install_parser.add_argument(
-        "--api-key",
-        type=str,
-        help="API key for the Invariant Gateway",
-    )
-    install_parser.add_argument(
-        "--local-only",
-        default=False,
-        action="store_true",
-        help="Prevent pushing traces to the explorer.",
-    )
-    install_parser.add_argument(
-        "--mcp-scan-server-port",
-        type=int,
-        default=8000,
-        help="MCP scan server port (default: 8000).",
-        metavar="PORT",
-    )
+    add_install_arguments(install_parser)
 
     # uninstall
-    uninstall_parser = subparsers.add_parser("uninstall", help="Uninstall Invariant Gateway")
-    uninstall_parser.add_argument(
-        "files",
-        type=str,
-        nargs="*",
-        default=WELL_KNOWN_MCP_PATHS,
-        help=(
-            "Different file locations to scan. "
-            "This can include custom file locations as long as "
-            "they are in an expected format, including Claude, Cursor or VSCode format."
-        ),
+    uninstall_parser = subparsers.add_parser(
+        "uninstall", help="Uninstall Invariant Gateway"
     )
+    add_uninstall_arguments(uninstall_parser)
 
     # HELP command
     help_parser = subparsers.add_parser(  # noqa: F841
@@ -302,12 +322,65 @@ def main():
     )
     add_common_arguments(server_parser)
 
+    # PROXY command
+    proxy_parser = subparsers.add_parser(
+        "proxy", help="Installs and proxies MCP requests, uninstalls on exit"
+    )
+    proxy_parser.add_argument(
+        "--port",
+        type=int,
+        default=8000,
+        help="Port to run the server on (default: 8000)",
+        metavar="PORT",
+    )
+    add_common_arguments(proxy_parser)
+    add_server_arguments(proxy_parser)
+    add_install_arguments(proxy_parser)
+
     # Parse arguments (default to 'scan' if no command provided)
     args = parser.parse_args(["scan"] if len(sys.argv) == 1 else None)
 
     # Display version banner
     if not (hasattr(args, "json") and args.json):
         rich.print(f"[bold blue]Invariant MCP-scan v{version_info}[/bold blue]\n")
+
+    def install():
+        try:
+            check_install_args(args)
+        except argparse.ArgumentError as e:
+            parser.error(e)
+
+        invariant_api_url = (
+            f"http://localhost:{args.mcp_scan_server_port}"
+            if args.local_only
+            else "https://explorer.invariantlabs.ai"
+        )
+        installer = MCPGatewayInstaller(
+            paths=args.files, invariant_api_url=invariant_api_url
+        )
+        installer.install(
+            gateway_config=MCPGatewayConfig(
+                project_name=args.project_name,
+                push_explorer=not args.local_only,
+                api_key=args.api_key or "",
+            ),
+            verbose=True,
+        )
+
+    def uninstall():
+        installer = MCPGatewayInstaller(paths=args.files)
+        installer.uninstall(verbose=True)
+
+    def server(on_exit=None):
+        sf = StorageFile(args.storage_file)
+        guardrails_config_path = sf.create_guardrails_config()
+        mcp_scan_server = MCPScanServer(
+            port=args.port, 
+            config_file_path=guardrails_config_path,
+            on_exit=on_exit,
+            pretty=args.pretty
+        )
+        mcp_scan_server.run()
 
     # Handle commands
     if args.command == "help":
@@ -319,7 +392,9 @@ def main():
             sf.reset_whitelist()
             rich.print("[bold]Whitelist reset[/bold]")
             sys.exit(0)
-        elif all(map(lambda x: x is None, [args.type, args.name, args.hash])):  # no args
+        elif all(
+            map(lambda x: x is None, [args.type, args.name, args.hash])
+        ):  # no args
             sf.print_whitelist()
             sys.exit(0)
         elif all(map(lambda x: x is not None, [args.type, args.name, args.hash])):
@@ -332,33 +407,20 @@ def main():
             sf.print_whitelist()
             sys.exit(0)
         else:
-            rich.print("[bold red]Please provide all three parameters: type, name, and hash.[/bold red]")
+            rich.print(
+                "[bold red]Please provide all three parameters: type, name, and hash.[/bold red]"
+            )
             whitelist_parser.print_help()
             sys.exit(1)
     elif args.command == "inspect":
         asyncio.run(run_scan_inspect(mode="inspect", args=args))
         sys.exit(0)
     elif args.command == "install":
-        try:
-            check_install_args(args)
-        except argparse.ArgumentError as e:
-            parser.error(e)
-
-        invariant_api_url = (
-            f"http://localhost:{args.mcp_scan_server_port}" if args.local_only else "https://explorer.invariantlabs.ai"
-        )
-        installer = MCPGatewayInstaller(paths=args.files, invariant_api_url=invariant_api_url)
-        installer.install(
-            gateway_config=MCPGatewayConfig(
-                project_name=args.project_name,
-                push_explorer=not args.local_only,
-                api_key=args.api_key or "",
-            ),
-            verbose=True,
-        )
+        install()
+        sys.exit(0)
     elif args.command == "uninstall":
-        installer = MCPGatewayInstaller(paths=args.files)
-        installer.uninstall(verbose=True)
+        uninstall()
+        sys.exit(0)
     elif args.command == "whitelist":
         if args.reset:
             MCPScanner(**vars(args)).reset_whitelist()
@@ -377,17 +439,12 @@ def main():
         asyncio.run(run_scan_inspect(args=args))
         sys.exit(0)
     elif args.command == "server":
-        sf = StorageFile(args.storage_file)
-        guardrails_config_path = sf.create_guardrails_config()
-        mcp_scan_server = MCPScanServer(port=args.port, config_file_path=guardrails_config_path)
-        mcp_scan_server.run()
+        server()
         sys.exit(0)
-    elif args.command == "server":
-        sf = StorageFile(args.storage_file)
-        guardrails_config_path = sf.create_guardrails_config()
-        mcp_scan_server = MCPScanServer(port=args.port, config_file_path=guardrails_config_path)
-        mcp_scan_server.run()
-        sys.exit(0)
+    elif args.command == "proxy":
+        args.local_only = True
+        # install()
+        server(on_exit=uninstall)
     else:
         # This shouldn't happen due to argparse's handling
         rich.print(f"[bold red]Unknown command: {args.command}[/bold red]")
