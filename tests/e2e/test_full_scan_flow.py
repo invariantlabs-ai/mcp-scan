@@ -2,9 +2,10 @@
 
 import json
 import subprocess
-import tempfile
 
 import pytest
+
+from mcp_scan.utils import TempFile
 
 
 class TestFullScanFlow:
@@ -13,18 +14,21 @@ class TestFullScanFlow:
     def test_basic(self, sample_configs):
         """Test a basic complete scan workflow from CLI to results."""
         # Run mcp-scan with JSON output mode
-        with tempfile.NamedTemporaryFile(mode="w") as temp_file:
+        with TempFile(mode="w") as temp_file:
+            fn = temp_file.name
             temp_file.write(sample_configs[0])  # Use the first config from the fixture
             temp_file.flush()
             result = subprocess.run(
-                ["uv", "run", "-m", "src.mcp_scan.cli", "scan", "--json", temp_file.name],
+                ["uv", "run", "-m", "src.mcp_scan.cli", "scan", "--json", fn],
                 capture_output=True,
                 text=True,
             )
-            fn = temp_file.name
 
         # Check that the command executed successfully
         assert result.returncode == 0, f"Command failed with error: {result.stderr}"
+
+        print(result.stdout)
+        print(result.stderr)
 
         # Try to parse the output as JSON
         try:
@@ -48,7 +52,7 @@ class TestFullScanFlow:
             "workbench.colorTheme": {},
             "workbench.startupEditor": {},
         }
-        with tempfile.NamedTemporaryFile(mode="w") as temp_file:
+        with TempFile(mode="w") as temp_file:
             json.dump(settings, temp_file)
             temp_file.flush()
             result = subprocess.run(
