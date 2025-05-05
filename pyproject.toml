@@ -19,6 +19,7 @@ dependencies = [
     "psutil>=5.9.0",
     "regex>=2024.11.6",
     "aiohttp>=3.11.16",
+    "rapidfuzz>=3.13.0",
 ]
 
 [project.scripts]

@@ -7,6 +7,7 @@ from mcp_scan.models import CrossRefResult, ScanException, ScanPathResult, Serve
 
 from .mcp_client import check_server_with_timeout, scan_mcp_config_file
 from .StorageFile import StorageFile
+from .utils import calculate_distance
 from .verify_api import verify_server
 
 
@@ -152,9 +153,10 @@ class MCPScanner:
             for entity in server.entities:
                 tokens = (entity.description or "").lower().split()
                 for token in tokens:
-                    if token in flagged_names:
+                    best_distance = calculate_distance(reference=token, responses=list(flagged_names))[0]
+                    if ((best_distance[1] <= 2) and (len(token) >= 5)) or (token in flagged_names):
                         cross_ref_result.found = True
-                        cross_ref_result.sources.append(token)
+                        cross_ref_result.sources.append(f"{entity.name}:{token}")
         return cross_ref_result
 
     async def scan(self) -> list[ScanPathResult]:

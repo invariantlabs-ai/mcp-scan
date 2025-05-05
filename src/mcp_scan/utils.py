@@ -4,6 +4,11 @@ import tempfile
 
 import aiohttp
 from lark import Lark
+from rapidfuzz.distance import Levenshtein
+
+
+def calculate_distance(responses: list[str], reference: str):
+    return sorted([(w, Levenshtein.distance(w, reference)) for w in responses], key=lambda x: x[1])
 
 # Cache the Lark parser to avoid recreation on every call
 _command_parser = None
