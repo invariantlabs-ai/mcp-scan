@@ -42,7 +42,14 @@ class SuppressStd(object):
         traceback: TracebackType | None,
     ) -> None:
         # Make sure to flush stdout
-        print(flush=True)
+        try:
+            # Try to flush using libc (more reliable across platforms)
+            if hasattr(sys.stdout, "flush"):
+                sys.stdout.flush()
+            if hasattr(sys.stderr, "flush"):
+                sys.stderr.flush()
+        except Exception:
+            pass  # Ignore flush errors to ensure cleanup continues
 
         # Restore the stdout/stderr object.
         sys.stdout = self.stdout_obj
