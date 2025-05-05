@@ -154,12 +154,9 @@ class MCPScanner:
                 tokens = (entity.description or "").lower().split()
                 for token in tokens:
                     best_distance = calculate_distance(reference=token, responses=list(flagged_names))[0]
-                    if (best_distance[1] <= 2) and (len(token) >= 5):
+                    if ((best_distance[1] <= 2) and (len(token) >= 5)) or (token in flagged_names):
                         cross_ref_result.found = True
                         cross_ref_result.sources.append(f"{entity.name}:{token}")
-                    # if token in flagged_names:
-                    #     cross_ref_result.found = True
-                    #     cross_ref_result.sources.append(token)
         return cross_ref_result
 
     async def scan(self) -> list[ScanPathResult]:
