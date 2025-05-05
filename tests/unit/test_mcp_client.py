@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-from mcp_scan.mcp_client import check_server_with_timeout, check_server, scan_mcp_config_file
+from mcp_scan.mcp_client import check_server, check_server_with_timeout, scan_mcp_config_file
 from mcp_scan.models import StdioServer
 from mcp_scan.utils import TempFile
 
