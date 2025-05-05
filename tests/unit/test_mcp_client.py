@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-from mcp_scan.mcp_client import check_server, scan_mcp_config_file
+from mcp_scan.mcp_client import check_server_with_timeout, check_server, scan_mcp_config_file
 from mcp_scan.models import StdioServer
 from mcp_scan.utils import TempFile
 
@@ -84,7 +84,7 @@ async def test_mcp_server():
     path = "tests/mcp_servers/mcp_config.json"
     servers = (await scan_mcp_config_file(path)).get_servers()
     for name, server in servers.items():
-        prompts, resources, tools = await check_server(server, 5, False)
+        prompts, resources, tools = await check_server_with_timeout(server, 5, False)
         if name == "Math":
             assert len(prompts) == 0
             assert len(resources) == 0
