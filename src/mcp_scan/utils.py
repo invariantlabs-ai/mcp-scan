@@ -1,4 +1,6 @@
 import json
+import os
+import tempfile
 
 import aiohttp
 from lark import Lark
@@ -41,3 +43,21 @@ async def upload_whitelist_entry(name: str, hash: str, base_url: str):
         async with session.post(url, headers=headers, data=json.dumps(data)) as response:
             if response.status != 200:
                 raise Exception(f"Failed to upload whitelist entry: {response.status} - {response.text}")
+
+
+class TempFile:
+    """A windows compatible version of tempfile.NamedTemporaryFile."""
+
+    def __init__(self, **kwargs):
+        self.kwargs = kwargs
+        self.file = None
+
+    def __enter__(self):
+        args = self.kwargs.copy()
+        args["delete"] = False
+        self.file = tempfile.NamedTemporaryFile(**args)
+        return self.file
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.file.close()
+        os.unlink(self.file.name)
