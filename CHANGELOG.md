@@ -9,3 +9,4 @@
 - `0.1.4.11` support for prompts and resources
 - `0.1.5` semver compatible naming, npm release
 - `0.1.6` updated help text
+- `0.1.7` stability improvements (CI, pre-commit hooks, testing), --json, logging & error printing, bug fixes, server improvements
