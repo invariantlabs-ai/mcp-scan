@@ -108,11 +108,11 @@ def format_entity_line(entity: Entity, result: EntityScanResult | None = None) -
     return formatted_text
 
 
-def print_scan_path_result(result: ScanPathResult, verbose: bool = False) -> None:
+def print_scan_path_result(result: ScanPathResult, print_errors: bool = False) -> None:
     if result.error is not None:
         err_status, traceback = format_error(result.error)
         rich.print(format_path_line(result.path, err_status))
-        if verbose and traceback is not None:
+        if print_errors and traceback is not None:
             console = rich.console.Console()
             console.print(traceback)
         return
@@ -142,7 +142,7 @@ def print_scan_path_result(result: ScanPathResult, verbose: bool = False) -> Non
                 f"tools or resources of other servers, or other servers.[/bold yellow]"
             ),
         )
-    if verbose and len(server_tracebacks) > 0:
+    if print_errors and len(server_tracebacks) > 0:
         console = rich.console.Console()
         for server, traceback in server_tracebacks:
             console.print()
@@ -150,8 +150,8 @@ def print_scan_path_result(result: ScanPathResult, verbose: bool = False) -> Non
             console.print(traceback)
 
 
-def print_scan_result(result: list[ScanPathResult], verbose: bool = False) -> None:
+def print_scan_result(result: list[ScanPathResult], print_errors: bool = False) -> None:
     for i, path_result in enumerate(result):
-        print_scan_path_result(path_result, verbose)
+        print_scan_path_result(path_result, print_errors)
         if i < len(result) - 1:
             rich.print()

@@ -1,15 +1,42 @@
 import argparse
 import asyncio
 import json
+import logging
 import sys
 
 import psutil
 import rich
+from rich.logging import RichHandler
 
 from .MCPScanner import MCPScanner
 from .printer import print_scan_result
 from .StorageFile import StorageFile
 from .version import version_info
+
+# Configure logging to suppress all output by default
+logging.getLogger().setLevel(logging.CRITICAL + 1)  # Higher than any standard level
+# Add null handler to prevent "No handler found" warnings
+logging.getLogger().addHandler(logging.NullHandler())
+
+
+def setup_logging(verbose=False):
+    """Configure logging based on the verbose flag."""
+    if verbose:
+        # Configure the root logger
+        root_logger = logging.getLogger()
+        # Remove any existing handlers (including the NullHandler)
+        for hdlr in root_logger.handlers:
+            root_logger.removeHandler(hdlr)
+        logging.basicConfig(
+            format="%(message)s",
+            datefmt="[%X]",
+            force=True,
+            level=logging.DEBUG,
+            handlers=[RichHandler(markup=True, rich_tracebacks=True)],
+        )
+
+        # Log that verbose mode is enabled
+        root_logger.debug("Verbose mode enabled, logging initialized")
 
 
 def get_invoking_name():
@@ -81,7 +108,19 @@ def add_common_arguments(parser):
         "--verbose",
         default=False,
         action="store_true",
-        help="Show verbose output",
+        help="Enable detailed logging output",
+    )
+    parser.add_argument(
+        "--print-errors",
+        default=False,
+        action="store_true",
+        help="Show error details and tracebacks",
+    )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        default=False,
+        help="Output results in JSON format instead of rich text",
     )
 
 
@@ -118,6 +157,9 @@ async def main():
             f"  {program_name} inspect             # Just inspect tools without verification\n"
             f"  {program_name} whitelist           # View whitelisted tools\n"
             f'  {program_name} whitelist tool "add" "a1b2c3..." # Whitelist the \'add\' tool\n'
+            f"  {program_name} --verbose           # Enable detailed logging output\n"
+            f"  {program_name} --print-errors      # Show error details and tracebacks\n"
+            f"  {program_name} --json              # Output results in JSON format\n"
         ),
     )
 
@@ -132,8 +174,18 @@ async def main():
     # SCAN command
     scan_parser = subparsers.add_parser(
         "scan",
-        help="Scan MCP servers for security issues [default]",
-        description="Scan MCP configurations for security vulnerabilities in tools, prompts, and resources.",
+        help="Scan one or more MCP config files [default]",
+        description=(
+            "Scan one or more MCP configuration files for security issues. "
+            "If no files are specified, well-known config locations will be checked."
+        ),
+    )
+    scan_parser.add_argument(
+        "files",
+        nargs="*",
+        default=WELL_KNOWN_MCP_PATHS,
+        help="Path(s) to MCP config file(s). If not provided, well-known paths will be checked",
+        metavar="CONFIG_FILE",
     )
     add_common_arguments(scan_parser)
     add_server_arguments(scan_parser)
@@ -141,21 +193,8 @@ async def main():
         "--checks-per-server",
         type=int,
         default=1,
-        help="Number of checks to perform on each server (default: 1)",
+        help="Number of times to check each server (default: 1)",
         metavar="NUM",
-    )
-    scan_parser.add_argument(
-        "files",
-        type=str,
-        nargs="*",
-        default=WELL_KNOWN_MCP_PATHS,
-        help="Configuration files to scan (default: known MCP config locations)",
-        metavar="CONFIG_FILE",
-    )
-    scan_parser.add_argument(
-        "--json",
-        action="store_true",
-        help="Output results in JSON format in non-interactive mode",
     )
 
     # INSPECT command
@@ -173,11 +212,6 @@ async def main():
         default=WELL_KNOWN_MCP_PATHS,
         help="Configuration files to inspect (default: known MCP config locations)",
         metavar="CONFIG_FILE",
-    )
-    inspect_parser.add_argument(
-        "--json",
-        action="store_true",
-        help="Output results in JSON format in non-interactive mode",
     )
 
     # WHITELIST command
@@ -244,6 +278,9 @@ async def main():
     if not args.json:
         rich.print(f"[bold blue]Invariant MCP-scan v{version_info}[/bold blue]\n")
 
+    # Set up logging if verbose flag is enabled
+    setup_logging(args.verbose or False)
+
     # Handle commands
     if args.command == "help":
         parser.print_help()
@@ -271,12 +308,7 @@ async def main():
             whitelist_parser.print_help()
             sys.exit(1)
     elif args.command == "inspect":
-        result = await MCPScanner(**vars(args)).inspect()
-        if args.json:
-            result = {r.path: r.model_dump() for r in result}
-            print(json.dumps(result, indent=2))
-        else:
-            print_scan_result(result)
+        await run_scan_inspect(mode="inspect", args=args)
         sys.exit(0)
     elif args.command == "whitelist":
         if args.reset:
@@ -293,13 +325,7 @@ async def main():
             rich.print("[bold red]Please provide a name and hash.[/bold red]")
             sys.exit(1)
     elif args.command == "scan" or args.command is None:  # default to scan
-        async with MCPScanner(**vars(args)) as scanner:
-            result = await scanner.scan()
-        if args.json:
-            result = {r.path: r.model_dump() for r in result}
-            print(json.dumps(result, indent=2))
-        else:
-            print_scan_result(result)
+        await run_scan_inspect(args=args)
         sys.exit(0)
     else:
         # This shouldn't happen due to argparse's handling
@@ -319,7 +345,7 @@ async def run_scan_inspect(mode="scan", args=None):
         result = {r.path: r.model_dump() for r in result}
         print(json.dumps(result, indent=2))
     else:
-        print_scan_result(result, args.verbose)
+        print_scan_result(result, args.print_errors)
 
 
 if __name__ == "__main__":
