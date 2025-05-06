@@ -20,10 +20,7 @@ async def verify_server(server_scan_result: ServerScanResult, base_url: str) -> 
         }
         for entity in server_scan_result.entities
     ]
-    if base_url.endswith("/"):
-        url = base_url[:-1]
-    else:
-        url = base_url
+    url = base_url[:-1] if base_url.endswith("/") else base_url
     url = url + "/api/v1/public/mcp"
     headers = {"Content-Type": "application/json"}
     data = {

@@ -38,3 +38,5 @@ ENV/
 *.swp
 *.swo
 src/mcp_scan/todo.md
+
+*.env

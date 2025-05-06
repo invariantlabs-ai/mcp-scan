@@ -1,12 +1,14 @@
 import asyncio
 import os
 from collections import defaultdict
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from mcp_scan.models import CrossRefResult, ScanError, ScanPathResult, ServerScanResult
 
 from .mcp_client import check_server_with_timeout, scan_mcp_config_file
 from .StorageFile import StorageFile
+from .utils import calculate_distance
 from .verify_api import verify_server
 
 
@@ -39,7 +41,7 @@ class ContextManager:
 class MCPScanner:
     def __init__(
         self,
-        files: list[str] = [],
+        files: list[str] | None = None,
         base_url: str = "https://mcp.invariantlabs.ai/",
         checks_per_server: int = 1,
         storage_file: str = "~/.mcp-scan",
@@ -47,7 +49,7 @@ class MCPScanner:
         suppress_mcpserver_io: bool = True,
         **kwargs: Any,
     ):
-        self.paths = files
+        self.paths = files or []
         self.base_url = base_url
         self.checks_per_server = checks_per_server
         self.storage_file_path = os.path.expanduser(storage_file)
@@ -151,9 +153,10 @@ class MCPScanner:
             for entity in server.entities:
                 tokens = (entity.description or "").lower().split()
                 for token in tokens:
-                    if token in flagged_names:
+                    best_distance = calculate_distance(reference=token, responses=list(flagged_names))[0]
+                    if ((best_distance[1] <= 2) and (len(token) >= 5)) or (token in flagged_names):
                         cross_ref_result.found = True
-                        cross_ref_result.sources.append(token)
+                        cross_ref_result.sources.append(f"{entity.name}:{token}")
         return cross_ref_result
 
     async def scan(self) -> list[ScanPathResult]:

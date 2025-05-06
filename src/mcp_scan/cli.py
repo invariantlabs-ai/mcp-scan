@@ -185,7 +185,7 @@ async def main():
         "whitelist",
         help="Manage the whitelist of approved entities",
         description=(
-            "View, add, or reset whitelisted entities. " "Whitelisted entities bypass security checks during scans."
+            "View, add, or reset whitelisted entities. Whitelisted entities bypass security checks during scans."
         ),
     )
     add_common_arguments(whitelist_parser)
@@ -254,10 +254,10 @@ async def main():
             sf.reset_whitelist()
             rich.print("[bold]Whitelist reset[/bold]")
             sys.exit(0)
-        elif all(map(lambda x: x is None, [args.type, args.name, args.hash])):  # no args
+        elif all(x is None for x in [args.type, args.name, args.hash]):  # no args
             sf.print_whitelist()
             sys.exit(0)
-        elif all(map(lambda x: x is not None, [args.type, args.name, args.hash])):
+        elif all(x is not None for x in [args.type, args.name, args.hash]):
             sf.add_to_whitelist(
                 args.type,
                 args.name,
@@ -271,16 +271,21 @@ async def main():
             whitelist_parser.print_help()
             sys.exit(1)
     elif args.command == "inspect":
-        await run_scan_inspect("inspect", args)
+        result = await MCPScanner(**vars(args)).inspect()
+        if args.json:
+            result = {r.path: r.model_dump() for r in result}
+            print(json.dumps(result, indent=2))
+        else:
+            print_scan_result(result)
         sys.exit(0)
     elif args.command == "whitelist":
         if args.reset:
             MCPScanner(**vars(args)).reset_whitelist()
             sys.exit(0)
-        elif all(map(lambda x: x is None, [args.name, args.hash])):  # no args
+        elif all(x is None for x in [args.name, args.hash]):  # no args
             MCPScanner(**vars(args)).print_whitelist()
             sys.exit(0)
-        elif all(map(lambda x: x is not None, [args.name, args.hash])):
+        elif all(x is not None for x in [args.name, args.hash]):
             MCPScanner(**vars(args)).whitelist(args.name, args.hash, args.local_only)
             MCPScanner(**vars(args)).print_whitelist()
             sys.exit(0)
@@ -288,7 +293,13 @@ async def main():
             rich.print("[bold red]Please provide a name and hash.[/bold red]")
             sys.exit(1)
     elif args.command == "scan" or args.command is None:  # default to scan
-        await run_scan_inspect("scan", args)
+        async with MCPScanner(**vars(args)) as scanner:
+            result = await scanner.scan()
+        if args.json:
+            result = {r.path: r.model_dump() for r in result}
+            print(json.dumps(result, indent=2))
+        else:
+            print_scan_result(result)
         sys.exit(0)
     else:
         # This shouldn't happen due to argparse's handling
@@ -305,7 +316,7 @@ async def run_scan_inspect(mode="scan", args=None):
         elif mode == "inspect":
             result = await scanner.inspect()
     if args.json:
-        result = dict((r.path, r.model_dump()) for r in result)
+        result = {r.path: r.model_dump() for r in result}
         print(json.dumps(result, indent=2))
     else:
         print_scan_result(result, args.verbose)

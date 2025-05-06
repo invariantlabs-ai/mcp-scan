@@ -95,11 +95,9 @@ def format_entity_line(entity: Entity, result: EntityScanResult | None = None) -
     if not is_verified:
         hash = hash_entity(entity)
         messages.append(
-            (
-                f"[bold]You can whitelist this {entity_type_to_str(entity)} "
-                f"by running `mcp-scan whitelist {entity_type_to_str(entity)} "
-                f"'{entity.name}' {hash}`[/bold]"
-            )
+            f"[bold]You can whitelist this {entity_type_to_str(entity)} "
+            f"by running `mcp-scan whitelist {entity_type_to_str(entity)} "
+            f"'{entity.name}' {hash}`[/bold]"
         )
 
     if len(messages) > 0:
