@@ -1,5 +1,4 @@
 import argparse
-import asyncio
 import json
 import logging
 import sys
@@ -346,6 +345,3 @@ async def run_scan_inspect(mode="scan", args=None):
         print(json.dumps(result, indent=2))
     else:
         print_scan_result(result, args.print_errors)
-
-
-asyncio.run(main())

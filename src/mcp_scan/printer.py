@@ -148,6 +148,7 @@ def print_scan_path_result(result: ScanPathResult, print_errors: bool = False) -
             console.print()
             console.print("[bold]Exception when scanning " + (server.name or "") + "[/bold]")
             console.print(traceback)
+    print(end="", flush=True)
 
 
 def print_scan_result(result: list[ScanPathResult], print_errors: bool = False) -> None:
@@ -155,3 +156,4 @@ def print_scan_result(result: list[ScanPathResult], print_errors: bool = False) 
         print_scan_path_result(path_result, print_errors)
         if i < len(result) - 1:
             rich.print()
+    print(end="", flush=True)

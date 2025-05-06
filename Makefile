@@ -7,7 +7,7 @@ ifeq (run,$(firstword $(MAKECMDGOALS)))
 endif
 
 run:
-	uv run -m src.mcp_scan.cli ${RUN_ARGS}
+	uv run -m src.mcp_scan.run ${RUN_ARGS}
 
 test:
 	uv pip install -e .[test]
