@@ -23,7 +23,7 @@ dependencies = [
 ]
 
 [project.scripts]
-mcp-scan = "mcp_scan.cli"
+mcp-scan = "mcp_scan.cli:main"
 [build-system]
 requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
