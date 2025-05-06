@@ -153,22 +153,6 @@ class ServerScanResult(BaseModel):
     result: list[EntityScanResult] | None = None
     error: ScanError | None = None
 
-    @model_serializer
-    def serialize(self, _info):
-        entities_with_result = self.entities_with_result
-        prompts_with_result = entities_with_result[: len(self.prompts)]
-        resources_with_result = entities_with_result[len(self.prompts) : len(self.prompts) + len(self.resources)]
-        tools_with_result = entities_with_result[len(self.prompts) + len(self.resources) :]
-
-        return {
-            "name": self.name,
-            "server": self.server,
-            "prompts": prompts_with_result,
-            "resources": resources_with_result,
-            "tools": tools_with_result,
-            "error": self.error,
-        }
-
     @property
     def entities(self) -> list[Entity]:
         return self.prompts + self.resources + self.tools
@@ -191,3 +175,7 @@ class ScanPathResult(BaseModel):
     servers: list[ServerScanResult] = []
     error: ScanError | None = None
     cross_ref_result: CrossRefResult | None = None
+
+    @property
+    def entities(self) -> list[Entity]:
+        return sum([server.entities for server in self.servers], start=[],)
