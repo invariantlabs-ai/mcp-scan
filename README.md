@@ -54,6 +54,9 @@ These options are available for all commands:
 ```
 --storage-file FILE    Path to store scan results and whitelist information (default: ~/.mcp-scan)
 --base-url URL         Base URL for the verification server
+--verbose              Enable detailed logging output
+--print-errors         Show error details and tracebacks
+--json                 Output results in JSON format instead of rich text
 ```
 
 ### Commands
@@ -157,6 +160,7 @@ uv run -m src.mcp_scan.cli
 ## Including MCP-scan results in your own project / registry
 
 If you want to include MCP-scan results in your own project or registry, please reach out to the team via `mcpscan@invariantlabs.ai`, and we can help you with that.
+For automated scanning we recommend using the `--json` flag and parsing the output.
 
 ## Further Reading
 - [Introducing MCP-Scan](https://invariantlabs.ai/blog/introducing-mcp-scan)
