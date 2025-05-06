@@ -1,3 +1,3 @@
 npx concurrently -p none -k \
-  "uv run mcp-scan proxy --pretty full" \
+  "uv run mcp-scan proxy --pretty full --gateway-dir /Users/luca/Developer/invariant-gateway" \
   "sleep 0.1 && python test-client.py"

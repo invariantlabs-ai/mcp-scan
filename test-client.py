@@ -17,15 +17,17 @@ def load_server_params(key: str) -> StdioServerParameters:
     )
 
 async def run():
+    await asyncio.sleep(1)
     server_params = load_server_params(SERVER_KEY)
     async with stdio_client(server_params) as (read, write):
         async with ClientSession(read, write) as session:
             await session.initialize()
             await session.list_tools()
-            await session.call_tool("list_chats", arguments={"limit": 20, "include_last_message": True, "sort_by": "last_active"})
-
+            
+            await session.call_tool("list_chats", arguments={"limit": 20, "include_last_message": True, "sort_by": "last_active"}),
+            await asyncio.sleep(0.2)
+            
             await session.call_tool("send_message", arguments={"chat_id": "123", "message": "Hello, world!"})
-
             await asyncio.sleep(0.2)
 
 if __name__ == "__main__":
