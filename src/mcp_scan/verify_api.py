@@ -1,6 +1,3 @@
-import ast
-import json
-import rich
 import aiohttp
 
 from .models import EntityScanResult, ScanPathResult
@@ -27,5 +24,7 @@ async def verify_server(scan_path: ScanPathResult, base_url: str) -> ScanPathRes
             errstr = ""
         result = scan_path.model_copy(deep=True)
         for server in result.servers:
-            server.result = [EntityScanResult(status="could not reach verification server " + errstr) for _ in server.entities]
+            server.result = [
+                EntityScanResult(status="could not reach verification server " + errstr) for _ in server.entities
+            ]
         return result
