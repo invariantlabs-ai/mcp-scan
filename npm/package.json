@@ -1,6 +1,6 @@
 {
   "name": "mcp-scan",
-  "version": "0.1.6",
+  "version": "0.1.8",
   "description": "MCP Scan tool for validating MCP server configurations",
   "main": "index.js",
   "bin": {
