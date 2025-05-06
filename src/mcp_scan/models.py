@@ -1,9 +1,10 @@
 from datetime import datetime
 from hashlib import md5
+from itertools import chain
 from typing import Any, Literal, TypeAlias
 
 from mcp.types import Prompt, Resource, Tool
-from pydantic import BaseModel, ConfigDict, RootModel, field_serializer, field_validator, model_serializer
+from pydantic import BaseModel, ConfigDict, RootModel, field_serializer, field_validator
 
 Entity: TypeAlias = Prompt | Resource | Tool
 
@@ -178,4 +179,4 @@ class ScanPathResult(BaseModel):
 
     @property
     def entities(self) -> list[Entity]:
-        return sum([server.entities for server in self.servers], start=[],)
+        return list(chain.from_iterable(server.entities for server in self.servers))
