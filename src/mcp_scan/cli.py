@@ -8,10 +8,10 @@ import psutil
 import rich
 from rich.logging import RichHandler
 
-from .MCPScanner import MCPScanner
-from .printer import print_scan_result
-from .StorageFile import StorageFile
-from .version import version_info
+from mcp_scan.MCPScanner import MCPScanner
+from mcp_scan.printer import print_scan_result
+from mcp_scan.StorageFile import StorageFile
+from mcp_scan.version import version_info
 
 # Configure logging to suppress all output by default
 logging.getLogger().setLevel(logging.CRITICAL + 1)  # Higher than any standard level
@@ -348,5 +348,4 @@ async def run_scan_inspect(mode="scan", args=None):
         print_scan_result(result, args.print_errors)
 
 
-if __name__ == "__main__":
-    asyncio.run(main())
+asyncio.run(main())
