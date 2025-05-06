@@ -18,6 +18,15 @@ class ActivityLogger:
         self.cached_metadata = {}
         # level of pretty printing
         self.pretty = pretty
+
+        # (session_id, tool_call_id) -> bool
+        self.logged_header = {}
+        self.logged_result = {}
+
+        # (session_id, formatted_output) -> bool
+        self.logged_output = {}
+        # last logged (session_id, tool_call_id), so we can skip logging tool call headers if it is directly followed by output
+        self.last_logged_tool = None
     
     async def handle_push(self, messages, metadata):
         """
@@ -34,71 +43,80 @@ class ActivityLogger:
         """
         Handles an append request with the given trace ID and messages.
         """
-        metadata = self.cached_metadata.get(trace_id, None)
+        metadata = self.cached_metadata.get(trace_id, {})
         await self.log(messages, metadata)
 
-    async def log(self, messages, metadata=None):
+    def empty_metadata(self):
+        return {
+            "client": "Unknown Client",
+            "mcp_server": "Unknown Server",
+            "user": None
+        }
+
+    async def log(self, messages, metadata):
         """
         Console-logs the relevant parts of the given messages and metadata.
         """
-
+        session_id = metadata.get("session_id", "<no session id>")
         client = metadata.get("client", "Unknown Client").capitalize()
         server = metadata.get("mcp_server", "Unknown Server").capitalize()
-        user = metadata.get("user", "Unknown User")
-        
-        for tc in tool_calls(messages):
-            name = tc['name']
+        user = metadata.get("user", None)
 
-            print(Rule())
-            print(f"● [bold blue]{client}[/bold blue] (@[bold red]{user}[/bold red]) used [bold green]{server}[/bold green] to [bold green]{name}[/bold green]")
-            print(Rule())
-            
-            if self.pretty != 'oneline':
-                args = tc.get("arguments", {})
-                result = tc.get("result", "")
+        tool_names = {}
 
-                if self.pretty == 'compact':
-                    truncated_result = truncate_preserving_whitespace(result)
+        for msg in messages:
+            if msg.get('role') == 'tool':
+                if (session_id, 'output-' + msg.get('tool_call_id')) in self.logged_output:
+                    continue
+                self.logged_output[(session_id, 'output-' + msg.get('tool_call_id'))] = True
 
-                    print(Syntax(json.dumps(args, indent=2), "json", theme="monokai"))
-                    print(Rule(style="grey50"))
-                    print(Syntax(truncated_result, "json" if not truncated_result.startswith("Error") else "pytb", theme="monokai"))
-                    print(Rule(style="grey50"))
+                has_header = self.last_logged_tool == (session_id, msg.get('tool_call_id'))
+                
+                if not has_header:
+                    print(Rule())
+                    # left arrow for output
+                    user_portion = "" if user is None else f" ([bold red]{user}[/bold red])"
+                    name = tool_names.get(msg.get('tool_call_id'), "<unknown tool>")
+                    print(f"← [bold blue]{client}[/bold blue]{user_portion} used [bold green]{server}[/bold green] to [bold green]{name}[/bold green]")
+                print(Rule())
+
+                # tool output
+                content = message_content(msg)
+                if type(content) is str and content.startswith("Error"):
+                    print(Syntax(content, "pytb", theme="monokai"))
                 else:
-                    print(Syntax(json.dumps(args, indent=2), "json", theme="monokai"))
-                    print(Rule(style="grey50"))
-                    print(Syntax(result, "json" if not result.startswith("Error") else "pytb", theme="monokai"))
-                    print(Rule(style="grey50"))
+                    print(Syntax(content, "json", theme="monokai"))
+                print(Rule())
+
+            else:
+                for tc in (msg.get('tool_calls') or []):
+                    name = tc.get('function', {}).get('name', "<unknown tool>")
+                    tool_names[tc.get('id')] = name
+
+                    if (session_id, tc.get('id')) in self.logged_output:
+                        continue
+                    self.logged_output[(session_id, tc.get('id'))] = True
+
+                    self.last_logged_tool = (session_id, tc.get('id'))
+
+                    # header
+                    user_portion = "" if user is None else f" ([bold red]{user}[/bold red])"
+
+                    print(Rule())
+                    print(f"→ [bold blue]{client}[/bold blue]{user_portion} used [bold green]{server}[/bold green] to [bold green]{name}[/bold green]")
+                    print(Rule())
+
+                    # tool arguments
+                    print(Syntax(json.dumps(tc.get('arguments', {}), indent=2), "json", theme="monokai"))
 
 
-def tool_calls(messages: list[dict]) -> list[dict]:
-    calls = {}
-
-    # First pass: index tool call requests
-    for msg in messages:
-        if 'tool_calls' in msg:
-            for call in (msg['tool_calls'] or []):
-                calls[call['id']] = {
-                    "name": call['function'].get('name', "<unknown tool>"),
-                    "arguments": call['function'].get('arguments', {})
-                }
-
-    # Second pass: find responses with matching tool_call_id
-    for msg in messages:
-        if msg.get('tool_call_id') in calls:
-            result_texts = [c['text'] for c in msg.get('content', []) if c['type'] == 'text']
-            calls[msg['tool_call_id']]["result"] = "\n".join(result_texts)
-
-    return list(calls.values())
-
-def truncate_preserving_whitespace(text, max_lines=20, max_chars=2000):
-    lines = text.splitlines()
-    truncated = "\n".join(lines[:max_lines])
-    if len(truncated) > max_chars:
-        truncated = truncated[:max_chars] + "\n... [truncated]"
-    elif len(lines) > max_lines:
-        truncated += "# \n... [truncated]"
-    return truncated
+def message_content(msg: dict) -> str:
+    if type(msg.get('content')) is str:
+        return msg.get('content', '')
+    elif type(msg.get('content')) is list:
+        return "\n".join([c['text'] for c in msg.get('content', []) if c['type'] == 'text'])
+    else:
+        return ""
 
 async def get_activity_logger(request: Request) -> ActivityLogger:
     """

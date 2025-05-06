@@ -13,6 +13,7 @@ from .MCPScanner import MCPScanner
 from .printer import print_scan_result
 from .StorageFile import StorageFile
 from .version import version_info
+from .paths import WELL_KNOWN_MCP_PATHS, client_shorthands_to_paths
 
 
 def get_invoking_name():
@@ -34,35 +35,6 @@ def get_invoking_name():
 
 def str2bool(v: str) -> bool:
     return v.lower() in ("true", "1", "t", "y", "yes")
-
-
-if sys.platform == "linux" or sys.platform == "linux2":
-    WELL_KNOWN_MCP_PATHS = [
-        "~/.codeium/windsurf/mcp_config.json",  # windsurf
-        "~/.cursor/mcp.json",  # cursor
-        "~/.vscode/mcp.json",  # vscode
-        "~/.config/Code/User/settings.json",  # vscode linux
-    ]
-elif sys.platform == "darwin":
-    # OS X
-    WELL_KNOWN_MCP_PATHS = [
-        "~/.codeium/windsurf/mcp_config.json",  # windsurf
-        "~/.cursor/mcp.json",  # cursor
-        "~/Library/Application Support/Claude/claude_desktop_config.json",  # Claude Desktop mac
-        "~/.vscode/mcp.json",  # vscode
-        "~/Library/Application Support/Code/User/settings.json",  # vscode mac
-    ]
-elif sys.platform == "win32":
-    WELL_KNOWN_MCP_PATHS = [
-        "~/.codeium/windsurf/mcp_config.json",  # windsurf
-        "~/.cursor/mcp.json",  # cursor
-        "~/AppData/Roaming/Claude/claude_desktop_config.json",  # Claude Desktop windows
-        "~/.vscode/mcp.json",  # vscode
-        "~/AppData/Roaming/Code/User/settings.json",  # vscode windows
-    ]
-else:
-    WELL_KNOWN_MCP_PATHS = []
-
 
 def add_common_arguments(parser):
     """Add arguments that are common to multiple commands."""
@@ -139,6 +111,12 @@ def add_install_arguments(parser):
         help="Prevent pushing traces to the explorer.",
     )
     parser.add_argument(
+        "--gateway-dir",
+        type=str,
+        help="Source directory for the Invariant Gateway. Set this, if you want to install a custom gateway implementation. (default: the published package is used).",
+        default=None,
+    )
+    parser.add_argument(
         "--mcp-scan-server-port",
         type=int,
         default=8000,
@@ -163,9 +141,15 @@ def add_uninstall_arguments(parser):
 
 def check_install_args(args):
     if args.command == "install" and not args.local_only and not args.api_key:
-        raise argparse.ArgumentError(
-            None, "argument --api-key is required when --local-only is not set"
-        )
+        # prompt for api key
+        print("To install mcp-scan with remote logging, you need an Invariant API key (https://explorer.invariantlabs.ai/settings).\n")
+        args.api_key = input("API key (or just press enter to install with --local-only): ")
+        if not args.api_key:
+            args.local_only = True
+        
+        # raise argparse.ArgumentError(
+        #     None, "argument --api-key is required when --local-only is not set"
+        # )
 
 
 def main():
@@ -339,6 +323,9 @@ def main():
 
     # Parse arguments (default to 'scan' if no command provided)
     args = parser.parse_args(["scan"] if len(sys.argv) == 1 else None)
+    
+    # postprocess the files argument (if shorthands are used)
+    args.files = client_shorthands_to_paths(args.files)
 
     # Display version banner
     if not (hasattr(args, "json") and args.json):
@@ -361,8 +348,9 @@ def main():
         installer.install(
             gateway_config=MCPGatewayConfig(
                 project_name=args.project_name,
-                push_explorer=not args.local_only,
+                push_explorer=True,
                 api_key=args.api_key or "",
+                source_dir=args.gateway_dir,
             ),
             verbose=True,
         )
@@ -443,7 +431,8 @@ def main():
         sys.exit(0)
     elif args.command == "proxy":
         args.local_only = True
-        # install()
+        install()
+        print("[Proxy installed, you may need to restart/reload your MCP clients to use it]")
         server(on_exit=uninstall)
     else:
         # This shouldn't happen due to argparse's handling

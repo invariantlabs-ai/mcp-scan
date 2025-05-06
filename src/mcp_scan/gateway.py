@@ -1,5 +1,6 @@
 import argparse
 import os
+from typing import Optional
 
 import rich
 from pydantic import BaseModel
@@ -8,6 +9,7 @@ from rich.tree import Tree
 
 from mcp_scan.mcp_client import scan_mcp_config_file
 from mcp_scan.models import MCPConfig, SSEServer, StdioServer
+from mcp_scan.paths import get_client_from_path
 from mcp_scan.printer import format_path_line
 
 parser = argparse.ArgumentParser(
@@ -15,15 +17,6 @@ parser = argparse.ArgumentParser(
     prog="invariant-gateway@latest mcp",
 )
 
-parser.add_argument(
-    "--project-name",
-    type=str,
-    required=True,
-)
-parser.add_argument(
-    "--push-explorer",
-    action="store_true",
-)
 parser.add_argument("--exec", type=str, required=True, nargs=argparse.REMAINDER)
 
 
@@ -40,35 +33,70 @@ class MCPGatewayConfig(BaseModel):
     push_explorer: bool
     api_key: str
 
+    # the source directory of the gateway implementation to use 
+    # (if None, uses the published package)
+    source_dir: Optional[str] = None
+
 
 def is_invariant_installed(server: StdioServer) -> bool:
     if server.args is None:
         return False
     if not server.args:
         return False
-    return server.args[0] == "invariant-gateway@latest"
+    return any("invariant-gateway" in a for a in server.args)
 
 
 def install_gateway(
     server: StdioServer,
     config: MCPGatewayConfig,
     invariant_api_url: str = "https://explorer.invariantlabs.ai",
+    extra_metadata: dict[str, str] = {},
 ) -> StdioServer:
     """Install the gateway for the given server."""
     if is_invariant_installed(server):
         raise MCPServerAlreadyGateway()
-    return StdioServer(
-        command="uvx",
-        args=[
-            "invariant-gateway@latest",
+    
+    env = server.env | {"INVARIANT_API_KEY": config.api_key or "<no-api-key>", "INVARIANT_API_URL": invariant_api_url, "GUARDRAILS_API_URL": invariant_api_url}
+
+    cmd = "uvx"
+    base_args = [
+        "invariant-gateway@latest",
+        "mcp",
+    ]
+
+    # if running gateway from source-dir, use 'uv run' instead
+    if config.source_dir:
+        cmd = "uv"
+        base_args = [
+            "run",
+            "--with",
             "mcp",
+            "--directory",
+            config.source_dir,
+            "invariant-gateway",
+            "mcp"
+        ]
+
+    flags = [
             "--project-name",
             config.project_name,
+            *(["--push-explorer"] if config.push_explorer else []),
         ]
-        + (["--push-explorer"] if config.push_explorer else [])
-        + ["--exec", server.command]
-        + (server.args if server.args else []),
-        env=server.env | {"INVARIANT_API_KEY": config.api_key, "INVARIANT_API_URL": invariant_api_url},
+    # add extra metadata flags
+    for k, v in extra_metadata.items():
+        flags.append(f"--metadata-{k}={v}")
+
+    # add exec section
+    flags += [
+        *["--exec", server.command],
+        *(server.args if server.args else [])
+    ]
+
+    # return new server config
+    return StdioServer(
+        command=cmd,
+        args=base_args + flags,
+        env=env
     )
 
 
@@ -80,8 +108,8 @@ def uninstall_gateway(
         raise MCPServerIsNotGateway()
 
     assert isinstance(server.args, list), "args is not a list"
-    args = parser.parse_args(server.args[2:])
-    new_env = {k: v for k, v in server.env.items() if k != "INVARIANT_API_KEY" and k != "INVARIANT_API_URL"}
+    args, unknown = parser.parse_known_args(server.args[2:])
+    new_env = {k: v for k, v in server.env.items() if k != "INVARIANT_API_KEY" and k != "INVARIANT_API_URL" and k != "GUARDRAILS_API_URL"}
     assert args.exec is not None, "exec is None"
     assert args.exec, "exec is empty"
     return StdioServer(
@@ -138,13 +166,14 @@ class MCPGatewayInstaller:
             for name, server in config.get_servers().items():
                 if isinstance(server, StdioServer):
                     try:
-                        new_servers[name] = install_gateway(server, gateway_config, self.invariant_api_url)
+                        new_servers[name] = install_gateway(server, gateway_config, self.invariant_api_url, {"server": name, "client": get_client_from_path(path)})
                         path_print_tree.add(format_install_line(server=name, status="Installed", success=True))
                     except MCPServerAlreadyGateway:
                         new_servers[name] = server
                         path_print_tree.add(format_install_line(server=name, status="Already installed", success=True))
-                    except Exception:
+                    except Exception as e:
                         new_servers[name] = server
+                        print(f"Failed to install gateway for {name}", e)
                         path_print_tree.add(format_install_line(server=name, status="Failed to install", success=False))
 
                 else:

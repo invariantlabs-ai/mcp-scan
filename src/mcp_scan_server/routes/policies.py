@@ -1,10 +1,11 @@
 import asyncio
+import json
 import os
 
 import fastapi
 import rich
 import yaml  # type: ignore
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 from invariant.analyzer.policy import LocalPolicy
 from invariant.analyzer.runtime.runtime_errors import (
     ExcessivePolicyError,
@@ -12,6 +13,8 @@ from invariant.analyzer.runtime.runtime_errors import (
     MissingPolicyParameter,
 )
 from pydantic import ValidationError
+
+from mcp_scan_server.activity_logger import ActivityLogger, get_activity_logger
 
 from ..models import (
     BatchCheckRequest,
@@ -129,11 +132,20 @@ def to_json_serializable_dict(obj):
 
 
 @router.post("/policy/check/batch", response_model=BatchCheckResponse)
-async def batch_check_policies(request: BatchCheckRequest):
+async def batch_check_policies(check_request: BatchCheckRequest, request: fastapi.Request, activity_logger: ActivityLogger = Depends(get_activity_logger)):
     """Check a policy using the invariant analyzer."""
     results = await asyncio.gather(
-        *[check_policy(policy, request.messages, request.parameters) for policy in request.policies]
+        *[check_policy(policy, check_request.messages, check_request.parameters) for policy in check_request.policies]
     )
+
+    metadata = check_request.parameters.get("metadata", {})
+
+    await activity_logger.log(check_request.messages, {
+        "client": metadata.get("client"),
+        "mcp_server": metadata.get("server"),
+        "user": metadata.get("system_user"),
+        "session_id": metadata.get("session_id"),
+    })
 
     return fastapi.responses.JSONResponse(
         content={"result": [to_json_serializable_dict(result.to_dict()) for result in results]}
