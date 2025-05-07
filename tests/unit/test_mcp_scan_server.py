@@ -100,7 +100,7 @@ async def test_get_all_policies_creates_file_when_missing(tmp_path):
     assert os.path.exists(config_file_path)
 
     # Verify the file contains a valid empty config
-    with open(config_file_path, "r") as f:
+    with open(config_file_path) as f:
         config_content = f.read()
         loaded_config = yaml.safe_load(config_content)
 

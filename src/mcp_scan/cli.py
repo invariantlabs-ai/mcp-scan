@@ -1,10 +1,10 @@
 import argparse
+import asyncio
 import json
 import logging
 import sys
 
 import psutil
-import asyncio
 import rich
 from rich.logging import RichHandler
 
@@ -12,11 +12,10 @@ from mcp_scan.gateway import MCPGatewayConfig, MCPGatewayInstaller
 from mcp_scan_server.server import MCPScanServer
 
 from .MCPScanner import MCPScanner
+from .paths import WELL_KNOWN_MCP_PATHS, client_shorthands_to_paths
 from .printer import print_scan_result
 from .StorageFile import StorageFile
 from .version import version_info
-from .paths import WELL_KNOWN_MCP_PATHS, client_shorthands_to_paths
-
 
 # Configure logging to suppress all output by default
 logging.getLogger().setLevel(logging.CRITICAL + 1)  # Higher than any standard level
@@ -63,6 +62,7 @@ def get_invoking_name():
 
 def str2bool(v: str) -> bool:
     return v.lower() in ("true", "1", "t", "y", "yes")
+
 
 def add_common_arguments(parser):
     """Add arguments that are common to multiple commands."""
@@ -188,11 +188,13 @@ def add_uninstall_arguments(parser):
 def check_install_args(args):
     if args.command == "install" and not args.local_only and not args.api_key:
         # prompt for api key
-        print("To install mcp-scan with remote logging, you need an Invariant API key (https://explorer.invariantlabs.ai/settings).\n")
+        print(
+            "To install mcp-scan with remote logging, you need an Invariant API key (https://explorer.invariantlabs.ai/settings).\n"
+        )
         args.api_key = input("API key (or just press enter to install with --local-only): ")
         if not args.api_key:
             args.local_only = True
-        
+
         # raise argparse.ArgumentError(
         #     None, "argument --api-key is required when --local-only is not set"
         # )
@@ -274,8 +276,7 @@ def main():
         "whitelist",
         help="Manage the whitelist of approved entities",
         description=(
-            "View, add, or reset whitelisted entities. "
-            "Whitelisted entities bypass security checks during scans."
+            "View, add, or reset whitelisted entities. Whitelisted entities bypass security checks during scans."
         ),
     )
     add_common_arguments(whitelist_parser)
@@ -324,9 +325,7 @@ def main():
     add_install_arguments(install_parser)
 
     # uninstall
-    uninstall_parser = subparsers.add_parser(
-        "uninstall", help="Uninstall Invariant Gateway"
-    )
+    uninstall_parser = subparsers.add_parser("uninstall", help="Uninstall Invariant Gateway")
     add_uninstall_arguments(uninstall_parser)
 
     # HELP command
@@ -348,9 +347,7 @@ def main():
     add_common_arguments(server_parser)
 
     # PROXY command
-    proxy_parser = subparsers.add_parser(
-        "proxy", help="Installs and proxies MCP requests, uninstalls on exit"
-    )
+    proxy_parser = subparsers.add_parser("proxy", help="Installs and proxies MCP requests, uninstalls on exit")
     proxy_parser.add_argument(
         "--port",
         type=int,
@@ -364,7 +361,7 @@ def main():
 
     # Parse arguments (default to 'scan' if no command provided)
     args = parser.parse_args(["scan"] if len(sys.argv) == 1 else None)
-    
+
     # postprocess the files argument (if shorthands are used)
     args.files = client_shorthands_to_paths(args.files)
 
@@ -379,13 +376,9 @@ def main():
             parser.error(e)
 
         invariant_api_url = (
-            f"http://localhost:{args.mcp_scan_server_port}"
-            if args.local_only
-            else "https://explorer.invariantlabs.ai"
+            f"http://localhost:{args.mcp_scan_server_port}" if args.local_only else "https://explorer.invariantlabs.ai"
         )
-        installer = MCPGatewayInstaller(
-            paths=args.files, invariant_api_url=invariant_api_url
-        )
+        installer = MCPGatewayInstaller(paths=args.files, invariant_api_url=invariant_api_url)
         await installer.install(
             gateway_config=MCPGatewayConfig(
                 project_name=args.project_name,
@@ -404,13 +397,10 @@ def main():
         sf = StorageFile(args.storage_file)
         guardrails_config_path = sf.create_guardrails_config()
         mcp_scan_server = MCPScanServer(
-            port=args.port, 
-            config_file_path=guardrails_config_path,
-            on_exit=on_exit,
-            pretty=args.pretty
+            port=args.port, config_file_path=guardrails_config_path, on_exit=on_exit, pretty=args.pretty
         )
         mcp_scan_server.run()
-    
+
     # Set up logging if verbose flag is enabled
     setup_logging(args.verbose or False)
 
@@ -424,9 +414,7 @@ def main():
             sf.reset_whitelist()
             rich.print("[bold]Whitelist reset[/bold]")
             sys.exit(0)
-        elif all(
-            map(lambda x: x is None, [args.type, args.name, args.hash])
-        ):  # no args
+        elif all(x is None for x in [args.type, args.name, args.hash]):  # no args
             sf.print_whitelist()
             sys.exit(0)
         elif all(x is not None for x in [args.type, args.name, args.hash]):
@@ -439,9 +427,7 @@ def main():
             sf.print_whitelist()
             sys.exit(0)
         else:
-            rich.print(
-                "[bold red]Please provide all three parameters: type, name, and hash.[/bold red]"
-            )
+            rich.print("[bold red]Please provide all three parameters: type, name, and hash.[/bold red]")
             whitelist_parser.print_help()
             sys.exit(1)
     elif args.command == "inspect":
@@ -493,7 +479,7 @@ async def run_scan_inspect(mode="scan", args=None):
         elif mode == "inspect":
             result = await scanner.inspect()
     if args.json:
-        result = dict((r.path, r.model_dump()) for r in result)
+        result = {r.path: r.model_dump() for r in result}
         print(json.dumps(result, indent=2))
     else:
         print_scan_result(result)

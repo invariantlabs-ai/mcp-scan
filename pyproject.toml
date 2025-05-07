@@ -85,6 +85,8 @@ ignore = [
     "D106",   # Missing docstring in public nested class
     "D107",   # Missing docstring in __init__
     "SIM117", # nested with
+    "B008", # Allow Depends(...) in default arguments
+    "E501" # line too long
 ]
 
 [tool.ruff.lint.per-file-ignores]

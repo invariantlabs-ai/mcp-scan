@@ -1,61 +1,37 @@
-import sys
 import re
+import sys
 
 if sys.platform == "linux" or sys.platform == "linux2":
     # Linux
     CLIENT_PATHS = {
-        'windsurf': [
-            "~/.codeium/windsurf/mcp_config.json"
-        ],
-        'cursor': [
-            "~/.cursor/mcp.json"
-        ],
-        'vscode': [
-            "~/.vscode/mcp.json",
-            "~/.config/Code/User/settings.json"
-        ],
+        "windsurf": ["~/.codeium/windsurf/mcp_config.json"],
+        "cursor": ["~/.cursor/mcp.json"],
+        "vscode": ["~/.vscode/mcp.json", "~/.config/Code/User/settings.json"],
     }
     WELL_KNOWN_MCP_PATHS = [path for client, paths in CLIENT_PATHS.items() for path in paths]
 elif sys.platform == "darwin":
     # OS X
     CLIENT_PATHS = {
-        'windsurf': [
-            "~/.codeium/windsurf/mcp_config.json"
-        ],
-        'cursor': [
-            "~/.cursor/mcp.json"
-        ],
-        'claude': [
-            "~/Library/Application Support/Claude/claude_desktop_config.json"
-        ],
-        'vscode': [
-            "~/.vscode/mcp.json",
-            "~/Library/Application Support/Code/User/settings.json"
-        ],
+        "windsurf": ["~/.codeium/windsurf/mcp_config.json"],
+        "cursor": ["~/.cursor/mcp.json"],
+        "claude": ["~/Library/Application Support/Claude/claude_desktop_config.json"],
+        "vscode": ["~/.vscode/mcp.json", "~/Library/Application Support/Code/User/settings.json"],
     }
     WELL_KNOWN_MCP_PATHS = [path for client, paths in CLIENT_PATHS.items() for path in paths]
 elif sys.platform == "win32":
     CLIENT_PATHS = {
-        'windsurf': [
-            "~/.codeium/windsurf/mcp_config.json"
-        ],
-        'cursor': [
-            "~/.cursor/mcp.json"
-        ],
-        'claude': [
-            "~/AppData/Roaming/Claude/claude_desktop_config.json"
-        ],
-        'vscode': [
-            "~/.vscode/mcp.json",
-            "~/AppData/Roaming/Code/User/settings.json"
-        ],
+        "windsurf": ["~/.codeium/windsurf/mcp_config.json"],
+        "cursor": ["~/.cursor/mcp.json"],
+        "claude": ["~/AppData/Roaming/Claude/claude_desktop_config.json"],
+        "vscode": ["~/.vscode/mcp.json", "~/AppData/Roaming/Code/User/settings.json"],
     }
-    
+
     WELL_KNOWN_MCP_PATHS = [path for client, paths in CLIENT_PATHS.items() for path in paths]
 else:
     WELL_KNOWN_MCP_PATHS = []
 
-def get_client_from_path(path: str) -> str:
+
+def get_client_from_path(path: str) -> str | None:
     """
     Returns the client name from a path.
 
@@ -70,6 +46,7 @@ def get_client_from_path(path: str) -> str:
             return client
     return None
 
+
 def client_shorthands_to_paths(shorthands: list[str]):
     """
     Converts a list of client shorthands to a list of paths.
@@ -79,7 +56,7 @@ def client_shorthands_to_paths(shorthands: list[str]):
     paths = []
     if any(not re.match(r"^[A-z0-9_-]+$", shorthand) for shorthand in shorthands):
         return shorthands
-    
+
     for shorthand in shorthands:
         if shorthand in CLIENT_PATHS:
             paths.extend(CLIENT_PATHS[shorthand])

@@ -1,8 +1,10 @@
+import inspect
+from collections.abc import Callable
+from typing import Literal
+
 import rich
 import uvicorn
 from fastapi import FastAPI
-from typing import Literal, Optional
-import inspect
 
 from mcp_scan_server.activity_logger import setup_activity_logger
 
@@ -23,7 +25,14 @@ class MCPScanServer:
         log_level: The log level for the server.
     """
 
-    def __init__(self, port: int = 8000, config_file_path: str | None = None, on_exit: Optional[callable] = None, log_level: str = "error", pretty: Literal["oneline", "compact", "full"] = "compact"):
+    def __init__(
+        self,
+        port: int = 8000,
+        config_file_path: str | None = None,
+        on_exit: Callable | None = None,
+        log_level: str = "error",
+        pretty: Literal["oneline", "compact", "full"] = "compact",
+    ):
         self.port = port
         self.config_file_path = config_file_path
         self.on_exit = on_exit
@@ -40,16 +49,16 @@ class MCPScanServer:
 
     async def on_startup(self):
         """Startup event for the FastAPI app."""
-        rich.print("[bold green]MCP-scan server started.[/bold green]")        
+        rich.print("[bold green]MCP-scan server started.[/bold green]")
 
         setup_activity_logger(self.app, pretty=self.pretty)
 
     async def life_span(self, app: FastAPI):
         """Lifespan event for the FastAPI app."""
         await self.on_startup()
-        
+
         yield
-        
+
         if callable(self.on_exit):
             if inspect.iscoroutinefunction(self.on_exit):
                 await self.on_exit()

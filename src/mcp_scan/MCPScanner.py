@@ -109,7 +109,7 @@ class MCPScanner:
         logger.info("Getting servers from path: %s", path)
         result = ScanPathResult(path=path)
         try:
-            servers = (await scan_mcp_config_file(path)).get_servers()
+            servers = scan_mcp_config_file(path).get_servers()
             logger.debug("Found %d servers in path: %s", len(servers), path)
             result.servers = [
                 ServerScanResult(name=server_name, server=server) for server_name, server in servers.items()

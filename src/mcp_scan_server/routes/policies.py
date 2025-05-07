@@ -1,5 +1,4 @@
 import asyncio
-import json
 import os
 
 import fastapi
@@ -37,14 +36,14 @@ async def get_all_policies(config_file_path: str) -> list[DatasetPolicy]:
         with open(config_file_path, "w") as f:
             f.write(config.model_dump_yaml())
 
-    with open(config_file_path, "r") as f:
+    with open(config_file_path) as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
         try:
             config = GuardrailConfig.model_validate(config)
         except ValidationError as e:
-            raise fastapi.HTTPException(status_code=400, detail=str(e))
+            raise fastapi.HTTPException(status_code=400, detail=str(e)) from e
         except Exception as e:
-            raise fastapi.HTTPException(status_code=400, detail=str(e))
+            raise fastapi.HTTPException(status_code=400, detail=str(e)) from e
 
     policies = [
         DatasetPolicy(
@@ -73,7 +72,7 @@ async def get_policy(username: str, dataset_name: str, request: Request):
     return {"policies": policies}
 
 
-async def check_policy(policy_str: str, messages: list[dict], parameters: dict = {}) -> PolicyCheckResult:
+async def check_policy(policy_str: str, messages: list[dict], parameters: dict | None = None) -> PolicyCheckResult:
     """
     Check a policy using the invariant analyzer.
 
@@ -95,7 +94,7 @@ async def check_policy(policy_str: str, messages: list[dict], parameters: dict =
                 error_message=str(policy),
             )
 
-        result = await policy.a_analyze_pending(messages[:-1], [messages[-1]], **parameters)
+        result = await policy.a_analyze_pending(messages[:-1], [messages[-1]], **(parameters or {}))
 
         return PolicyCheckResult(
             policy=policy_str,
@@ -123,16 +122,18 @@ def to_json_serializable_dict(obj):
         return {k: to_json_serializable_dict(v) for k, v in obj.items()}
     elif isinstance(obj, list):
         return [to_json_serializable_dict(v) for v in obj]
-    elif isinstance(obj, str):
-        return obj
-    elif isinstance(obj, (int, float, bool)):
+    elif isinstance(obj, str | int | float | bool):
         return obj
     else:
         return type(obj).__name__ + "(" + str(obj) + ")"
 
 
 @router.post("/policy/check/batch", response_model=BatchCheckResponse)
-async def batch_check_policies(check_request: BatchCheckRequest, request: fastapi.Request, activity_logger: ActivityLogger = Depends(get_activity_logger)):
+async def batch_check_policies(
+    check_request: BatchCheckRequest,
+    request: fastapi.Request,
+    activity_logger: ActivityLogger = Depends(get_activity_logger),
+):
     """Check a policy using the invariant analyzer."""
     results = await asyncio.gather(
         *[check_policy(policy, check_request.messages, check_request.parameters) for policy in check_request.policies]
@@ -140,12 +141,15 @@ async def batch_check_policies(check_request: BatchCheckRequest, request: fastap
 
     metadata = check_request.parameters.get("metadata", {})
 
-    await activity_logger.log(check_request.messages, {
-        "client": metadata.get("client"),
-        "mcp_server": metadata.get("server"),
-        "user": metadata.get("system_user"),
-        "session_id": metadata.get("session_id"),
-    })
+    await activity_logger.log(
+        check_request.messages,
+        {
+            "client": metadata.get("client"),
+            "mcp_server": metadata.get("server"),
+            "user": metadata.get("system_user"),
+            "session_id": metadata.get("session_id"),
+        },
+    )
 
     return fastapi.responses.JSONResponse(
         content={"result": [to_json_serializable_dict(result.to_dict()) for result in results]}

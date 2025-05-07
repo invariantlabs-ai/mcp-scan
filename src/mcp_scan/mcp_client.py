@@ -4,7 +4,6 @@ import os
 from typing import AsyncContextManager  # noqa: UP035
 
 import pyjson5
-import aiofiles
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.sse import sse_client
 from mcp.client.stdio import stdio_client
@@ -110,7 +109,7 @@ async def check_server_with_timeout(
         raise
 
 
-async def scan_mcp_config_file(path: str) -> MCPConfig:
+def scan_mcp_config_file(path: str) -> MCPConfig:
     logger.info("Scanning MCP config file: %s", path)
     path = os.path.expanduser(path)
     logger.debug("Expanded path: %s", path)
@@ -133,8 +132,8 @@ async def scan_mcp_config_file(path: str) -> MCPConfig:
 
     try:
         logger.debug("Opening config file")
-        async with aiofiles.open(path) as f:
-            content = await f.read()
+        with open(path) as f:
+            content = f.read()
         logger.debug("Config file read successfully")
         # use json5 to support comments as in vscode
         config = pyjson5.loads(content)

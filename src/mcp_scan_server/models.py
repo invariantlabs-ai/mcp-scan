@@ -1,6 +1,5 @@
 import datetime
 from enum import Enum
-from typing import Optional
 
 import yaml  # type: ignore
 from invariant.analyzer.policy import AnalysisResult
@@ -26,7 +25,7 @@ class PolicyCheckResult(BaseModel):
     """Policy check result model."""
 
     policy: str = Field(description="The policy that was applied.")
-    result: Optional[AnalysisResult] = None
+    result: AnalysisResult | None = None
     success: bool = Field(description="Whether this policy check was successful (loaded and ran).")
     error_message: str = Field(
         default="",

@@ -4,7 +4,6 @@ import json
 import subprocess
 
 import pytest
-from pytest_lazy_fixtures import lf
 
 from mcp_scan.utils import TempFile
 

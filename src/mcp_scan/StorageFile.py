@@ -22,7 +22,7 @@ class StorageFile:
     def __init__(self, path: str):
         logger.debug("Initializing StorageFile with path: %s", path)
         self.path = os.path.expanduser(path)
-        
+
         logger.debug("Expanded path: %s", self.path)
         # if path is a file
         self.scanned_entities: ScannedEntities = ScannedEntities({})
@@ -32,7 +32,7 @@ class StorageFile:
         if os.path.isfile(self.path):
             rich.print(f"[bold]Legacy storage file detected at {self.path}, converting to new format[/bold]")
             # legacy format
-            with open(self.path, "r") as f:
+            with open(self.path) as f:
                 legacy_data = json.load(f)
             if "__whitelist" in legacy_data:
                 self.whitelist = legacy_data["__whitelist"]
@@ -61,7 +61,7 @@ class StorageFile:
         if os.path.exists(path) and os.path.isdir(path):
             logger.debug("Path exists and is a directory: %s", path)
             scanned_entities_path = os.path.join(path, "scanned_entities.json")
-            
+
             if os.path.exists(scanned_entities_path):
                 logger.debug("Loading scanned entities from: %s", scanned_entities_path)
                 with open(scanned_entities_path) as f:
@@ -81,14 +81,13 @@ class StorageFile:
 
             guardrails_config_path = os.path.join(self.path, "guardrails_config.yml")
             if os.path.exists(guardrails_config_path):
-                with open(guardrails_config_path, "r") as f:
+                with open(guardrails_config_path) as f:
                     try:
                         guardrails_config_data = yaml.safe_load(f.read()) or {}
                         self.guardrails_config = GuardrailConfig.model_validate(guardrails_config_data)
                     except yaml.YAMLError as e:
                         rich.print(
-                            f"[bold red]Could not parse guardrails config file "
-                            f"{guardrails_config_path}: {e}[/bold red]"
+                            f"[bold red]Could not parse guardrails config file {guardrails_config_path}: {e}[/bold red]"
                         )
                     except ValidationError as e:
                         rich.print(

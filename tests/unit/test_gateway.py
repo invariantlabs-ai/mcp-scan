@@ -25,7 +25,7 @@ async def test_install_gateway(sample_config, temp_file):
 
     config_dict = pyjson5.loads(sample_config)
     installer = MCPGatewayInstaller(paths=[temp_file])
-    for server in (await scan_mcp_config_file(temp_file)).get_servers().values():
+    for server in scan_mcp_config_file(temp_file).get_servers().values():
         if isinstance(server, StdioServer):
             assert not is_invariant_installed(server), "Invariant should not be installed"
     installer.install(
@@ -36,18 +36,18 @@ async def test_install_gateway(sample_config, temp_file):
     # try to load the config
     pyjson5.loads(sample_config)
 
-    for server in (await scan_mcp_config_file(temp_file)).get_servers().values():
+    for server in scan_mcp_config_file(temp_file).get_servers().values():
         if isinstance(server, StdioServer):
             assert is_invariant_installed(server), "Invariant should be installed"
 
     installer.uninstall(verbose=True)
 
-    for server in (await scan_mcp_config_file(temp_file)).get_servers().values():
+    for server in scan_mcp_config_file(temp_file).get_servers().values():
         if isinstance(server, StdioServer):
             assert not is_invariant_installed(server), "Invariant should be uninstalled"
 
     config_dict_uninstalled = pyjson5.loads(sample_config)
 
-    assert (
-        config_dict_uninstalled == config_dict
-    ), "Installation and uninstallation of the gateway should not change the config file"
+    assert config_dict_uninstalled == config_dict, (
+        "Installation and uninstallation of the gateway should not change the config file"
+    )
