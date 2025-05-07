@@ -1,4 +1,5 @@
 import sys
+import re
 
 if sys.platform == "linux" or sys.platform == "linux2":
     # Linux
@@ -76,7 +77,7 @@ def client_shorthands_to_paths(shorthands: list[str]):
     Does nothing if the shorthands are already paths.
     """
     paths = []
-    if any("/" in shorthand for shorthand in shorthands):
+    if any(not re.match(r"^[A-z0-9_-]+$", shorthand) for shorthand in shorthands):
         return shorthands
     
     for shorthand in shorthands:
