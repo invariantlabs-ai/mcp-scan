@@ -1,0 +1,6 @@
+from invariant.detectors import pii
+
+raise PolicyViolation("Found secret") if:
+    (tooloutput: ToolOutput)
+    #BLACKLIST_WHITELIST_STATEMENT
+    any(pii(tooloutput.content))

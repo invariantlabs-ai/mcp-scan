@@ -19,56 +19,57 @@ from ..models import (
     BatchCheckRequest,
     BatchCheckResponse,
     DatasetPolicy,
-    GuardrailConfig,
+    GuardrailConfigFile,
     PolicyCheckResult,
 )
+from ..parse_config import parse_config
 
 router = APIRouter()
 
 
-async def get_all_policies(config_file_path: str) -> list[DatasetPolicy]:
-    """Get all policies from local config file."""
+async def get_all_policies(
+    config_file_path: str,
+    client_names: list[str] | None = None,
+    server_names: list[str] | None = None,
+) -> list[DatasetPolicy]:
+    """Get all policies from local config file.
+
+    Args:
+        config_file_path: The path to the config file.
+        client_names: List of client names to include guardrails for.
+        server_names: List of server names to include guardrails for.
+
+    Returns:
+        A list of DatasetPolicy objects.
+    """
     if not os.path.exists(config_file_path):
         rich.print(
             f"""[bold red]Guardrail config file not found: {config_file_path}. Creating an empty one.[/bold red]"""
         )
-        config = GuardrailConfig.model_validate({})
+        config = GuardrailConfigFile()
         with open(config_file_path, "w") as f:
             f.write(config.model_dump_yaml())
 
     with open(config_file_path) as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
         try:
-            config = GuardrailConfig.model_validate(config)
+            config = GuardrailConfigFile.model_validate(config)
         except ValidationError as e:
+            rich.print(f"[bold red]Error validating guardrail config file: {e}[/bold red]")
             raise fastapi.HTTPException(status_code=400, detail=str(e)) from e
         except Exception as e:
             raise fastapi.HTTPException(status_code=400, detail=str(e)) from e
 
-    policies = [
-        DatasetPolicy(
-            id=guardrail.id,
-            name=guardrail.name,
-            content=guardrail.content,
-            enabled=guardrail.enabled,
-            action=guardrail.action,
-            extra_metadata={
-                "platform": platform_name,
-                "tool": tool_name,
-            },
-        )
-        for platform_name, platform_data in config.root.items()
-        for tool_name, server_guardrails in platform_data.items()
-        for guardrail in server_guardrails.guardrails
-    ]
-
-    return policies
+    return await parse_config(config, client_names, server_names)
 
 
 @router.get("/dataset/byuser/{username}/{dataset_name}/policy")
 async def get_policy(username: str, dataset_name: str, request: Request):
     """Get a policy from local config file."""
-    policies = await get_all_policies(request.app.state.config_file_path)
+    clients = ["cursor"]
+    servers = ["server1"]
+    policies = await get_all_policies(request.app.state.config_file_path, clients, servers)
+    print(policies)
     return {"policies": policies}
 
 
