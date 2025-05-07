@@ -13,6 +13,4 @@ async def append_messages(trace_id: str, request: Request, activity_logger: Anno
     body = await request.json()
     messages = body.get("messages", [])
 
-    # await activity_logger.handle_append(trace_id, messages)
-
     return {"success": True}

@@ -14,6 +14,12 @@ from rich.rule import Rule
 from textwrap import shorten
 
 class ActivityLogger:
+    """
+    Logs trace events as they are received (e.g. tool calls, tool outputs, etc.).
+
+    Ensures that each event is only logged once. Also includes metadata in log output,
+    like the client, user, server name and tool name.
+    """
     def __init__(self, pretty: Literal["oneline", "compact", "full"] = "compact"):
         self.cached_metadata = {}
         # level of pretty printing
@@ -27,24 +33,6 @@ class ActivityLogger:
         self.logged_output = {}
         # last logged (session_id, tool_call_id), so we can skip logging tool call headers if it is directly followed by output
         self.last_logged_tool = None
-    
-    async def handle_push(self, messages, metadata):
-        """
-        Handles a push request with the given messages and metadata.
-        """
-        for i, batch_items in enumerate(messages):
-            trace_id = str(uuid.uuid4())
-            self.cached_metadata[trace_id] = metadata[i]
-            await self.log(batch_items, metadata[i])
-
-        return trace_id
-
-    async def handle_append(self, trace_id: str, messages: list[dict]):
-        """
-        Handles an append request with the given trace ID and messages.
-        """
-        metadata = self.cached_metadata.get(trace_id, {})
-        await self.log(messages, metadata)
 
     def empty_metadata(self):
         return {

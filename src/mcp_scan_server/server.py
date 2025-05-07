@@ -2,6 +2,7 @@ import rich
 import uvicorn
 from fastapi import FastAPI
 from typing import Literal, Optional
+import inspect
 
 from mcp_scan_server.activity_logger import setup_activity_logger
 
@@ -50,7 +51,10 @@ class MCPScanServer:
         yield
         
         if callable(self.on_exit):
-            self.on_exit()
+            if inspect.iscoroutinefunction(self.on_exit):
+                await self.on_exit()
+            else:
+                self.on_exit()
 
     def run(self):
         """Run the MCP scan server."""

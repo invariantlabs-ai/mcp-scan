@@ -17,7 +17,6 @@ async def push_trace(request: Request, activity_logger: Annotated[ActivityLogger
     metadata = body.get("metadata", [{}])
     messages = body.get("messages", [[]])
 
-    # trace_id = await activity_logger.handle_push(messages, metadata)
     trace_id = str(uuid.uuid4())
 
     # return the trace ID

@@ -372,7 +372,7 @@ def main():
     if not (hasattr(args, "json") and args.json):
         rich.print(f"[bold blue]Invariant MCP-scan v{version_info}[/bold blue]\n")
 
-    def install():
+    async def install():
         try:
             check_install_args(args)
         except argparse.ArgumentError as e:
@@ -386,7 +386,7 @@ def main():
         installer = MCPGatewayInstaller(
             paths=args.files, invariant_api_url=invariant_api_url
         )
-        installer.install(
+        await installer.install(
             gateway_config=MCPGatewayConfig(
                 project_name=args.project_name,
                 push_explorer=True,
@@ -396,9 +396,9 @@ def main():
             verbose=True,
         )
 
-    def uninstall():
+    async def uninstall():
         installer = MCPGatewayInstaller(paths=args.files)
-        installer.uninstall(verbose=True)
+        await installer.uninstall(verbose=True)
 
     def server(on_exit=None):
         sf = StorageFile(args.storage_file)
@@ -448,10 +448,10 @@ def main():
         asyncio.run(run_scan_inspect(mode="inspect", args=args))
         sys.exit(0)
     elif args.command == "install":
-        install()
+        asyncio.run(install())
         sys.exit(0)
     elif args.command == "uninstall":
-        uninstall()
+        asyncio.run(uninstall())
         sys.exit(0)
     elif args.command == "whitelist":
         if args.reset:
@@ -475,7 +475,7 @@ def main():
         sys.exit(0)
     elif args.command == "proxy":
         args.local_only = True
-        install()
+        asyncio.run(install())
         print("[Proxy installed, you may need to restart/reload your MCP clients to use it]")
         server(on_exit=uninstall)
     else:
