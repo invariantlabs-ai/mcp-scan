@@ -1,7 +1,7 @@
 {
     "mcpServers": {
         "Math": {
-            "command": "python3",
+            "command": "uv run python",
             "args": ["tests/mcp_servers/math_server.py"]
         }
     }

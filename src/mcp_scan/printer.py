@@ -1,42 +1,36 @@
+import builtins
 import textwrap
 
 import rich
 from rich.text import Text
+from rich.traceback import Traceback as rTraceback
 from rich.tree import Tree
 
-from .models import Entity, EntityScanResult, ScanPathResult, entity_type_to_str, hash_entity
+from .models import Entity, EntityScanResult, ScanError, ScanPathResult, entity_type_to_str, hash_entity
 
 
-def format_err_str(e: Exception, max_length: int | None = None) -> str:
-    try:
-        if isinstance(e, ExceptionGroup):
-            text = ", ".join([format_err_str(e) for e in e.exceptions])
-        elif isinstance(e, TimeoutError):
-            text = "Could not reach server within timeout"
-        else:
-            raise Exception()
-    except Exception:
-        text = None
-    if text is None:
-        name = type(e).__name__
-        try:
+def format_exception(e: Exception | None) -> tuple[str, rTraceback | None]:
+    if e is None:
+        return "", None
+    name = builtins.type(e).__name__
+    message = str(e).strip()
+    cause = getattr(e, "__cause__", None)
+    context = getattr(e, "__context__", None)
+    parts = [f"{name}: {message}"]
+    if cause is not None:
+        parts.append(f"Caused by: {format_exception(cause)[0]}")
+    if context is not None:
+        parts.append(f"Context: {format_exception(context)[0]}")
+    text = "\n".join(parts)
+    tb = rTraceback.from_exception(builtins.type(e), e, getattr(e, "__traceback__", None))
+    return text, tb
 
-            def _mapper(e: Exception | str) -> str:
-                if isinstance(e, Exception):
-                    return format_err_str(e)
-                return str(e)
 
-            message = ",".join(map(_mapper, e.args))
-        except Exception:
-            message = str(e)
-        message = message.strip()
-        if len(message) > 0:
-            text = f"{name}: {message}"
-        else:
-            text = name
-    if max_length is not None and len(text) > max_length:
-        text = text[: (max_length - 3)] + "..."
-    return text
+def format_error(e: ScanError) -> tuple[str, rTraceback | None]:
+    status, traceback = format_exception(e.exception)
+    if e.message:
+        status = e.message
+    return status, traceback
 
 
 def format_path_line(path: str, status: str | None, operation: str = "Scanning") -> Text:
@@ -101,11 +95,9 @@ def format_entity_line(entity: Entity, result: EntityScanResult | None = None) -
     if not is_verified:
         hash = hash_entity(entity)
         messages.append(
-            (
-                f"[bold]You can whitelist this {entity_type_to_str(entity)} "
-                f"by running `mcp-scan whitelist {entity_type_to_str(entity)} "
-                f"'{entity.name}' {hash}`[/bold]"
-            )
+            f"[bold]You can whitelist this {entity_type_to_str(entity)} "
+            f"by running `mcp-scan whitelist {entity_type_to_str(entity)} "
+            f"'{entity.name}' {hash}`[/bold]"
         )
 
     if len(messages) > 0:
@@ -116,17 +108,25 @@ def format_entity_line(entity: Entity, result: EntityScanResult | None = None) -
     return formatted_text
 
 
-def print_scan_path_result(result: ScanPathResult) -> None:
+def print_scan_path_result(result: ScanPathResult, print_errors: bool = False) -> None:
     if result.error is not None:
-        rich.print(format_path_line(result.path, result.error.text))
+        err_status, traceback = format_error(result.error)
+        rich.print(format_path_line(result.path, err_status))
+        if print_errors and traceback is not None:
+            console = rich.console.Console()
+            console.print(traceback)
         return
 
     message = f"found {len(result.servers)} server{'' if len(result.servers) == 1 else 's'}"
     rich.print(format_path_line(result.path, message))
     path_print_tree = Tree("│")
+    server_tracebacks = []
     for server in result.servers:
         if server.error is not None:
-            server_print = path_print_tree.add(format_servers_line(server.name or "", server.error.text))
+            err_status, traceback = format_error(server.error)
+            server_print = path_print_tree.add(format_servers_line(server.name or "", err_status))
+            if traceback is not None:
+                server_tracebacks.append((server, traceback))
         else:
             server_print = path_print_tree.add(format_servers_line(server.name or ""))
             for entity, entity_result in server.entities_with_result:
@@ -134,7 +134,6 @@ def print_scan_path_result(result: ScanPathResult) -> None:
 
     if len(result.servers) > 0:
         rich.print(path_print_tree)
-
     if result.cross_ref_result is not None and result.cross_ref_result.found:
         rich.print(
             rich.text.Text.from_markup(
@@ -143,10 +142,18 @@ def print_scan_path_result(result: ScanPathResult) -> None:
                 f"tools or resources of other servers, or other servers.[/bold yellow]"
             ),
         )
+    if print_errors and len(server_tracebacks) > 0:
+        console = rich.console.Console()
+        for server, traceback in server_tracebacks:
+            console.print()
+            console.print("[bold]Exception when scanning " + (server.name or "") + "[/bold]")
+            console.print(traceback)
+    print(end="", flush=True)
 
 
-def print_scan_result(result: list[ScanPathResult]) -> None:
+def print_scan_result(result: list[ScanPathResult], print_errors: bool = False) -> None:
     for i, path_result in enumerate(result):
-        print_scan_path_result(path_result)
+        print_scan_path_result(path_result, print_errors)
         if i < len(result) - 1:
             rich.print()
+    print(end="", flush=True)

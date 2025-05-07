@@ -49,8 +49,8 @@ class ScannedEntity(BaseModel):
         # Try custom format: "DD/MM/YYYY, HH:MM:SS"
         try:
             return datetime.strptime(value, "%d/%m/%Y, %H:%M:%S")
-        except ValueError:
-            raise ValueError(f"Unrecognized datetime format: {value}")
+        except ValueError as e:
+            raise ValueError(f"Unrecognized datetime format: {value}") from e
 
 
 ScannedEntities = RootModel[dict[str, ScannedEntity]]
@@ -114,18 +114,18 @@ class VSCodeConfigFile(MCPConfig):
         self.mcp.servers = servers
 
 
-class ScanException(BaseModel):
+class ScanError(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
     message: str | None = None
-    error: Exception | None = None
+    exception: Exception | None = None
 
-    @field_serializer("error")
-    def serialize_error(self, error: Exception | None, _info) -> str | None:
-        return str(error) if error else None
+    @field_serializer("exception")
+    def serialize_exception(self, exception: Exception | None, _info) -> str | None:
+        return str(exception) if exception else None
 
     @property
     def text(self) -> str:
-        return self.message or (str(self.error) or "")
+        return self.message or (str(self.exception) or "")
 
 
 class EntityScanResult(BaseModel):
@@ -151,7 +151,7 @@ class ServerScanResult(BaseModel):
     resources: list[Resource] = []
     tools: list[Tool] = []
     result: list[EntityScanResult] | None = None
-    error: ScanException | None = None
+    error: ScanError | None = None
 
     @model_serializer
     def serialize(self, _info):
@@ -180,7 +180,7 @@ class ServerScanResult(BaseModel):
     @property
     def entities_with_result(self) -> list[tuple[Entity, EntityScanResult | None]]:
         if self.result is not None:
-            return list(zip(self.entities, self.result))
+            return list(zip(self.entities, self.result, strict=False))
         else:
             return [(entity, None) for entity in self.entities]
 
@@ -189,5 +189,5 @@ class ScanPathResult(BaseModel):
     model_config = ConfigDict()
     path: str
     servers: list[ServerScanResult] = []
-    error: ScanException | None = None
+    error: ScanError | None = None
     cross_ref_result: CrossRefResult | None = None

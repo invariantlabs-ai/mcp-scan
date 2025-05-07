@@ -18,14 +18,14 @@ def temp_file():
 
 
 @pytest.mark.parametrize("sample_config", [lf("claudestyle_config"), lf("vscode_mcp_config"), lf("vscode_config")])
-def test_install_gateway(sample_config, temp_file):
+async def test_install_gateway(sample_config, temp_file):
     # TODO iterate over all sample configs
     with open(temp_file, "w") as f:
         f.write(sample_config)
 
     config_dict = pyjson5.loads(sample_config)
     installer = MCPGatewayInstaller(paths=[temp_file])
-    for server in scan_mcp_config_file(temp_file).get_servers().values():
+    for server in (await scan_mcp_config_file(temp_file)).get_servers().values():
         if isinstance(server, StdioServer):
             assert not is_invariant_installed(server), "Invariant should not be installed"
     installer.install(
@@ -36,13 +36,13 @@ def test_install_gateway(sample_config, temp_file):
     # try to load the config
     pyjson5.loads(sample_config)
 
-    for server in scan_mcp_config_file(temp_file).get_servers().values():
+    for server in (await scan_mcp_config_file(temp_file)).get_servers().values():
         if isinstance(server, StdioServer):
             assert is_invariant_installed(server), "Invariant should be installed"
 
     installer.uninstall(verbose=True)
 
-    for server in scan_mcp_config_file(temp_file).get_servers().values():
+    for server in (await scan_mcp_config_file(temp_file)).get_servers().values():
         if isinstance(server, StdioServer):
             assert not is_invariant_installed(server), "Invariant should be uninstalled"
 

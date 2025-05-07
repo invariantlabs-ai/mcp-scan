@@ -3,7 +3,7 @@ import json
 
 from mcp_scan.version import version_info
 
-with open("npm/package.json", "r") as f:
+with open("npm/package.json") as f:
     package = json.load(f)
 package["version"] = version_info
 with open("npm/package.json", "w") as f:
