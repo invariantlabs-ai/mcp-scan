@@ -1,5 +1,6 @@
 import asyncio
 from pathlib import Path
+from typing import Optional
 
 from mcp_scan_server.format_guardrail import (
     blacklist_tool_from_guardrail,
@@ -16,7 +17,7 @@ from mcp_scan_server.models import (
 class GuardrailLoader:
     """Singleton loader for guardrail templates."""
 
-    _instance: "GuardrailLoader" | None = None
+    _instance: Optional["GuardrailLoader"] = None
 
     def __new__(cls, guardrail_dir: Path):
         if cls._instance is None:
