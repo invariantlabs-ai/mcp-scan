@@ -20,12 +20,15 @@ from ..models import (
     GuardrailConfigFile,
     PolicyCheckResult,
 )
+from ..parse_config import parse_config
 
 router = APIRouter()
 
 
 async def get_all_policies(
-    config_file_path: str, client_names: list[str] | None = None, server_names: list[str] | None = None
+    config_file_path: str,
+    client_names: list[str] | None = None,
+    server_names: list[str] | None = None,
 ) -> list[DatasetPolicy]:
     """Get all policies from local config file.
 
@@ -55,29 +58,16 @@ async def get_all_policies(
         except Exception as e:
             raise fastapi.HTTPException(status_code=400, detail=str(e))
 
-    policies: list[DatasetPolicy] = []
-    for client_name, client_conf in config:
-        # If no filter is set or the client name is not in the filter, skip
-        if client_names and client_name not in client_names or client_conf is None:
-            continue
-
-        for server_name, server_conf in client_conf.items():
-            # If no filter is set or the server name is not in the filter, skip
-            if server_names and server_name not in server_names or server_conf is None:
-                continue
-
-            # Add guardrails
-            for policy in server_conf.guardrails.custom_guardrails:
-                if policy.enabled:
-                    policies.append(policy)
-
-    return policies
+    return await parse_config(config, client_names, server_names)
 
 
 @router.get("/dataset/byuser/{username}/{dataset_name}/policy")
 async def get_policy(username: str, dataset_name: str, request: Request):
     """Get a policy from local config file."""
-    policies = await get_all_policies(request.app.state.config_file_path)
+    clients = ["cursor"]
+    servers = ["server1"]
+    policies = await get_all_policies(request.app.state.config_file_path, clients, servers)
+    print(policies)
     return {"policies": policies}
 
 

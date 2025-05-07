@@ -344,6 +344,8 @@ def main():
         except argparse.ArgumentError as e:
             parser.error(e)
 
+        api_key_default = "inv-default-api-key" if args.local_only else ""
+
         invariant_api_url = (
             f"http://localhost:{args.mcp_scan_server_port}" if args.local_only else "https://explorer.invariantlabs.ai"
         )
@@ -352,7 +354,7 @@ def main():
             gateway_config=MCPGatewayConfig(
                 project_name=args.project_name,
                 push_explorer=not args.local_only,
-                api_key=args.api_key or "",
+                api_key=args.api_key or api_key_default,
             ),
             verbose=True,
         )

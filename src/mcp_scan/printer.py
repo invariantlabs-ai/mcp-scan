@@ -9,9 +9,7 @@ from .models import Entity, EntityScanResult, ScanPathResult, entity_type_to_str
 
 def format_err_str(e: Exception, max_length: int | None = None) -> str:
     try:
-        if isinstance(e, ExceptionGroup):
-            text = ", ".join([format_err_str(e) for e in e.exceptions])
-        elif isinstance(e, TimeoutError):
+        if isinstance(e, TimeoutError):
             text = "Could not reach server within timeout"
         else:
             raise Exception()
