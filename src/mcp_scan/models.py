@@ -1,9 +1,10 @@
 from datetime import datetime
 from hashlib import md5
+from itertools import chain
 from typing import Any, Literal, TypeAlias
 
 from mcp.types import Prompt, Resource, Tool
-from pydantic import BaseModel, ConfigDict, RootModel, field_serializer, field_validator, model_serializer
+from pydantic import BaseModel, ConfigDict, RootModel, field_serializer, field_validator
 
 Entity: TypeAlias = Prompt | Resource | Tool
 
@@ -143,6 +144,21 @@ class CrossRefResult(BaseModel):
     sources: list[str] = []
 
 
+class ServerSignature(BaseModel):
+    name: str
+    prompts: list[Prompt] = []
+    resources: list[Resource] = []
+    tools: list[Tool] = []
+
+
+class VerifyServerResponse(RootModel):
+    root: list[list[EntityScanResult]]
+
+
+class VerifyServerRequest(RootModel):
+    root: list[ServerSignature]
+
+
 class ServerScanResult(BaseModel):
     model_config = ConfigDict()
     name: str | None = None
@@ -152,22 +168,6 @@ class ServerScanResult(BaseModel):
     tools: list[Tool] = []
     result: list[EntityScanResult] | None = None
     error: ScanError | None = None
-
-    @model_serializer
-    def serialize(self, _info):
-        entities_with_result = self.entities_with_result
-        prompts_with_result = entities_with_result[: len(self.prompts)]
-        resources_with_result = entities_with_result[len(self.prompts) : len(self.prompts) + len(self.resources)]
-        tools_with_result = entities_with_result[len(self.prompts) + len(self.resources) :]
-
-        return {
-            "name": self.name,
-            "server": self.server,
-            "prompts": prompts_with_result,
-            "resources": resources_with_result,
-            "tools": tools_with_result,
-            "error": self.error,
-        }
 
     @property
     def entities(self) -> list[Entity]:
@@ -184,6 +184,14 @@ class ServerScanResult(BaseModel):
         else:
             return [(entity, None) for entity in self.entities]
 
+    def get_signature(self) -> ServerSignature:
+        return ServerSignature(
+            name=self.name,
+            prompts=self.prompts,
+            resources=self.resources,
+            tools=self.tools,
+        )
+
 
 class ScanPathResult(BaseModel):
     model_config = ConfigDict()
@@ -191,3 +199,7 @@ class ScanPathResult(BaseModel):
     servers: list[ServerScanResult] = []
     error: ScanError | None = None
     cross_ref_result: CrossRefResult | None = None
+
+    @property
+    def entities(self) -> list[Entity]:
+        return list(chain.from_iterable(server.entities for server in self.servers))
