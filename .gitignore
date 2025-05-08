@@ -40,3 +40,4 @@ ENV/
 src/mcp_scan/todo.md
 
 *.env
+npm/package.json

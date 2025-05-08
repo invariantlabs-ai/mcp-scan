@@ -1,0 +1,34 @@
+name: Publish to PyPI and npm
+
+on:
+  workflow_dispatch:
+
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Install the latest version of uv
+      uses: astral-sh/setup-uv@v6
+    - name: Create venv
+      run: uv venv
+    - name: Run tests
+      run: make test
+    - name: Authenticate NPM
+      run: |
+        echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
+        echo "email=${{ secrets.NPM_EMAIL }}" >> ~/.npmrc
+    - name: Publish PyPI and npm
+      run: make publish
+      env:
+        PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
+    - name: Get Version
+      id: get_version
+      run: |
+        version=$(uv run python -c "import mcp_scan; print(mcp_scan.__version__)")
+        echo "version=$version" >> $GITHUB_OUTPUT
+    - name: Tag release
+      run: |
+        git tag v${{ steps.get_version.outputs.version }}
+        git push origin v${{ steps.get_version.outputs.version }}
