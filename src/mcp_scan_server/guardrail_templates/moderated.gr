@@ -2,5 +2,5 @@ from invariant.detectors import moderated
 
 raise PolicyViolation("Harmful content detected.") if:
     (tooloutput: ToolOutput)
-    #BLACKLIST_WHITELIST_STATEMENT
-    moderated(tooloutput)
+    {{ BLACKLIST_WHITELIST }}
+    moderated(tooloutput.content)

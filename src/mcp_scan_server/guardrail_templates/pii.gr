@@ -2,5 +2,5 @@ from invariant.detectors import pii
 
 raise PolicyViolation("Found secret") if:
     (tooloutput: ToolOutput)
-    #BLACKLIST_WHITELIST_STATEMENT
+    {{ BLACKLIST_WHITELIST }}
     any(pii(tooloutput.content))

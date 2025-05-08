@@ -8,14 +8,12 @@ def blacklist_tool_from_guardrail(guardrail_content: str, tool_names: list[str])
     Returns:
         str: The formatted guardrail.
     """
-    assert (
-        "#BLACKLIST_WHITELIST_STATEMENT" in guardrail_content
-    ), "Guardrail must contain #BLACKLIST_WHITELIST_STATEMENT"
+    assert "{{ BLACKLIST_WHITELIST }}" in guardrail_content, "Guardrail must contain {{ BLACKLIST_WHITELIST }}"
 
     if len(tool_names) == 0:
-        return guardrail_content.replace("#BLACKLIST_WHITELIST_STATEMENT", "")
+        return guardrail_content.replace("{{ BLACKLIST_WHITELIST }}", "")
     return guardrail_content.replace(
-        "#BLACKLIST_WHITELIST_STATEMENT", f"not (tool_call(tooloutput).function.name in {tool_names})"
+        "{{ BLACKLIST_WHITELIST }}", f"not (tool_call(tooloutput).function.name in {tool_names})"
     )
 
 
@@ -29,9 +27,7 @@ def whitelist_tool_from_guardrail(guardrail_content: str, tool_names: list[str])
     Returns:
         str: The formatted guardrail.
     """
-    assert (
-        "#BLACKLIST_WHITELIST_STATEMENT" in guardrail_content
-    ), "Guardrail must contain #BLACKLIST_WHITELIST_STATEMENT"
+    assert "{{ BLACKLIST_WHITELIST }}" in guardrail_content, "Guardrail must contain {{ BLACKLIST_WHITELIST }}"
     return guardrail_content.replace(
-        "#BLACKLIST_WHITELIST_STATEMENT", f"tool_call(tooloutput).function.name in {tool_names}"
+        "{{ BLACKLIST_WHITELIST }}", f"tool_call(tooloutput).function.name in {tool_names}"
     )
