@@ -26,7 +26,7 @@ class ActivityLogger:
         self.logged_output: dict[tuple[str, str], bool] = {}
         # last logged (session_id, tool_call_id), so we can skip logging tool call headers if it is directly
         # followed by output
-        self.last_logged_tool = None
+        self.last_logged_tool: tuple[str, str] | None = None
 
     def empty_metadata(self):
         return {"client": "Unknown Client", "mcp_server": "Unknown Server", "user": None}
@@ -46,7 +46,7 @@ class ActivityLogger:
         server = metadata.get("mcp_server", "Unknown Server").capitalize()
         user = metadata.get("user", None)
 
-        tool_names = {}
+        tool_names: dict[str, str] = {}
 
         for msg in messages:
             if msg.get("role") == "tool":
@@ -97,16 +97,23 @@ class ActivityLogger:
                     # tool arguments
                     print(Syntax(json.dumps(tc.get("arguments", {}), indent=2), "json", theme="monokai"))
 
-        any_error = guardrails_results and any(len(result.result.errors) > 0 for result in guardrails_results)
+        any_error = guardrails_results and any(
+            result.result is not None and len(result.result.errors) > 0 for result in guardrails_results
+        )
 
         if any_error:
             print(Rule())
-            for guardrail_result in guardrails_results:
-                if len(guardrail_result.result.errors) > 0:
-                    print(
-                        f"[bold red]GUARDRAIL {guardrails_action.upper()}[/bold red]",
-                        format_guardrailing_errors(guardrail_result.result.errors),
-                    )
+            if guardrails_results is not None:
+                for guardrail_result in guardrails_results:
+                    if (
+                        guardrail_result.result is not None
+                        and len(guardrail_result.result.errors) > 0
+                        and guardrails_action is not None
+                    ):
+                        print(
+                            f"[bold red]GUARDRAIL {guardrails_action.upper()}[/bold red]",
+                            format_guardrailing_errors(guardrail_result.result.errors),
+                        )
             print(Rule())
 
 

@@ -1,6 +1,6 @@
 from invariant.detectors import pii
 
-raise PolicyViolation("Found secret") if:
+raise PolicyViolation("Found PII in tool output.") if:
     (tooloutput: ToolOutput)
     {{ BLACKLIST_WHITELIST }}
     any(pii(tooloutput.content))

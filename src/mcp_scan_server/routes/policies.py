@@ -53,9 +53,6 @@ async def get_all_policies(
     with open(config_file_path) as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
 
-        if config is None:
-            return []
-
         try:
             config = GuardrailConfigFile.model_validate(config)
         except ValidationError as e:
