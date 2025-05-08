@@ -20,7 +20,7 @@ jobs:
         echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
         echo "email=${{ secrets.NPM_EMAIL }}" >> ~/.npmrc
     - name: Publish PyPI and npm
-      run: make publish-npm
+      run: make publish
       env:
         PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
     - name: Get Version
