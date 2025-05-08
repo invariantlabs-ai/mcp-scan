@@ -12,7 +12,7 @@ package_text = """
     "mcp-scan": "./bin/mcp-scan.js"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo 'Error: no test specified' && exit 1"
   },
   "keywords": [
     "mcp",
