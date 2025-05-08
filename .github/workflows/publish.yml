@@ -18,7 +18,7 @@ jobs:
     - name: Publish PyPI and npm
       run: make publish
       env:
-        UV_PUBLISH_TOKEN: ${{ secrets.UV_PUBLISH_TOKEN }}
+        PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
         NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
     - name: Get Version
       id: get_version
