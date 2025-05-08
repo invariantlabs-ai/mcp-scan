@@ -140,6 +140,7 @@ async def batch_check_policies(
     )
 
     metadata = check_request.parameters.get("metadata", {})
+    guardrails_action = check_request.parameters.get("action", "block")
 
     await activity_logger.log(
         check_request.messages,
@@ -149,6 +150,8 @@ async def batch_check_policies(
             "user": metadata.get("system_user"),
             "session_id": metadata.get("session_id"),
         },
+        results,
+        guardrails_action,
     )
 
     return fastapi.responses.JSONResponse(
