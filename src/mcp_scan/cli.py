@@ -65,6 +65,7 @@ if sys.platform == "linux" or sys.platform == "linux2":
         "~/.cursor/mcp.json",  # cursor
         "~/.vscode/mcp.json",  # vscode
         "~/.config/Code/User/settings.json",  # vscode linux
+        "~/.config/mcphub/servers.json", # MCPHub
     ]
 elif sys.platform == "darwin":
     # OS X
@@ -74,6 +75,7 @@ elif sys.platform == "darwin":
         "~/Library/Application Support/Claude/claude_desktop_config.json",  # Claude Desktop mac
         "~/.vscode/mcp.json",  # vscode
         "~/Library/Application Support/Code/User/settings.json",  # vscode mac
+        "~/.config/mcphub/servers.json", # MCPHub
     ]
 elif sys.platform == "win32":
     WELL_KNOWN_MCP_PATHS = [
@@ -82,6 +84,7 @@ elif sys.platform == "win32":
         "~/AppData/Roaming/Claude/claude_desktop_config.json",  # Claude Desktop windows
         "~/.vscode/mcp.json",  # vscode
         "~/AppData/Roaming/Code/User/settings.json",  # vscode windows
+        "~/.config/mcphub/servers.json", # MCPHub
     ]
 else:
     WELL_KNOWN_MCP_PATHS = []
