@@ -188,7 +188,7 @@ class MCPScanner:
             logger.debug("Scanning server %d/%d: %s", i + 1, len(path_result.servers), server.name)
             path_result.servers[i] = await self.scan_server(server, inspect_only)
 
-        logger.debug("Verifying server: %s", server.name)
+        logger.debug("Verifying server path: %s", path)
         path_result = await verify_server(path_result, base_url=self.base_url)
         path_result.cross_ref_result = await self.check_cross_references(path_result)
         await self.emit("path_scanned", path_result)
