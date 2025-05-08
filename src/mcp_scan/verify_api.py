@@ -1,30 +1,32 @@
 import aiohttp
 
-from .models import EntityScanResult, ScanPathResult
+from .models import EntityScanResult, ScanPathResult, VerifyServerRequest, VerifyServerResponse
 
 
 async def verify_server(scan_path: ScanPathResult, base_url: str) -> ScanPathResult:
-    if len(scan_path.entities) == 0:
-        return scan_path.model_copy(deep=True)
+    output_path = scan_path.model_copy(deep=True)
     url = base_url[:-1] if base_url.endswith("/") else base_url
     url = url + "/api/v2/public/mcp"
     headers = {"Content-Type": "application/json"}
+    payload = VerifyServerRequest(root=[server.get_signature() for server in scan_path.servers])
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.post(url, headers=headers, data=scan_path.model_dump_json()) as response:
+            async with session.post(url, headers=headers, data=payload.model_dump_json()) as response:
                 if response.status == 200:
-                    return ScanPathResult.model_validate_json(await response.read())
+                    errors = VerifyServerResponse.model_validate_json(await response.read())
                 else:
                     raise Exception(f"Error: {response.status} - {await response.text()}")
+        for server, result in zip(output_path.servers, errors.root, strict=False):
+            server.result = result
+        return output_path
     except Exception as e:
         try:
             errstr = str(e.args[0])
             errstr = errstr.splitlines()[0]
         except Exception:
             errstr = ""
-        result = scan_path.model_copy(deep=True)
-        for server in result.servers:
+        for server in output_path.servers:
             server.result = [
                 EntityScanResult(status="could not reach verification server " + errstr) for _ in server.entities
             ]
-        return result
+        return output_path

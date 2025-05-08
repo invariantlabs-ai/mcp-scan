@@ -144,6 +144,21 @@ class CrossRefResult(BaseModel):
     sources: list[str] = []
 
 
+class ServerSignature(BaseModel):
+    name: str
+    prompts: list[Prompt] = []
+    resources: list[Resource] = []
+    tools: list[Tool] = []
+
+
+class VerifyServerResponse(RootModel):
+    root: list[list[EntityScanResult]]
+
+
+class VerifyServerRequest(RootModel):
+    root: list[ServerSignature]
+
+
 class ServerScanResult(BaseModel):
     model_config = ConfigDict()
     name: str | None = None
@@ -168,6 +183,14 @@ class ServerScanResult(BaseModel):
             return list(zip(self.entities, self.result, strict=False))
         else:
             return [(entity, None) for entity in self.entities]
+
+    def get_signature(self) -> ServerSignature:
+        return ServerSignature(
+            name=self.name,
+            prompts=self.prompts,
+            resources=self.resources,
+            tools=self.tools,
+        )
 
 
 class ScanPathResult(BaseModel):
