@@ -70,7 +70,7 @@ def install_gateway(
     # if running gateway from source-dir, use 'uv run' instead
     if config.source_dir:
         cmd = "uv"
-        base_args = ["run", "--with", "mcp", "--directory", config.source_dir, "invariant-gateway", "mcp"]
+        base_args = ["run", "--directory", config.source_dir, "invariant-gateway", "mcp"]
 
     flags = [
         "--project-name",

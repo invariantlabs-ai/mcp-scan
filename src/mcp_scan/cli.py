@@ -359,7 +359,8 @@ def main():
     args = parser.parse_args(["scan"] if len(sys.argv) == 1 else None)
 
     # postprocess the files argument (if shorthands are used)
-    args.files = client_shorthands_to_paths(args.files)
+    if hasattr(args, "files") and args.files is None:
+        args.files = client_shorthands_to_paths(args.files)
 
     # Display version banner
     if not (hasattr(args, "json") and args.json):
@@ -398,7 +399,8 @@ def main():
         mcp_scan_server.run()
 
     # Set up logging if verbose flag is enabled
-    setup_logging(args.verbose or False)
+    do_log = hasattr(args, "verbose") and args.verbose
+    setup_logging(do_log)
 
     # Handle commands
     if args.command == "help":

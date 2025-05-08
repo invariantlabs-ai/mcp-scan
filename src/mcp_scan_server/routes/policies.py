@@ -52,6 +52,10 @@ async def get_all_policies(
 
     with open(config_file_path) as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
+
+        if config is None:
+            return []
+
         try:
             config = GuardrailConfigFile.model_validate(config)
         except ValidationError as e:
@@ -139,6 +143,7 @@ async def batch_check_policies(
     )
 
     metadata = check_request.parameters.get("metadata", {})
+    guardrails_action = check_request.parameters.get("action", "block")
 
     await activity_logger.log(
         check_request.messages,
@@ -148,6 +153,8 @@ async def batch_check_policies(
             "user": metadata.get("system_user", None),
             "session_id": metadata.get("session_id", "<no session id>"),
         },
+        results,
+        guardrails_action,
     )
 
     return fastapi.responses.JSONResponse(
