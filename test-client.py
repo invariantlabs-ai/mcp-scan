@@ -23,7 +23,7 @@ async def run():
     async with stdio_client(server_params) as (read, write):
         async with ClientSession(read, write) as session:
             await session.initialize()
-            await session.list_tools()
+            print(await session.list_tools())
 
             (
                 await session.call_tool(

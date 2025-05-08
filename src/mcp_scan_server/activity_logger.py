@@ -2,9 +2,12 @@ import json
 from typing import Literal
 
 from fastapi import FastAPI, Request
+from invariant.analyzer.policy import ErrorInformation
 from rich import print
 from rich.rule import Rule
 from rich.syntax import Syntax
+
+from mcp_scan_server.models import PolicyCheckResult
 
 
 class ActivityLogger:
@@ -28,7 +31,13 @@ class ActivityLogger:
     def empty_metadata(self):
         return {"client": "Unknown Client", "mcp_server": "Unknown Server", "user": None}
 
-    async def log(self, messages, metadata):
+    async def log(
+        self,
+        messages,
+        metadata,
+        guardrails_results: list[PolicyCheckResult] | None = None,
+        guardrails_action: str | None = None,
+    ):
         """
         Console-logs the relevant parts of the given messages and metadata.
         """
@@ -87,6 +96,30 @@ class ActivityLogger:
 
                     # tool arguments
                     print(Syntax(json.dumps(tc.get("arguments", {}), indent=2), "json", theme="monokai"))
+
+        any_error = guardrails_results and any(len(result.result.errors) > 0 for result in guardrails_results)
+
+        if any_error:
+            print(Rule())
+            for guardrail_result in guardrails_results:
+                if len(guardrail_result.result.errors) > 0:
+                    print(
+                        f"[bold red]GUARDRAIL {guardrails_action.upper()}[/bold red]",
+                        format_guardrailing_errors(guardrail_result.result.errors),
+                    )
+            print(Rule())
+
+
+def format_guardrailing_errors(errors: list[ErrorInformation]) -> str:
+    """Format a list of errors in a response string."""
+
+    def format_error(error) -> str:
+        msg = " ".join(error.args)
+        msg += " ".join([f"{k}={v}" for k, v in error.kwargs])
+        msg += f" ({len(error.ranges)} range{'' if len(error.ranges) == 1 else 's'})"
+        return msg
+
+    return ", ".join([format_error(error) for error in errors])
 
 
 def message_content(msg: dict) -> str:
