@@ -1,0 +1,31 @@
+name: Publish to PyPI
+
+on:
+  workflow_dispatch:
+
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Install the latest version of uv
+      uses: astral-sh/setup-uv@v6
+    - name: Create venv
+      run: uv venv
+    - name: Run tests
+      run: make test
+    - name: Publish PyPI and npm
+      run: make publish
+      env:
+        UV_PUBLISH_TOKEN: ${{ secrets.UV_PUBLISH_TOKEN }}
+        NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+    - name: Get Version
+      id: get_version
+      run: |
+        version=$(uv run python -c "import mcp_scan; print(mcp_scan.__version__)")
+        echo "version=$version" >> $GITHUB_OUTPUT
+    - name: Tag release
+      run: |
+        git tag v${{ steps.get_version.outputs.version }}
+        git push origin v${{ steps.get_version.outputs.version }}

@@ -1,3 +1,8 @@
+import json
+
+from mcp_scan.version import version_info
+
+package_text = """
 {
   "name": "mcp-scan",
   "version": "0.1.9",
@@ -27,3 +32,9 @@
     "README.md"
   ]
 }
+"""
+
+package = json.loads(package_text)
+package["version"] = version_info
+with open("npm/package.json", "w") as f:
+    json.dump(package, f, indent=2)
