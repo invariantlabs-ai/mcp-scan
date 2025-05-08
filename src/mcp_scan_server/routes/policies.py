@@ -29,15 +29,15 @@ router = APIRouter()
 
 async def get_all_policies(
     config_file_path: str,
-    client_names: list[str] | None = None,
-    server_names: list[str] | None = None,
+    client_name: str | None = None,
+    server_name: str | None = None,
 ) -> list[DatasetPolicy]:
     """Get all policies from local config file.
 
     Args:
         config_file_path: The path to the config file.
-        client_names: List of client names to include guardrails for.
-        server_names: List of server names to include guardrails for.
+        client_name: The client name to include guardrails for.
+        server_name: The server name to include guardrails for.
 
     Returns:
         A list of DatasetPolicy objects.
@@ -60,16 +60,14 @@ async def get_all_policies(
         except Exception as e:
             raise fastapi.HTTPException(status_code=400, detail=str(e)) from e
 
-    return await parse_config(config, client_names, server_names)
+    configured_policies = await parse_config(config, client_name, server_name)
+    return configured_policies
 
 
 @router.get("/dataset/byuser/{username}/{dataset_name}/policy")
 async def get_policy(username: str, dataset_name: str, request: Request):
     """Get a policy from local config file."""
-    clients = ["cursor"]
-    servers = ["server1"]
-    policies = await get_all_policies(request.app.state.config_file_path, clients, servers)
-    print(policies)
+    policies = await get_all_policies(request.app.state.config_file_path)
     return {"policies": policies}
 
 
@@ -145,10 +143,10 @@ async def batch_check_policies(
     await activity_logger.log(
         check_request.messages,
         {
-            "client": metadata.get("client"),
-            "mcp_server": metadata.get("server"),
-            "user": metadata.get("system_user"),
-            "session_id": metadata.get("session_id"),
+            "client": metadata.get("client", "Unknown Client"),
+            "mcp_server": metadata.get("server", "Unknown Server"),
+            "user": metadata.get("system_user", None),
+            "session_id": metadata.get("session_id", "<no session id>"),
         },
     )
 

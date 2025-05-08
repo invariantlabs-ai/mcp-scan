@@ -129,4 +129,15 @@ class GuardrailConfigFile(BaseModel):
 
     def model_dump_yaml(self) -> str:
         """Dump the model to a YAML string."""
-        return yaml.dump(self.model_dump(), indent=2)
+        return yaml.dump(self.model_dump(exclude_none=True), indent=2)
+
+    @classmethod
+    def model_validate(cls, value):
+        """Override to handle string and None input transparently."""
+        if isinstance(value, str):
+            parsed = yaml.safe_load(value) or {}
+            return super().model_validate(parsed)
+        if value is None:
+            # Treat None as an empty config
+            return super().model_validate({})
+        return super().model_validate(value)

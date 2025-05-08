@@ -1,6 +1,5 @@
-import asyncio
+from functools import lru_cache
 from pathlib import Path
-from typing import Optional
 
 from mcp_scan_server.format_guardrail import (
     blacklist_tool_from_guardrail,
@@ -13,67 +12,85 @@ from mcp_scan_server.models import (
     ServerGuardrailConfig,
 )
 
-
-class GuardrailLoader:
-    """Singleton loader for guardrail templates."""
-
-    _instance: Optional["GuardrailLoader"] = None
-
-    def __new__(cls, guardrail_dir: Path):
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-            cls._instance._init(guardrail_dir)
-        return cls._instance
-
-    def _init(self, guardrail_dir: Path) -> None:
-        self._dir = guardrail_dir
-        self._templates: dict[str, str] = {}
-
-        allowed = [p.stem for p in guardrail_dir.glob("*.gr")]
-        for name in allowed:
-            path = guardrail_dir / f"{name}.gr"
-            if not path.is_file():
-                raise FileNotFoundError(f"Missing guardrail template: {path}")
-            with open(path, "r") as f:
-                self._templates[name] = f.read()
-
-    def get(self, name: str) -> str:
-        try:
-            return self._templates[name]
-        except KeyError:
-            raise ValueError(f"Unknown guardrail '{name}'")
+# Naming scheme for guardrails:
+# - default guardrails are guardrails that are implicit and always applied
+# - Custom guardrails refer to guardrails that are defined in the server config
+# - tool shorthands are guardrails that are defined in the server config for a tool such as pii: "block"
+# - server shorthands are guardrails that are defined in the server config for a server such as pii: "block"
+# - shorthands are thus always of the form <guardrail>:<action> and refer to both tools and servers
 
 
-def _generate_policy(
+# Constants
+DEFAULT_GUARDRAIL_DIR = Path(__file__).with_suffix("").parents[1] / "mcp_scan_server" / "guardrail_templates"
+
+
+@lru_cache
+def load_template(name: str, directory: Path = DEFAULT_GUARDRAIL_DIR) -> str:
+    """Return the content of 'name'.gr from directory (cached).
+
+    Note that this is static after startup. If you update a template guardrail,
+    you will need to restart the server.
+
+    Args:
+        name: The name of the guardrail template to load.
+        directory: The directory to load the guardrail template from.
+
+    Returns:
+        The content of the guardrail template.
+    """
+    path = directory / f"{name}.gr"
+    if not path.is_file():
+        raise FileNotFoundError(f"Missing guardrail template: {path}")
+    return path.read_text(encoding="utf-8")
+
+
+def get_available_templates(directory: Path = DEFAULT_GUARDRAIL_DIR) -> tuple[str, ...]:
+    """Get all guardrail templates in directory.
+
+    Args:
+        directory: The directory to load the guardrail templates from.
+
+    Returns:
+        A tuple of guardrail template names.
+    """
+    return tuple(p.stem for p in directory.glob("*.gr"))
+
+
+def generate_policy(
     name: str,
     mode: GuardrailMode,
-    client: str,
-    server: str,
-    tool: str | None = None,
+    client: str | None = None,
+    server: str | None = None,
+    tools: list[str] | None = None,
     blacklist: list[str] | None = None,
 ) -> DatasetPolicy:
-    """Generate a policy from a guardrail template.
+    """Generate a guardrail policy from a template.
 
     Args:
         name: The name of the guardrail template to use.
-        mode: The mode of the guardrail template to use (log, block, paused).
-        client: The name of the client.
-        server: The name of the server.
-        tool: The name of the tool. If provided, the guardrail will consider a tool guardrail.
-        blacklist: The list of tools to blacklist.
+        mode: The mode to apply to the guardrail (log, block, paused).
+        client: The client name.
+        server: The server name.
+        tools: Optional list of tools to whitelist.
+        blacklist: Optional list of tools to blacklist.
 
     Returns:
-        A DatasetPolicy object containing the policy.
+        A DatasetPolicy object configured based on the parameters.
     """
-    loader = GuardrailLoader(Path(__file__).parents[1] / "mcp_scan_server" / "default_guardrails")
-    template = loader.get(name)
+    template = load_template(name)
+    tools_list = list(tools or [])
+    blacklist_list = list(blacklist or [])
 
-    if tool:
-        content = whitelist_tool_from_guardrail(template, [tool])
-        policy_id = f"{client}-{server}-{name}-{tool}"
+    if tools_list:
+        content = whitelist_tool_from_guardrail(template, tools_list)
+        id_suffix = "-".join(sorted(tools_list))
     else:
-        content = blacklist_tool_from_guardrail(template, blacklist or [])
-        policy_id = f"{client}-{server}-{name}"
+        content = blacklist_tool_from_guardrail(template, blacklist_list)
+        id_suffix = "default"
+
+    # Remove client and server from the id if they are None
+    policy_id = f"{client}-{server}-{name}-{id_suffix}"
+    policy_id = policy_id.replace("-None", "").replace("None-", "")
 
     return DatasetPolicy(
         id=policy_id,
@@ -84,77 +101,87 @@ def _generate_policy(
     )
 
 
-def _collect_guardrails(
-    default_guardrails: dict[str, GuardrailMode],
-    tool_guardrails: dict[str, dict[str, GuardrailMode]],
+def collect_guardrails(
+    server_shorthand_guardrails: dict[str, GuardrailMode],
+    tool_shorthand_guardrails: dict[str, dict[str, GuardrailMode]],
     client: str,
     server: str,
 ) -> list[DatasetPolicy]:
-    """
-    Collect all the templated guardrails for a given client and server context.
+    """Collect all guardrails and resolve conflicts.
 
-    This function will also resolve conflicts between default and tool guardrails, such that:
-    - If a templated guardrail is set for both a default and a tool, the tool-specific guardrail will be used
-      unless the mode is different.
-    - If a templated guardrail is set for a default and not for a tool, the default guardrail will be used.
+    Conflict resolution logic:
+    1. Create tool-specific shorthand guardrails when defined
+    2. Create server-level shorthand guardrails that don't conflict with tool-specifics
+    3. Create catch-all log default guardrails for any shorthand guardrails not explicitly declared
 
     Args:
-        default_guardrails: All the default guardrails.
-        tool_guardrails: All the tool guardrails.
-        client: The name of the client.
-        server: The name of the server.
+        server_shorthand_guardrails: Server-specific shorthand guardrails.
+        tool_shorthand_guardrails: Tool-specific shorthand guardrails.
+        client: The client name.
+        server: The server name.
 
     Returns:
-        A list of DatasetPolicy objects.
+        A list of DatasetPolicy objects with conflicts resolved.
     """
     policies: list[DatasetPolicy] = []
+    remaining_templates = set(get_available_templates())
 
-    # Iterate over the union of default and tool guardrails
-    for name in default_guardrails.keys() | tool_guardrails.keys():
-        default_mode = default_guardrails.get(name)
-        tconfigs = tool_guardrails.get(name, {})
+    # Process all guardrails mentioned in either server or tool shorthand configs
+    for name in server_shorthand_guardrails.keys() | tool_shorthand_guardrails.keys():
+        default_mode = server_shorthand_guardrails.get(name)
+        per_tool = tool_shorthand_guardrails.get(name, {})
 
-        # If the default guardrail is not defined, create a tool-only policy for each tool
+        # Case 1: No server-level shorthand, only tool-specific guardrails
         if default_mode is None:
-            for t, mode in tconfigs.items():
-                policies.append(_generate_policy(name, mode, client, server, tool=t))
+            # Group tools by their mode
+            mode_to_tools: dict[GuardrailMode, list[str]] = {}
+            for tool, mode in per_tool.items():
+                mode_to_tools.setdefault(mode, []).append(tool)
 
-        # If there are no tool-specific guardrails, create a default-only policy
-        elif not tconfigs:
-            policies.append(_generate_policy(name, default_mode, client, server, blacklist=[]))
+            # Create a policy for each mode with its tools
+            for mode, tools in mode_to_tools.items():
+                policies.append(generate_policy(name, mode, client, server, tools=tools))
 
-        # If there are both default and tool-specific guardrails, create policies that are
-        # complementary to each other IF the modes are different.
+            # Add a catch-all log policy for tools without specific rules
+            policies.append(generate_policy(name, GuardrailMode.log, client, server, blacklist=list(per_tool.keys())))
+
+        # Case 2: Only server-level shorthand, no tool-specific guardrails
+        elif not per_tool:
+            policies.append(generate_policy(name, default_mode, client, server))
+
+        # Case 3: Both server-level shorthand and tool-specific guardrails exist
         else:
-            # Find the tools that have a different guardrail mode
-            diff = [t for t, m in tconfigs.items() if m != default_mode]
+            # Find tools shorthands where the mode differs from the server shorthand
+            differing_tools = [t for t, m in per_tool.items() if m != default_mode]
 
-            # Create a default rule that
-            #  1) covers all the tools with the same mode and
-            #  2) blacklists the tools that have a different mode
-            policies.append(_generate_policy(name, default_mode, client, server, blacklist=diff))
+            # Create server-level shorthand policy that excludes differing tools
+            policies.append(generate_policy(name, default_mode, client, server, blacklist=differing_tools))
 
-            # Finally, create policies for the tools that have a different guardrail mode
-            for t in diff:
-                policies.append(_generate_policy(name, tconfigs[t], client, server, tool=t))
+            # Create tool-specific shorthand policies for tools with non-default modes
+            for tool in differing_tools:
+                policies.append(generate_policy(name, per_tool[tool], client, server, tools=[tool]))
+
+        # Mark this template as processed
+        remaining_templates.discard(name)
+
+    # Apply default guardrails to any templates not explicitly configured
+    for name in remaining_templates:
+        policies.append(generate_policy(name, GuardrailMode.log, client, server))
 
     return policies
 
 
-async def _parse_custom_guardrails(
-    config: ServerGuardrailConfig,
-    client: str,
-    server: str,
-) -> list[DatasetPolicy]:
-    """Parse the custom guardrails for a given server. Simply loads the guardrail directly from the config.
+# Parsing functions
+def parse_custom_guardrails(config: ServerGuardrailConfig, client: str, server: str) -> list[DatasetPolicy]:
+    """Parse custom guardrails from the server config.
 
     Args:
         config: The server guardrail config.
-        client: The name of the client.
-        server: The name of the server.
+        client: The client name.
+        server: The server name.
 
     Returns:
-        A list of DatasetPolicy objects.
+        A list of DatasetPolicy objects from custom guardrails.
     """
     policies = []
     for policy in config.guardrails.custom_guardrails:
@@ -164,16 +191,16 @@ async def _parse_custom_guardrails(
     return policies
 
 
-async def _parse_default_guardrails(
+def parse_server_shorthand_guardrails(
     config: ServerGuardrailConfig,
 ) -> dict[str, GuardrailMode]:
-    """Parse the default guardrails for a given server.
+    """Parse server-specific shorthand guardrails from the server config.
 
     Args:
         config: The server guardrail config.
 
     Returns:
-        A dictionary of default guardrails.
+        A dictionary mapping guardrail names to their modes.
     """
     default_guardrails: dict[str, GuardrailMode] = {}
     for field, value in config.guardrails:
@@ -184,62 +211,64 @@ async def _parse_default_guardrails(
     return default_guardrails
 
 
-async def _parse_tool_guardrails(
+def parse_tool_shorthand_guardrails(
     config: ServerGuardrailConfig,
 ) -> dict[str, dict[str, GuardrailMode]]:
-    """
-    Parse the tool guardrails for a given server.
+    """Parse tool-specific shorthand guardrails from the server config.
 
     Args:
         config: The server guardrail config.
 
     Returns:
-        A dictionary of tool guardrails.
+        A dictionary mapping guardrail names to tool names to modes.
     """
-    tool_guardrails: dict[str, dict[str, GuardrailMode]] = {}
+    result: dict[str, dict[str, GuardrailMode]] = {}
 
-    if not config.tools:
-        return tool_guardrails
+    for tool_name, tool_cfg in (config.tools or {}).items():
+        for field, value in tool_cfg:
+            if field not in {"custom_guardrails", "enabled"} and value is not None:
+                result.setdefault(field, {})[tool_name] = value
 
-    for tool_name, tool_config in config.tools.items():
-        for field, value in tool_config:
-            if field in ("custom_guardrails", "enabled") or value is None:
-                continue
-            print(f"tool_name: {tool_name}, field: {field}, value: {value} enabled: {tool_config.enabled}")
-            tool_guardrails.setdefault(field, {})[tool_name] = value
-
-    return tool_guardrails
+    return result
 
 
 async def parse_config(
-    config: GuardrailConfigFile, client_names: list[str] | None = None, server_names: list[str] | None = None
+    config: GuardrailConfigFile,
+    client_name: str | None = None,
+    server_name: str | None = None,
 ) -> list[DatasetPolicy]:
     """Parse a guardrail config file to extract guardrails and resolve conflicts.
 
     Args:
         config: The guardrail config file.
-        client_names: The list of clients to include.
-        server_names: The list of servers to include.
+        client_name: Optional client name to include guardrails for.
+        server_name: Optional server name to include guardrails for.
 
     Returns:
-        A list of DatasetPolicy objects.
+        A list of DatasetPolicy objects with all guardrails.
     """
-    result: list[DatasetPolicy] = []
+    policies: list[DatasetPolicy] = []
+
     for client, client_config in config:
-        if not client_config or client_names and client not in client_names:
+        if (client_name and client != client_name) or not client_config:
             continue
 
         for server, server_config in client_config.items():
-            if server_names and server not in server_names:
+            if server_name and server != server_name:
                 continue
 
-            default_guardrails, tool_guardrails, custom_guardrails = await asyncio.gather(
-                _parse_default_guardrails(server_config),
-                _parse_tool_guardrails(server_config),
-                _parse_custom_guardrails(server_config, client, server),
-            )
+            # Parse guardrails for this client-server pair
+            server_shorthands = parse_server_shorthand_guardrails(server_config)
+            tool_shorthands = parse_tool_shorthand_guardrails(server_config)
+            custom_guardrails = parse_custom_guardrails(server_config, client, server)
 
-            result.extend(_collect_guardrails(default_guardrails, tool_guardrails, client, server))
-            result.extend(custom_guardrails)
+            # Collect and resolve guardrails
+            policies.extend(collect_guardrails(server_shorthands, tool_shorthands, client, server))
+            policies.extend(custom_guardrails)
 
-    return result
+    # Create all default guardrails if no guardrails are configured
+    if len(policies) == 0:
+        for name in get_available_templates():
+            policies.append(generate_policy(name, GuardrailMode.log, client_name, server_name))
+
+    return policies
