@@ -16,10 +16,10 @@ jobs:
     - name: Run tests
       run: make test
     - name: Publish PyPI and npm
-      run: make publish
+      run: make publish-npm
       env:
         PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
-        NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        NPM_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
     - name: Get Version
       id: get_version
       run: |
