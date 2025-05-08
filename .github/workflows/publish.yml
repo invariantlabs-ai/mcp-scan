@@ -15,11 +15,14 @@ jobs:
       run: uv venv
     - name: Run tests
       run: make test
+    - name: Authenticate NPM
+      run: |
+        echo "_auth=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
+        echo "email=${{ secrets.NPM_EMAIL }}" >> ~/.npmrc
     - name: Publish PyPI and npm
       run: make publish-npm
       env:
         PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
-        NPM_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
     - name: Get Version
       id: get_version
       run: |
