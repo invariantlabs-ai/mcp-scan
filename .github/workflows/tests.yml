@@ -19,10 +19,10 @@ jobs:
       with:
         repository: invariantlabs-ai/invariant-gateway
         ref: ${{ github.ref }}
-        path: /invariant-gateway
+        path: ${{ github.workspace }}/invariant-gateway
     - name: Write .env
       run: |
-        echo "INVARIANT_GATEWAY_DIR=/invariant-gateway" > .env
+        echo "INVARIANT_GATEWAY_DIR=${{ github.workspace }}/invariant-gateway" > .env
     - name: Install the latest version of uv
       uses: astral-sh/setup-uv@v6
     - name: Create venv
