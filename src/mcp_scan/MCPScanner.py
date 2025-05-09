@@ -195,6 +195,9 @@ class MCPScanner:
 
     async def check_cross_references(self, path_result: ScanPathResult) -> CrossRefResult:
         logger.info("Checking cross references for path: %s", path_result.path)
+        if sum(len(server.entities) for server in path_result.servers) < 2:
+            logger.debug("Not enough entities to check cross references")
+            return CrossRefResult(found=False)
         cross_ref_result = CrossRefResult(found=False)
         for server in path_result.servers:
             other_servers = [s for s in path_result.servers if s != server]
