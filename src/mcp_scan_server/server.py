@@ -6,9 +6,9 @@ import rich
 import uvicorn
 from fastapi import FastAPI
 
-from mcp_scan_server.activity_logger import setup_activity_logger
+from mcp_scan_server.activity_logger import setup_activity_logger  # type: ignore
 
-from .routes.policies import router as policies_router
+from .routes.policies import router as policies_router  # type: ignore
 from .routes.push import router as push_router
 from .routes.trace import router as dataset_trace_router
 from .routes.user import router as user_router

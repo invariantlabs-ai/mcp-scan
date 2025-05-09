@@ -24,7 +24,7 @@ dependencies = [
     "pyyaml>=6.0.2",
     "regex>=2024.11.6",
     "aiohttp>=3.11.16",
-    "rapidfuzz>=3.13.0"
+    "rapidfuzz>=3.13.0",
 ]
 
 [project.scripts]
@@ -41,7 +41,8 @@ packages = ["mcp_scan"]
 test = [
     "pytest>=7.4.0",
     "pytest-lazy-fixtures>=1.1.2",
-    "anyio>=4.0.0"
+    "pytest-asyncio>=0.26.0",
+    "trio>=0.30.0",
 ]
 dev = [
     "shiv>=1.0.4",

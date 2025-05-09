@@ -25,35 +25,36 @@ from .utils import rebalance_command_args
 logger = logging.getLogger(__name__)
 
 
+def get_client(server_config: SSEServer | StdioServer, timeout: int | None = None) -> AsyncContextManager:
+    if isinstance(server_config, SSEServer):
+        logger.debug("Creating SSE client with URL: %s", server_config.url)
+        return sse_client(
+            url=server_config.url,
+            headers=server_config.headers,
+            # env=server_config.env, #Not supported by MCP yet, but present in vscode
+            timeout=timeout,
+        )
+    else:
+        logger.debug("Creating stdio client")
+        # handle complex configs
+        command, args = rebalance_command_args(server_config.command, server_config.args)
+        logger.debug("Using command: %s, args: %s", command, args)
+        server_params = StdioServerParameters(
+            command=command,
+            args=args,
+            env=server_config.env,
+        )
+        return stdio_client(server_params)
+
+
 async def check_server(
     server_config: SSEServer | StdioServer, timeout: int, suppress_mcpserver_io: bool
 ) -> tuple[list[Prompt], list[Resource], list[Tool]]:
     logger.info("Checking server with config: %s, timeout: %s", server_config, timeout)
 
-    def get_client(server_config: SSEServer | StdioServer) -> AsyncContextManager:
-        if isinstance(server_config, SSEServer):
-            logger.debug("Creating SSE client with URL: %s", server_config.url)
-            return sse_client(
-                url=server_config.url,
-                headers=server_config.headers,
-                # env=server_config.env, #Not supported by MCP yet, but present in vscode
-                timeout=timeout,
-            )
-        else:
-            logger.debug("Creating stdio client")
-            # handle complex configs
-            command, args = rebalance_command_args(server_config.command, server_config.args)
-            logger.debug("Using command: %s, args: %s", command, args)
-            server_params = StdioServerParameters(
-                command=command,
-                args=args,
-                env=server_config.env,
-            )
-            return stdio_client(server_params)
-
     async def _check_server() -> tuple[list[Prompt], list[Resource], list[Tool]]:
         logger.info("Initializing server connection")
-        async with get_client(server_config) as (read, write):
+        async with get_client(server_config, timeout) as (read, write):
             async with ClientSession(read, write) as session:
                 meta = await session.initialize()
                 logger.debug("Server initialized with metadata: %s", meta)

@@ -1,3 +1,4 @@
+# type: ignore
 import json
 from typing import Literal
 
@@ -46,7 +47,7 @@ class ActivityLogger:
         server = metadata.get("mcp_server", "Unknown Server").capitalize()
         user = metadata.get("user", None)
 
-        tool_names = {}
+        tool_names: dict[str, str] = {}
 
         for msg in messages:
             if msg.get("role") == "tool":

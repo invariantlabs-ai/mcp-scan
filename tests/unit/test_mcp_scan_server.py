@@ -7,7 +7,7 @@ from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from mcp_scan_server.models import DatasetPolicy, GuardrailConfig
-from mcp_scan_server.routes.policies import check_policy, get_all_policies
+from mcp_scan_server.routes.policies import check_policy, get_all_policies  # type: ignore
 from mcp_scan_server.server import MCPScanServer
 
 client = TestClient(MCPScanServer().app)
@@ -64,7 +64,7 @@ cursor:
     return str(config_file)
 
 
-@pytest.mark.anyio
+@pytest.mark.asyncio
 async def test_get_all_policies_valid_config(valid_guardrail_config_file):
     """Test that the get_all_policies function returns the correct policies for a valid config file."""
     policies = await get_all_policies(valid_guardrail_config_file)
@@ -77,14 +77,14 @@ async def test_get_all_policies_valid_config(valid_guardrail_config_file):
     assert policies[1].name == "Guardrail 2"
 
 
-@pytest.mark.anyio
+@pytest.mark.asyncio
 async def test_get_all_policies_invalid_config(invalid_guardrail_config_file):
     """Test that the get_all_policies function raises an HTTPException for an invalid config file."""
     with pytest.raises(HTTPException):
         await get_all_policies(invalid_guardrail_config_file)
 
 
-@pytest.mark.anyio
+@pytest.mark.asyncio
 async def test_get_all_policies_creates_file_when_missing(tmp_path):
     """Test that get_all_policies creates a config file if it doesn't exist."""
     # Create a path to a non-existent file
@@ -108,7 +108,7 @@ async def test_get_all_policies_creates_file_when_missing(tmp_path):
         GuardrailConfig.model_validate(loaded_config)
 
 
-@pytest.mark.anyio
+@pytest.mark.asyncio
 async def mock_get_all_policies(config_file_path: str) -> list[str]:
     return ["some_guardrail"]
 
@@ -177,7 +177,7 @@ def simple_flow_trace():
     ]
 
 
-@pytest.mark.anyio
+@pytest.mark.asyncio
 async def test_check_policy_raises_exception_when_trace_violates_policy(error_two_policy_str, simple_trace):
     """Test that the check_policy endpoint raises an exception when the trace violates the policy."""
     result = await check_policy(error_two_policy_str, simple_trace)
@@ -185,7 +185,7 @@ async def test_check_policy_raises_exception_when_trace_violates_policy(error_tw
     assert result.result.errors[0].args[0] == "error_two"
 
 
-@pytest.mark.anyio
+@pytest.mark.asyncio
 async def test_check_policy_only_raises_error_on_last_message(error_one_policy_str, error_two_policy_str, simple_trace):
     """Test that the check_policy endpoint only raises an error on the last message."""
     # Should not raise an error as the last message does not contain "error_one"
@@ -199,7 +199,7 @@ async def test_check_policy_only_raises_error_on_last_message(error_one_policy_s
     assert result_two.result.errors[0].args[0] == "error_two"
 
 
-@pytest.mark.anyio
+@pytest.mark.asyncio
 async def test_check_policy_returns_success_when_trace_does_not_violate_policy(detect_random_policy_str, simple_trace):
     """Test that the check_policy endpoint returns success when the trace does not violate the policy."""
     result = await check_policy(detect_random_policy_str, simple_trace)
@@ -207,7 +207,7 @@ async def test_check_policy_returns_success_when_trace_does_not_violate_policy(d
     assert result.error_message == ""
 
 
-@pytest.mark.anyio
+@pytest.mark.asyncio
 async def test_check_policy_catches_flow_violations(detect_simple_flow_policy_str, simple_flow_trace):
     """Test that the check_policy endpoint catches flow violations."""
     result = await check_policy(detect_simple_flow_policy_str, simple_flow_trace)

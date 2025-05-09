@@ -3,22 +3,20 @@
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
+from pytest_lazy_fixtures import lf
 
 from mcp_scan.mcp_client import check_server, check_server_with_timeout, scan_mcp_config_file
 from mcp_scan.models import StdioServer
-from mcp_scan.utils import TempFile
 
 
-def test_scan_mcp_config(sample_configs):
-    for config in sample_configs:
-        with TempFile(mode="w") as temp_file:
-            temp_file.write(config)
-            temp_file.flush()
-
-            scan_mcp_config_file(temp_file.name)
+@pytest.mark.parametrize(
+    "sample_config_file", [lf("claudestyle_config_file"), lf("vscode_mcp_config_file"), lf("vscode_config_file")]
+)
+def test_scan_mcp_config(sample_config_file):
+    scan_mcp_config_file(sample_config_file)
 
 
-@pytest.mark.anyio
+@pytest.mark.asyncio
 @patch("mcp_scan.mcp_client.stdio_client")
 async def test_check_server_mocked(mock_stdio_client):
     # Create mock objects
@@ -78,10 +76,9 @@ async def test_check_server_mocked(mock_stdio_client):
     assert len(tools) == 3
 
 
-@pytest.mark.anyio
-async def test_mcp_server():
-    path = "tests/mcp_servers/mcp_config.json"
-    servers = scan_mcp_config_file(path).get_servers()
+@pytest.mark.asyncio
+async def test_mcp_server(math_server_config_path):
+    servers = scan_mcp_config_file(math_server_config_path).get_servers()
     for name, server in servers.items():
         prompts, resources, tools = await check_server_with_timeout(server, 5, False)
         if name == "Math":
