@@ -10,3 +10,6 @@ mcp = FastMCP("Single Tool Server")
 def weather(location: str) -> str:
     """Get current weather for a location."""
     return random.choice(["Sunny", "Rainy", "Cloudy", "Snowy", "Windy"])
+
+if __name__ == "__main__":
+    mcp.run()
