@@ -79,6 +79,7 @@ class ActivityLogger:
                 for tc in msg.get("tool_calls") or []:
                     name = tc.get("function", {}).get("name", "<unknown tool>")
                     tool_names[tc.get("id")] = name
+                    tool_args = tc.get("function", {}).get("arguments", {})
 
                     if (session_id, tc.get("id")) in self.logged_output:
                         continue
@@ -96,7 +97,7 @@ class ActivityLogger:
                     print(Rule())
 
                     # tool arguments
-                    print(Syntax(json.dumps(tc.get("arguments", {}), indent=2), "json", theme="monokai"))
+                    print(Syntax(json.dumps(tool_args, indent=2), "json", theme="monokai"))
 
         any_error = guardrails_results and any(
             result.result is not None and len(result.result.errors) > 0 for result in guardrails_results

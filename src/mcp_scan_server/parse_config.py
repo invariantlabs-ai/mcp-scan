@@ -249,7 +249,7 @@ async def parse_config(
     """
     policies: list[DatasetPolicy] = []
 
-    for client, client_config in config:
+    for client, client_config in config.items():
         if (client_name and client != client_name) or not client_config:
             continue
 

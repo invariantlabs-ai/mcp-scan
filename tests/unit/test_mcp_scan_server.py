@@ -7,6 +7,7 @@ import pytest
 import yaml  # type: ignore
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
+from pydantic import ValidationError
 
 from mcp_scan_server.format_guardrail import blacklist_tool_from_guardrail, whitelist_tool_from_guardrail
 from mcp_scan_server.models import (
@@ -154,6 +155,20 @@ async def test_get_all_policies_invalid_config(invalid_guardrail_config_file):
         await get_all_policies(invalid_guardrail_config_file)
 
 
+def test_guardrail_config_file_is_validated_on_init_string(invalid_guardrail_config_file):
+    """Test that the GuardrailConfigFile is validated on init."""
+    with pytest.raises(ValidationError):
+        with open(invalid_guardrail_config_file) as f:
+            file_data = yaml.safe_load(f)
+        GuardrailConfigFile(file_data)
+
+
+def test_guardrail_config_file_is_validated_on_init_file(invalid_guardrail_config_file):
+    """Test that the GuardrailConfigFile is validated on init."""
+    with pytest.raises(ValidationError):
+        GuardrailConfigFile.from_yaml(invalid_guardrail_config_file)
+
+
 @pytest.mark.asyncio
 async def test_get_all_policies_creates_file_when_missing(tmp_path):
     """Test that get_all_policies creates a config file if it doesn't exist."""
@@ -175,11 +190,11 @@ async def test_get_all_policies_creates_file_when_missing(tmp_path):
         loaded_config = yaml.safe_load(config_content)
 
         # Validate the config
-        GuardrailConfig.model_validate(loaded_config)
+        GuardrailConfigFile.model_validate(loaded_config)
 
 
 @pytest.mark.asyncio
-async def mock_get_all_policies(config_file_path: str) -> list[str]:
+async def mock_get_all_policies(config_file_path: str, *args, **kwargs) -> list[str]:
     return ["some_guardrail"]
 
 
@@ -449,13 +464,15 @@ async def test_empty_string_config_generates_default_guardrails():
 async def test_server_shorthands_override_default_guardrails():
     """Test that server shorthands override default guardrails."""
     config = GuardrailConfigFile(
-        cursor={
-            "server1": ServerGuardrailConfig(
-                guardrails=GuardrailConfig(
-                    pii=GuardrailMode.block,
-                    moderated=GuardrailMode.paused,
+        {
+            "cursor": {
+                "server1": ServerGuardrailConfig(
+                    guardrails=GuardrailConfig(
+                        pii=GuardrailMode.block,
+                        moderated=GuardrailMode.paused,
+                    ),
                 ),
-            )
+            }
         }
     )
     policies = await parse_config(config, "cursor", "server1")
@@ -475,14 +492,16 @@ async def test_server_shorthands_override_default_guardrails():
 async def test_tools_partially_override_default_guardrails():
     """Test that tools partially override default guardrails."""
     config = GuardrailConfigFile(
-        cursor={
-            "server1": ServerGuardrailConfig(
-                tools={
-                    "tool_name": ToolGuardrailConfig(
-                        pii=GuardrailMode.block,
-                    ),
-                },
-            )
+        {
+            "cursor": {
+                "server1": ServerGuardrailConfig(
+                    tools={
+                        "tool_name": ToolGuardrailConfig(
+                            pii=GuardrailMode.block,
+                        ),
+                    },
+                )
+            }
         }
     )
 
@@ -516,27 +535,29 @@ async def test_tools_partially_override_default_guardrails():
 async def test_parse_config():
     """Test that the parse_config function parses the config file correctly."""
     config = GuardrailConfigFile(
-        cursor={
-            "server1": ServerGuardrailConfig(
-                guardrails=GuardrailConfig(
-                    pii=GuardrailMode.block,
-                    moderated=GuardrailMode.log,
-                    secrets=GuardrailMode.paused,
-                ),
-                tools={
-                    "tool_name": ToolGuardrailConfig(
+        {
+            "cursor": {
+                "server1": ServerGuardrailConfig(
+                    guardrails=GuardrailConfig(
                         pii=GuardrailMode.block,
-                        moderated=GuardrailMode.paused,
-                        links=GuardrailMode.log,
-                        enabled=True,
+                        moderated=GuardrailMode.log,
+                        secrets=GuardrailMode.paused,
                     ),
-                    "tool_name2": ToolGuardrailConfig(
-                        pii=GuardrailMode.block,
-                        moderated=GuardrailMode.block,
-                        enabled=True,
-                    ),
-                },
-            )
+                    tools={
+                        "tool_name": ToolGuardrailConfig(
+                            pii=GuardrailMode.block,
+                            moderated=GuardrailMode.paused,
+                            links=GuardrailMode.log,
+                            enabled=True,
+                        ),
+                        "tool_name2": ToolGuardrailConfig(
+                            pii=GuardrailMode.block,
+                            moderated=GuardrailMode.block,
+                            enabled=True,
+                        ),
+                    },
+                )
+            }
         }
     )
     config = await parse_config(config)

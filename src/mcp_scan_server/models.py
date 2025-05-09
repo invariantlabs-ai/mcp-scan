@@ -1,9 +1,10 @@
 import datetime
+from collections.abc import ItemsView
 from enum import Enum
 
 import yaml  # type: ignore
 from invariant.analyzer.policy import AnalysisResult
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
 
 class PolicyRunsOn(str, Enum):
@@ -88,7 +89,7 @@ class DatasetPolicy(BaseModel):
     id: str
     name: str
     content: str
-    enabled: bool
+    enabled: bool = Field(default=True)
     action: GuardrailMode = Field(default=GuardrailMode.log)
     extra_metadata: dict = Field(default_factory=dict)
     last_updated_time: str = Field(default_factory=lambda: datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
@@ -103,41 +104,109 @@ class RootPredefinedGuardrails(BaseModel):
     links: GuardrailMode | None = Field(default=None)
     secrets: GuardrailMode | None = Field(default=None)
 
+    model_config = ConfigDict(extra="forbid")
+
 
 class GuardrailConfig(RootPredefinedGuardrails):
     custom_guardrails: list[DatasetPolicy] = Field(default_factory=list)
+
+    model_config = ConfigDict(extra="forbid")
 
 
 class ToolGuardrailConfig(RootPredefinedGuardrails):
     enabled: bool = Field(default=True)
 
+    model_config = ConfigDict(extra="forbid")
+
 
 class ServerGuardrailConfig(BaseModel):
-    """Guardrail config for a server."""
-
     guardrails: GuardrailConfig = Field(default_factory=GuardrailConfig)
     tools: dict[str, ToolGuardrailConfig] | None = Field(default=None)
 
+    model_config = ConfigDict(extra="forbid")
 
-class GuardrailConfigFile(BaseModel):
-    """Guardrail config file model."""
 
-    cursor: dict[str, ServerGuardrailConfig] | None = Field(default=None)
-    codeium: dict[str, ServerGuardrailConfig] | None = Field(default=None)
-    claude: dict[str, ServerGuardrailConfig] | None = Field(default=None)
-    vscode: dict[str, ServerGuardrailConfig] | None = Field(default=None)
+class GuardrailConfigFile:
+    """
+    The guardrail config file model.
 
-    def model_dump_yaml(self) -> str:
-        """Dump the model to a YAML string."""
-        return yaml.dump(self.model_dump(exclude_none=True), indent=2)
+    A config file for guardrails consists of a dictionary of client keys (e.g. "cursor") and a server value (e.g. "whatsapp").
+    Each server is a ServerGuardrailConfig object and contains a GuardrailConfig object and optionally a dictionary
+    with tool names as keys and ToolGuardrailConfig objects as values.
+
+    For GuardrailConfig, shorthand guardrails can be configured, as defined in RootPredefinedGuardrails.
+    Custom guardrails can also be added under the custom_guardrails key, which is a list of DatasetPolicy objects.
+
+    For ToolGuardrailConfig, shorthand guardrails can be configured, as defined in RootPredefinedGuardrails.
+    A tool can also be disabled by setting enabled to False.
+
+    Example config file:
+    ```
+    cursor:  # The client
+      whatsapp:  # The server
+        guardrails:
+          pii: block  # Shorthand guardrail
+          moderated: paused
+
+          custom_guardrails:  # List of custom guardrails
+            - name: "Custom Guardrail"
+              id: "custom_guardrail_1"
+              action: block
+              content: |
+                raise "Error" if:
+                  (msg: Message)
+                  "error" in msg.content
+
+        tools:  # Dictionary of tools
+          send_message:
+            enabled: false  # Disable the send_message tool
+          read_messages:
+            secrets: block  # Block secrets
+    ```
+    """
+
+    ConfigFileStructure = dict[str, dict[str, ServerGuardrailConfig]]
+    _config_validator = TypeAdapter(ConfigFileStructure)
+
+    def __init__(self, clients: ConfigFileStructure | None = None):
+        self.clients = clients or {}
+        self._validate(self.clients)
+
+    @staticmethod
+    def _validate(data: ConfigFileStructure) -> ConfigFileStructure:
+        # Allow for empty config files
+        if (isinstance(data, str) and data.strip() == "") or data is None:
+            data = {}
+
+        validated_data = GuardrailConfigFile._config_validator.validate_python(data)
+        return validated_data
 
     @classmethod
-    def model_validate(cls, value):
-        """Override to handle string and None input transparently."""
-        if isinstance(value, str):
-            parsed = yaml.safe_load(value) or {}
-            return super().model_validate(parsed)
-        if value is None:
-            # Treat None as an empty config
-            return super().model_validate({})
-        return super().model_validate(value)
+    def from_yaml(cls, file_path: str) -> "GuardrailConfigFile":
+        """Load from a YAML file with validation"""
+        with open(file_path) as file:
+            yaml_data = yaml.safe_load(file)
+
+        validated_data = cls._validate(yaml_data)
+        return cls(validated_data)
+
+    @classmethod
+    def model_validate(cls, data: ConfigFileStructure) -> "GuardrailConfigFile":
+        """Validate and return a GuardrailConfigFile instance"""
+        validated_data = cls._validate(data)
+        return cls(validated_data)
+
+    def model_dump_yaml(self) -> str:
+        return yaml.dump(self.clients)
+
+    def __getitem__(self, key: str) -> dict[str, ServerGuardrailConfig]:
+        return self.clients[key]
+
+    def __getattr__(self, key: str) -> dict[str, ServerGuardrailConfig]:
+        return self.clients[key]
+
+    def items(self) -> ItemsView[str, dict[str, ServerGuardrailConfig]]:
+        return self.clients.items()
+
+    def __str__(self) -> str:
+        return f"GuardrailConfigFile({self.clients})"

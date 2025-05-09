@@ -52,7 +52,11 @@ async def get_all_policies(
             f.write(config.model_dump_yaml())
 
     with open(config_file_path) as f:
-        config = yaml.load(f, Loader=yaml.FullLoader)
+        try:
+            config = yaml.load(f, Loader=yaml.FullLoader)
+        except yaml.YAMLError as e:
+            rich.print(f"[bold red]Error loading guardrail config file: {e}[/bold red]")
+            raise fastapi.HTTPException(status_code=400, detail=str(e)) from e
 
         try:
             config = GuardrailConfigFile.model_validate(config)
@@ -67,9 +71,11 @@ async def get_all_policies(
 
 
 @router.get("/dataset/byuser/{username}/{dataset_name}/policy")
-async def get_policy(username: str, dataset_name: str, request: Request):
+async def get_policy(
+    username: str, dataset_name: str, request: Request, client_name: str | None = None, server_name: str | None = None
+):
     """Get a policy from local config file."""
-    policies = await get_all_policies(request.app.state.config_file_path)
+    policies = await get_all_policies(request.app.state.config_file_path, client_name, server_name)
     return {"policies": policies}
 
 
