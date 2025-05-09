@@ -80,8 +80,8 @@ async def test_check_server_mocked(mock_stdio_client):
 
 
 @pytest.mark.anyio
-async def test_mcp_server():
-    path = "tests/mcp_servers/mcp_config.json"
+async def test_math_server():
+    path = "tests/mcp_servers/configs_files/math_config.json"
     servers = (await scan_mcp_config_file(path)).get_servers()
     for name, server in servers.items():
         prompts, resources, tools = await check_server_with_timeout(server, 5, False)
@@ -89,3 +89,31 @@ async def test_mcp_server():
             assert len(prompts) == 0
             assert len(resources) == 0
             assert {t.name for t in tools} == {"add", "subtract", "multiply", "divide"}
+
+
+@pytest.mark.anyio
+async def test_all_server():
+    path = "tests/mcp_servers/configs_files/all_config.json"
+    servers = (await scan_mcp_config_file(path)).get_servers()
+    for name, server in servers.items():
+        prompts, resources, tools = await check_server_with_timeout(server, 5, False)
+        if name == "Math":
+            assert len(prompts) == 0
+            assert len(resources) == 0
+            assert {t.name for t in tools} == {"add", "subtract", "multiply", "divide"}
+        if name == "Weather":
+            assert len(prompts) == 0
+            assert len(resources) == 0
+            assert {t.name for t in tools} == {"weather"}
+
+
+@pytest.mark.anyio
+async def test_weather_server():
+    path = "tests/mcp_servers/configs_files/weather_config.json"
+    servers = (await scan_mcp_config_file(path)).get_servers()
+    for name, server in servers.items():
+        prompts, resources, tools = await check_server_with_timeout(server, 5, False)
+        if name == "Weather":
+            assert len(prompts) == 0
+            assert len(resources) == 0
+            assert {t.name for t in tools} == {"weather"}

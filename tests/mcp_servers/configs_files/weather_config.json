@@ -1,0 +1,8 @@
+{
+    "mcpServers": {
+        "Weather": {
+            "command": "uv run python",
+            "args": ["tests/mcp_servers/weather_server.py"]
+        }
+    }
+}
