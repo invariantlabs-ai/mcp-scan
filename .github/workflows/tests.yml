@@ -18,7 +18,7 @@ jobs:
     - uses: actions/checkout@v4
       with:
         repository: invariantlabs-ai/invariant-gateway
-        ref: ${{ github.ref }}
+        ref: mcp-metadata
         path: ${{ github.workspace }}/invariant-gateway
     - name: Write .env
       run: |
