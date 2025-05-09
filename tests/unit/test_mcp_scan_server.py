@@ -1,4 +1,6 @@
 import os
+import re
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -6,11 +8,68 @@ import yaml  # type: ignore
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
-from mcp_scan_server.models import DatasetPolicy, GuardrailConfig
+from mcp_scan_server.format_guardrail import blacklist_tool_from_guardrail, whitelist_tool_from_guardrail
+from mcp_scan_server.models import (
+    DatasetPolicy,
+    GuardrailConfig,
+    GuardrailConfigFile,
+    GuardrailMode,
+    ServerGuardrailConfig,
+    ToolGuardrailConfig,
+)
+from mcp_scan_server.parse_config import (
+    parse_config,
+    parse_server_shorthand_guardrails,
+    parse_tool_shorthand_guardrails,
+)
 from mcp_scan_server.routes.policies import check_policy, get_all_policies  # type: ignore
 from mcp_scan_server.server import MCPScanServer
 
 client = TestClient(MCPScanServer().app)
+
+
+BASE_TEMPLATE_PATH = Path(__file__).parent.parent.parent / "src" / "mcp_scan_server" / "guardrail_templates"
+
+
+def extract_tool_names(code: str) -> list[str]:
+    """
+    Extracts all tool names from a string that contains a line like:
+    tool_call(tooloutput).function.name in ['tool1', "tool2"]
+
+    Supports both single and double quotes.
+
+    Args:
+        code (str): The code-like string to parse.
+
+    Returns:
+        list[str]: A list of tool names found in the string.
+    """
+    # Pattern to match list of tools in the in clause
+    list_pattern = r"tool_call\(.*?\)\.function\.name\s+in\s+\[([^\]]+)\]"
+    list_match = re.search(list_pattern, code, re.DOTALL)
+    if not list_match:
+        return []
+
+    tools_raw = list_match.group(1)
+
+    # Extract individual names within quotes
+    tool_names = re.findall(r"""['"]([^'"]+)['"]""", tools_raw)
+    return tool_names
+
+
+def get_number_of_guardrail_templates(path: Path | None = None) -> int:
+    """Get the number of guardrail templates in the default_guardrails directory."""
+    if path is None:
+        path = BASE_TEMPLATE_PATH
+    # Count the number of files in the directory that end with .gr
+    return len([f for f in os.listdir(path) if f.endswith(".gr")])
+
+
+def get_template_names(path: Path | None = None) -> list[str]:
+    """Get the names of the guardrail templates in the default_guardrails directory."""
+    if path is None:
+        path = BASE_TEMPLATE_PATH
+    return [f.replace(".gr", "") for f in os.listdir(path) if f.endswith(".gr")]
 
 
 @pytest.fixture
@@ -20,26 +79,36 @@ def valid_guardrail_config_file(tmp_path):
     config_file.write_text(
         """
 cursor:
-  browsermcp:
+  server1:
     guardrails:
-      - name: "Guardrail 1"
-        id: "guardrail_1"
-        runs-on: "local"
-        enabled: true
-        action: "block"
-        content: |
-          raise "error" if:
-            (msg: ToolOutput)
-            "Test1" in msg.content
-      - name: "Guardrail 2"
-        id: "guardrail_2"
-        runs-on: "local"
-        enabled: true
-        action: "block"
-        content: |
-          raise "error" if:
-            (msg: ToolOutput)
-            "Test2" in msg.content
+      pii: "block"
+      moderated: "block"
+      links: "block"
+      secrets: "block"
+
+      custom_guardrails:
+        - name: "Guardrail 1"
+          id: "guardrail_1"
+          enabled: true
+          action: "block"
+          content: |
+            raise "error" if:
+              (msg: ToolOutput)
+              "Test1" in msg.content
+
+    tools:
+        tool_name:
+            enabled: true
+            pii: "block"
+            moderated: "block"
+            links: "block"
+            secrets: "block"
+  server2:
+    guardrails:
+      pii: "block"
+      moderated: "block"
+      links: "block"
+      secrets: "block"
 """
     )
     return str(config_file)
@@ -67,14 +136,15 @@ cursor:
 @pytest.mark.asyncio
 async def test_get_all_policies_valid_config(valid_guardrail_config_file):
     """Test that the get_all_policies function returns the correct policies for a valid config file."""
-    policies = await get_all_policies(valid_guardrail_config_file)
+    policies = await get_all_policies(valid_guardrail_config_file, "cursor", "server1")
     print(policies)
-    assert len(policies) == 2
+    assert len(policies) == 5
     assert all(isinstance(policy, DatasetPolicy) for policy in policies)
-    assert policies[0].id == "guardrail_1"
-    assert policies[1].id == "guardrail_2"
-    assert policies[0].name == "Guardrail 1"
-    assert policies[1].name == "Guardrail 2"
+
+    policies = await get_all_policies(valid_guardrail_config_file, "cursor", "server2")
+    print(policies)
+    assert len(policies) == 4
+    assert all(isinstance(policy, DatasetPolicy) for policy in policies)
 
 
 @pytest.mark.asyncio
@@ -213,3 +283,267 @@ async def test_check_policy_catches_flow_violations(detect_simple_flow_policy_st
     result = await check_policy(detect_simple_flow_policy_str, simple_flow_trace)
     assert len(result.result.errors) == 1
     assert result.result.errors[0].args[0] == "error_flow"
+
+
+@pytest.fixture
+def default_guardrails() -> dict[str, str]:
+    guardrails = {}
+    for file in os.listdir(BASE_TEMPLATE_PATH):
+        if file.endswith(".gr"):
+            with open(os.path.join(BASE_TEMPLATE_PATH, file)) as f:
+                guardrails[file.replace(".gr", "")] = f.read()
+    return guardrails
+
+
+def test_all_default_guardrails_have_blacklist_whitelist_statement(default_guardrails):
+    """Test that all default guardrails have an blacklist/whitelist statement."""
+    for guardrail_name, guardrail_content in default_guardrails.items():
+        assert (
+            "{{ BLACKLIST_WHITELIST }}" in guardrail_content
+        ), f"""Default guardrail '{guardrail_name}' does not have an blacklist/whitelist statement.
+            It must include exactly '{{ BLACKLIST_WHITELIST }}'."""
+
+
+@pytest.mark.parametrize(
+    "tool_names",
+    [
+        ["tool_name"],
+        ["tool_name", "tool_name2"],
+        ["tool_name", "tool_name2", "tool_name3"],
+    ],
+)
+def test_format_guardrail_whitelist_tool(tool_names):
+    """Test that the format_guardrail function whitelists a tool correctly."""
+    guardrail_content = """
+    raise "error" if:
+      (tooloutput: ToolOutput)
+      {{ BLACKLIST_WHITELIST }}
+      "error" in tooloutput.content
+    """
+
+    assert "{{ BLACKLIST_WHITELIST }}" in guardrail_content
+
+    formatted_guardrail = whitelist_tool_from_guardrail(guardrail_content, tool_names)
+    assert (
+        formatted_guardrail
+        == f"""
+    raise "error" if:
+      (tooloutput: ToolOutput)
+      tool_call(tooloutput).function.name in {tool_names}
+      "error" in tooloutput.content
+    """
+    )
+
+
+@pytest.mark.parametrize(
+    "tool_names",
+    [
+        ["tool_name"],
+        ["tool_name", "tool_name2"],
+        ["tool_name", "tool_name2", "tool_name3"],
+    ],
+)
+def test_format_guardrail_blacklist_tool(tool_names):
+    """Test that the format_guardrail function blacklists a tool correctly."""
+    guardrail_content = """
+    raise "error" if:
+      (tooloutput: ToolOutput)
+      {{ BLACKLIST_WHITELIST }}
+      "error" in tooloutput.content
+    """
+
+    assert "{{ BLACKLIST_WHITELIST }}" in guardrail_content
+
+    formatted_guardrail = blacklist_tool_from_guardrail(guardrail_content, tool_names)
+    assert (
+        formatted_guardrail
+        == f"""
+    raise "error" if:
+      (tooloutput: ToolOutput)
+      not (tool_call(tooloutput).function.name in {tool_names})
+      "error" in tooloutput.content
+    """
+    )
+
+
+@pytest.mark.anyio
+async def test_parse_tool_guardrails():
+    """Test that the parse_tool_guardrails function parses tool guardrails correctly."""
+    server_guardrail_config = ServerGuardrailConfig(
+        guardrails=GuardrailConfig(
+            pii=GuardrailMode.block,
+            moderated=GuardrailMode.log,
+        ),
+        tools={
+            "tool_name": ToolGuardrailConfig(
+                pii=GuardrailMode.block,
+                moderated=GuardrailMode.paused,
+                enabled=True,
+            ),
+            "tool_name2": ToolGuardrailConfig(
+                pii=GuardrailMode.block,
+                moderated=GuardrailMode.paused,
+                enabled=True,
+            ),
+        },
+    )
+
+    res = parse_tool_shorthand_guardrails(server_guardrail_config)
+
+    assert res == {
+        "pii": {"tool_name": GuardrailMode.block, "tool_name2": GuardrailMode.block},
+        "moderated": {"tool_name": GuardrailMode.paused, "tool_name2": GuardrailMode.paused},
+    }
+
+
+@pytest.mark.anyio
+async def test_parse_default_guardrails():
+    """Test that the parse_default_guardrails function parses default guardrails correctly."""
+    server_guardrail_config = ServerGuardrailConfig(
+        guardrails=GuardrailConfig(
+            pii=GuardrailMode.block,
+            moderated=GuardrailMode.log,
+        ),
+    )
+
+    res = parse_server_shorthand_guardrails(server_guardrail_config)
+
+    assert res == {
+        "pii": GuardrailMode.block,
+        "moderated": GuardrailMode.log,
+    }
+
+
+@pytest.mark.parametrize("client", ["cursor", "browsermcp"])
+@pytest.mark.parametrize("server", ["server1", "server2"])
+@pytest.mark.anyio
+async def test_empty_config_generates_default_guardrails(client, server):
+    """Test that the parse_config function generates the correct policies."""
+    config = GuardrailConfigFile()
+    policies = await parse_config(config, client, server)
+
+    assert len(policies) == get_number_of_guardrail_templates()
+    assert {f"{client}-{server}-{template_name}-default" for template_name in get_template_names()} == {
+        policy.id for policy in policies
+    }
+    assert all(policy.enabled is True for policy in policies)
+    assert all(policy.action == GuardrailMode.log for policy in policies)
+
+
+@pytest.mark.anyio
+async def test_empty_string_config_generates_default_guardrails():
+    """Test that the parse_config function generates the correct policies."""
+    config_str = """
+    """
+    config = GuardrailConfigFile.model_validate(config_str)
+    policies = await parse_config(config)
+    assert len(policies) == get_number_of_guardrail_templates()
+
+    config_str = None
+    config = GuardrailConfigFile.model_validate(config_str)
+    policies = await parse_config(config)
+    assert len(policies) == get_number_of_guardrail_templates()
+
+
+@pytest.mark.anyio
+async def test_server_shorthands_override_default_guardrails():
+    """Test that server shorthands override default guardrails."""
+    config = GuardrailConfigFile(
+        cursor={
+            "server1": ServerGuardrailConfig(
+                guardrails=GuardrailConfig(
+                    pii=GuardrailMode.block,
+                    moderated=GuardrailMode.paused,
+                ),
+            )
+        }
+    )
+    policies = await parse_config(config, "cursor", "server1")
+
+    assert len(policies) == get_number_of_guardrail_templates()
+
+    for policy in policies:
+        if policy.id == "cursor-server1-pii":
+            assert policy.action == GuardrailMode.block
+            assert policy.enabled is True
+        elif policy.id == "cursor-server1-moderated":
+            assert policy.action == GuardrailMode.paused
+            assert policy.enabled is True
+
+
+@pytest.mark.anyio
+async def test_tools_partially_override_default_guardrails():
+    """Test that tools partially override default guardrails."""
+    config = GuardrailConfigFile(
+        cursor={
+            "server1": ServerGuardrailConfig(
+                tools={
+                    "tool_name": ToolGuardrailConfig(
+                        pii=GuardrailMode.block,
+                    ),
+                },
+            )
+        }
+    )
+
+    policies = await parse_config(config, "cursor", "server1")
+
+    # One additional policy is created for the tool_name
+    assert len(policies) == get_number_of_guardrail_templates() + 1
+
+    for policy in policies:
+        # Check that the specific tool shorthand is applied
+        if policy.id == "cursor-server1-pii-tool_name":
+            assert policy.action == GuardrailMode.block
+            assert policy.enabled is True
+
+            # extract whitelist from content
+            whitelist = extract_tool_names(policy.content)
+            assert whitelist == ["tool_name"]
+
+        # Check that the default rule is still applied and blacklists is tool_name
+        if policy.id == "cursor-server1-pii-default":
+            assert policy.action == GuardrailMode.log
+            assert policy.enabled is True
+
+            # extract blacklist from content
+            blacklist = extract_tool_names(policy.content)
+            print(blacklist)
+            assert blacklist == ["tool_name"]
+
+
+@pytest.mark.anyio
+async def test_parse_config():
+    """Test that the parse_config function parses the config file correctly."""
+    config = GuardrailConfigFile(
+        cursor={
+            "server1": ServerGuardrailConfig(
+                guardrails=GuardrailConfig(
+                    pii=GuardrailMode.block,
+                    moderated=GuardrailMode.log,
+                    secrets=GuardrailMode.paused,
+                ),
+                tools={
+                    "tool_name": ToolGuardrailConfig(
+                        pii=GuardrailMode.block,
+                        moderated=GuardrailMode.paused,
+                        links=GuardrailMode.log,
+                        enabled=True,
+                    ),
+                    "tool_name2": ToolGuardrailConfig(
+                        pii=GuardrailMode.block,
+                        moderated=GuardrailMode.block,
+                        enabled=True,
+                    ),
+                },
+            )
+        }
+    )
+    config = await parse_config(config)
+
+    # We should have 7 policies since:
+    # pii creates 1 policy because the action (block) of all shorthands match
+    # moderated creates 3 policies (one for each action)
+    # secrets creates 1 policy because it is defined as a server shorthand
+    # links creates 2 policies -- one for the tool_name shorthand and one default
+    assert len(config) == 7

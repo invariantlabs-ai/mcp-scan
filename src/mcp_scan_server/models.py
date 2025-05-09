@@ -3,7 +3,7 @@ from enum import Enum
 
 import yaml  # type: ignore
 from invariant.analyzer.policy import AnalysisResult
-from pydantic import BaseModel, ConfigDict, Field, RootModel
+from pydantic import BaseModel, Field
 
 
 class PolicyRunsOn(str, Enum):
@@ -11,6 +11,14 @@ class PolicyRunsOn(str, Enum):
 
     local = "local"
     remote = "remote"
+
+
+class GuardrailMode(str, Enum):
+    """Guardrail mode enum."""
+
+    log = "log"
+    block = "block"
+    paused = "paused"
 
 
 class Policy(BaseModel):
@@ -80,32 +88,56 @@ class DatasetPolicy(BaseModel):
     id: str
     name: str
     content: str
-    # whether this policy is enabled
     enabled: bool
-    # the mode of this policy (e.g. block, log, etc.)
-    action: str
-    # extra metadata for the policy (can be used to store internal extra data about a guardrail)
+    action: GuardrailMode = Field(default=GuardrailMode.log)
     extra_metadata: dict = Field(default_factory=dict)
-
     last_updated_time: str = Field(default_factory=lambda: datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
     def to_dict(self) -> dict:
-        """Represent the object as a dictionary."""
         return self.model_dump()
 
 
-class ServerGuardrails(BaseModel):
-    """Server guardrails model."""
+class RootPredefinedGuardrails(BaseModel):
+    pii: GuardrailMode | None = Field(default=None)
+    moderated: GuardrailMode | None = Field(default=None)
+    links: GuardrailMode | None = Field(default=None)
+    secrets: GuardrailMode | None = Field(default=None)
 
-    guardrails: list[DatasetPolicy]
+
+class GuardrailConfig(RootPredefinedGuardrails):
+    custom_guardrails: list[DatasetPolicy] = Field(default_factory=list)
 
 
-class GuardrailConfig(RootModel[dict[str, dict[str, ServerGuardrails]]]):
-    """Guardrail config model."""
+class ToolGuardrailConfig(RootPredefinedGuardrails):
+    enabled: bool = Field(default=True)
 
-    model_config = ConfigDict(populate_by_name=True)
+
+class ServerGuardrailConfig(BaseModel):
+    """Guardrail config for a server."""
+
+    guardrails: GuardrailConfig = Field(default_factory=GuardrailConfig)
+    tools: dict[str, ToolGuardrailConfig] | None = Field(default=None)
+
+
+class GuardrailConfigFile(BaseModel):
+    """Guardrail config file model."""
+
+    cursor: dict[str, ServerGuardrailConfig] | None = Field(default=None)
+    codeium: dict[str, ServerGuardrailConfig] | None = Field(default=None)
+    claude: dict[str, ServerGuardrailConfig] | None = Field(default=None)
+    vscode: dict[str, ServerGuardrailConfig] | None = Field(default=None)
 
     def model_dump_yaml(self) -> str:
-        """Dump the object as a YAML string."""
-        data = self.model_dump()
-        return yaml.dump(data, sort_keys=False, default_flow_style=False)
+        """Dump the model to a YAML string."""
+        return yaml.dump(self.model_dump(exclude_none=True), indent=2)
+
+    @classmethod
+    def model_validate(cls, value):
+        """Override to handle string and None input transparently."""
+        if isinstance(value, str):
+            parsed = yaml.safe_load(value) or {}
+            return super().model_validate(parsed)
+        if value is None:
+            # Treat None as an empty config
+            return super().model_validate({})
+        return super().model_validate(value)

@@ -195,10 +195,6 @@ def check_install_args(args):
         if not args.api_key:
             args.local_only = True
 
-        # raise argparse.ArgumentError(
-        #     None, "argument --api-key is required when --local-only is not set"
-        # )
-
 
 def main():
     # Create main parser with description

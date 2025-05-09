@@ -9,7 +9,7 @@ import rich
 import yaml  # type: ignore
 from pydantic import ValidationError
 
-from mcp_scan_server.models import GuardrailConfig
+from mcp_scan_server.models import GuardrailConfigFile
 
 from .models import Entity, ScannedEntities, ScannedEntity, entity_type_to_str, hash_entity
 from .utils import upload_whitelist_entry
@@ -27,7 +27,7 @@ class StorageFile:
         # if path is a file
         self.scanned_entities: ScannedEntities = ScannedEntities({})
         self.whitelist: dict[str, str] = {}
-        self.guardrails_config: GuardrailConfig = GuardrailConfig({})
+        self.guardrails_config: GuardrailConfigFile = GuardrailConfigFile()
 
         if os.path.isfile(self.path):
             rich.print(f"[bold]Legacy storage file detected at {self.path}, converting to new format[/bold]")
@@ -84,7 +84,7 @@ class StorageFile:
                 with open(guardrails_config_path) as f:
                     try:
                         guardrails_config_data = yaml.safe_load(f.read()) or {}
-                        self.guardrails_config = GuardrailConfig.model_validate(guardrails_config_data)
+                        self.guardrails_config = GuardrailConfigFile.model_validate(guardrails_config_data)
                     except yaml.YAMLError as e:
                         rich.print(
                             f"[bold red]Could not parse guardrails config file {guardrails_config_path}: {e}[/bold red]"
