@@ -9,11 +9,11 @@ import pyjson5
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.sse import sse_client
 from mcp.client.stdio import stdio_client
-from mcp.types import Prompt, Resource, Tool
 
 from mcp_scan.models import (
     ClaudeConfigFile,
     MCPConfig,
+    ServerSignature,
     SSEServer,
     StdioServer,
     VSCodeConfigFile,
@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 async def check_server(
     server_config: SSEServer | StdioServer, timeout: int, suppress_mcpserver_io: bool
-) -> tuple[list[Prompt], list[Resource], list[Tool]]:
+) -> ServerSignature:
     logger.info("Checking server with config: %s, timeout: %s", server_config, timeout)
 
     def get_client(server_config: SSEServer | StdioServer, verbose: bool = False) -> AsyncContextManager:
@@ -52,16 +52,16 @@ async def check_server(
             )
             return stdio_client(server_params, errlog=subprocess.DEVNULL if not verbose else None)
 
-    async def _check_server(verbose: bool) -> tuple[list[Prompt], list[Resource], list[Tool]]:
+    async def _check_server(verbose: bool) -> ServerSignature:
         logger.info("Initializing server connection")
         async with get_client(server_config, verbose=verbose) as (read, write):
             async with ClientSession(read, write) as session:
                 meta = await session.initialize()
                 logger.debug("Server initialized with metadata: %s", meta)
                 # for see servers we need to check the announced capabilities
-                prompts: list[Prompt] = []
-                resources: list[Resource] = []
-                tools: list[Tool] = []
+                prompts: list = []
+                resources: list = []
+                tools: list = []
                 if not isinstance(server_config, SSEServer) or meta.capabilities.prompts:
                     logger.debug("Fetching prompts")
                     try:
@@ -85,7 +85,12 @@ async def check_server(
                     except Exception:
                         logger.exception("Failed to list tools")
                 logger.info("Server check completed successfully")
-                return prompts, resources, tools
+                return ServerSignature(
+                    metadata=meta,
+                    prompts=prompts,
+                    resources=resources,
+                    tools=tools,
+                )
 
     return await _check_server(verbose=not suppress_mcpserver_io)
 
@@ -94,7 +99,7 @@ async def check_server_with_timeout(
     server_config: SSEServer | StdioServer,
     timeout: int,
     suppress_mcpserver_io: bool,
-) -> tuple[list[Prompt], list[Resource], list[Tool]]:
+) -> ServerSignature:
     logger.debug("Checking server with timeout: %s seconds", timeout)
     try:
         result = await asyncio.wait_for(check_server(server_config, timeout, suppress_mcpserver_io), timeout)

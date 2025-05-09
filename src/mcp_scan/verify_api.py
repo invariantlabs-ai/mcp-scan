@@ -8,16 +8,24 @@ async def verify_server(scan_path: ScanPathResult, base_url: str) -> ScanPathRes
     url = base_url[:-1] if base_url.endswith("/") else base_url
     url = url + "/api/v2/public/mcp"
     headers = {"Content-Type": "application/json"}
-    payload = VerifyServerRequest(root=[server.get_signature() for server in scan_path.servers])
+    payload = VerifyServerRequest(root=[])
+    for server in scan_path.servers:
+        # None server signature are servers which are not reachable.
+        if server.signature is not None:
+            payload.root.append(server.signature)
+    # Server signatures do not contain any information about the user setup. Only about the server itself.
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(url, headers=headers, data=payload.model_dump_json()) as response:
                 if response.status == 200:
-                    errors = VerifyServerResponse.model_validate_json(await response.read())
+                    results = VerifyServerResponse.model_validate_json(await response.read())
                 else:
                     raise Exception(f"Error: {response.status} - {await response.text()}")
-        for server, result in zip(output_path.servers, errors.root, strict=False):
-            server.result = result
+        for server in output_path.servers:
+            if server.signature is None:
+                pass
+            server.result = results.root.pop(0)
+        assert len(results.root) == 0  # all results should be consumed
         return output_path
     except Exception as e:
         try:
@@ -26,7 +34,9 @@ async def verify_server(scan_path: ScanPathResult, base_url: str) -> ScanPathRes
         except Exception:
             errstr = ""
         for server in output_path.servers:
-            server.result = [
-                EntityScanResult(status="could not reach verification server " + errstr) for _ in server.entities
-            ]
+            if server.signature is not None:
+                server.result = [
+                    EntityScanResult(status="could not reach verification server " + errstr) for _ in server.entities
+                ]
+
         return output_path

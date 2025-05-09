@@ -3,10 +3,11 @@ from hashlib import md5
 from itertools import chain
 from typing import Any, Literal, TypeAlias
 
-from mcp.types import Prompt, Resource, Tool
-from pydantic import BaseModel, ConfigDict, RootModel, field_serializer, field_validator
+from mcp.types import InitializeResult, Prompt, Resource, Tool
+from pydantic import BaseModel, ConfigDict, Field, RootModel, field_serializer, field_validator
 
 Entity: TypeAlias = Prompt | Resource | Tool
+Metadata: TypeAlias = InitializeResult
 
 
 def hash_entity(entity: Entity | None) -> str | None:
@@ -145,10 +146,14 @@ class CrossRefResult(BaseModel):
 
 
 class ServerSignature(BaseModel):
-    name: str
-    prompts: list[Prompt] = []
-    resources: list[Resource] = []
-    tools: list[Tool] = []
+    metadata: Metadata
+    prompts: list[Prompt] = Field(default_factory=list)
+    resources: list[Resource] = Field(default_factory=list)
+    tools: list[Tool] = Field(default_factory=list)
+
+    @property
+    def entities(self) -> list[Entity]:
+        return self.prompts + self.resources + self.tools
 
 
 class VerifyServerResponse(RootModel):
@@ -163,15 +168,16 @@ class ServerScanResult(BaseModel):
     model_config = ConfigDict()
     name: str | None = None
     server: SSEServer | StdioServer
-    prompts: list[Prompt] = []
-    resources: list[Resource] = []
-    tools: list[Tool] = []
+    signature: ServerSignature | None = None
     result: list[EntityScanResult] | None = None
     error: ScanError | None = None
 
     @property
     def entities(self) -> list[Entity]:
-        return self.prompts + self.resources + self.tools
+        if self.signature is not None:
+            return self.signature.entities
+        else:
+            return []
 
     @property
     def is_verified(self) -> bool:
@@ -183,14 +189,6 @@ class ServerScanResult(BaseModel):
             return list(zip(self.entities, self.result, strict=False))
         else:
             return [(entity, None) for entity in self.entities]
-
-    def get_signature(self) -> ServerSignature:
-        return ServerSignature(
-            name=self.name,
-            prompts=self.prompts,
-            resources=self.resources,
-            tools=self.tools,
-        )
 
 
 class ScanPathResult(BaseModel):
