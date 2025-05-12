@@ -97,6 +97,8 @@ async def verify_scan_path_guardrails(scan_path: ScanPathResult, base_url: str) 
                 continue
             server.result = results[: len(server.entities)]
             results = results[len(server.entities):]
+        if results:
+            raise Exception("Not all results were consumed. This should not happen.")
         return output_path
     except Exception as e:
         try:
