@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+import subprocess
 from typing import AsyncContextManager  # noqa: UP035
 
 import aiofiles  # type: ignore
@@ -19,7 +20,6 @@ from mcp_scan.models import (
     VSCodeMCPConfig,
 )
 
-from .suppressIO import SuppressStd
 from .utils import rebalance_command_args
 
 # Set up logger for this module
@@ -31,7 +31,7 @@ async def check_server(
 ) -> tuple[list[Prompt], list[Resource], list[Tool]]:
     logger.info("Checking server with config: %s, timeout: %s", server_config, timeout)
 
-    def get_client(server_config: SSEServer | StdioServer) -> AsyncContextManager:
+    def get_client(server_config: SSEServer | StdioServer, verbose: bool = False) -> AsyncContextManager:
         if isinstance(server_config, SSEServer):
             logger.debug("Creating SSE client with URL: %s", server_config.url)
             return sse_client(
@@ -50,11 +50,11 @@ async def check_server(
                 args=args,
                 env=server_config.env,
             )
-            return stdio_client(server_params)
+            return stdio_client(server_params, errlog=subprocess.DEVNULL if not verbose else None)
 
-    async def _check_server() -> tuple[list[Prompt], list[Resource], list[Tool]]:
+    async def _check_server(verbose: bool) -> tuple[list[Prompt], list[Resource], list[Tool]]:
         logger.info("Initializing server connection")
-        async with get_client(server_config) as (read, write):
+        async with get_client(server_config, verbose=verbose) as (read, write):
             async with ClientSession(read, write) as session:
                 meta = await session.initialize()
                 logger.debug("Server initialized with metadata: %s", meta)
@@ -87,12 +87,7 @@ async def check_server(
                 logger.info("Server check completed successfully")
                 return prompts, resources, tools
 
-    if suppress_mcpserver_io:
-        logger.debug("Suppressing MCP server IO")
-        with SuppressStd():
-            return await _check_server()
-    else:
-        return await _check_server()
+    return await _check_server(verbose=not suppress_mcpserver_io)
 
 
 async def check_server_with_timeout(
