@@ -51,14 +51,6 @@ async def test_check_server_mocked(mock_stdio_client):
             version="1.0",
         ),
     )
-    mock_meta = Mock()
-    mock_meta.capabilities = Mock()
-    mock_meta.capabilities.prompts = Mock()
-    mock_meta.capabilities.resources = Mock()
-    mock_meta.capabilities.tools = Mock()
-    mock_meta.capabilities.prompts.supported = True
-    mock_meta.capabilities.resources.supported = True
-    mock_meta.capabilities.tools.supported = True
     mock_session.initialize = AsyncMock(return_value=mock_metadata)
 
     # Mock list responses
