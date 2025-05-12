@@ -12,3 +12,4 @@
 - `0.1.7` stability improvements (CI, pre-commit hooks, testing), --json, logging & error printing, bug fixes, server improvements
 - `0.1.8-9` fixes
 - `0.1.10-12` automatic releases, updated to newer mcp client
+- `0.1.13-14` bug fix with printing. Now consider full signature when analyzing a tool.
