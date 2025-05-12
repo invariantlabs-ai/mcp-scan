@@ -1,8 +1,8 @@
+import ast
 from datetime import datetime
 from hashlib import md5
 from itertools import chain
 from typing import Any, Literal, TypeAlias
-import ast
 
 from mcp.types import InitializeResult, Prompt, Resource, Tool
 from pydantic import BaseModel, ConfigDict, Field, RootModel, field_serializer, field_validator
@@ -229,16 +229,18 @@ def entity_to_tool(
                     entity.name: {
                         "type": "string",
                         "description": entity.description,
-                    } for entity in entity.arguments or []
+                    }
+                    for entity in entity.arguments or []
                 },
                 "required": [pa.name for pa in entity.arguments or [] if pa.required],
-            }
+            },
         )
     else:
         raise ValueError(f"Unknown entity type: {type(entity)}")
 
 
 ### Guardrail models
+
 
 class MCPMessage(BaseModel):
     model_config = ConfigDict(frozen=True)
@@ -262,6 +264,7 @@ class ErrorInformation(BaseModel):
         default="(0, (0, ))",
         description="The key to use to identify the error.",
     )
+
     def get_index(self) -> int:
         key = ast.literal_eval(self.key)
         return key[1][0]
@@ -274,17 +277,19 @@ class GuardrailRequest(BaseModel):
     )
     policy: str = Field(
         examples=[
-            'raise Violation("Disallowed message content", reason="found ignore keyword") if:\n   (msg: Message)\n   "ignore" in msg.content\n'
+            (
+                'raise Violation("Disallowed message content", reason="found ignore keyword")'
+                ' if:\n   (msg: Message)\n   "ignore" in msg.content\n'
+            )
         ],
         description="The policy (rules) to check for.",
     )
-    parameters: dict = Field(
-        default={}, description="The parameters to pass to the policy analyze call (optional)."
-    )
+    parameters: dict = Field(default={}, description="The parameters to pass to the policy analyze call (optional).")
 
 
 class GuardrailResponse(BaseModel):
     """Policy check result model."""
+
     model_config = ConfigDict(extra="allow")
     errors: list[ErrorInformation]
     success: bool = Field(description="Whether this policy check was successful (loaded and ran).")

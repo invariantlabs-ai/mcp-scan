@@ -1,16 +1,16 @@
 import aiohttp
-from mcp.types import Tool
 
 from .models import (
     EntityScanResult,
+    GuardrailRequest,
+    GuardrailResponse,
+    MCPTool,
     ScanPathResult,
     VerifyServerRequest,
     VerifyServerResponse,
-    MCPTool,
-    GuardrailRequest,
-    GuardrailResponse,
-    entity_to_tool
+    entity_to_tool,
 )
+
 POLICY_PATH = "src/mcp_scan/policy.gr"
 
 
@@ -54,14 +54,14 @@ async def verify_scan_path_public_api(scan_path: ScanPathResult, base_url: str) 
 
 
 def get_policy() -> str:
-    with open(POLICY_PATH, "r") as f:
+    with open(POLICY_PATH) as f:
         policy = f.read()
     return policy
 
 
 async def verify_scan_path_guardrails(scan_path: ScanPathResult, base_url: str) -> ScanPathResult:
     output_path = scan_path.model_copy(deep=True)
-    tools_to_scan: list[Tool] = []
+    tools_to_scan: list = []
     for server in scan_path.servers:
         # None server signature are servers which are not reachable.
         if server.signature is not None:
@@ -72,7 +72,9 @@ async def verify_scan_path_guardrails(scan_path: ScanPathResult, base_url: str) 
         policy=get_policy(),
         messages=[MCPTool(tools=tools_to_scan)],
     )
-    headers = {"Content-Type": "application/json",}
+    headers = {
+        "Content-Type": "application/json",
+    }
 
     url = base_url[:-1] if base_url.endswith("/") else base_url
     url = url + "/api/v1/policy/check"
@@ -96,7 +98,7 @@ async def verify_scan_path_guardrails(scan_path: ScanPathResult, base_url: str) 
             if server.signature is None:
                 continue
             server.result = results[: len(server.entities)]
-            results = results[len(server.entities):]
+            results = results[len(server.entities) :]
         if results:
             raise Exception("Not all results were consumed. This should not happen.")
         return output_path
@@ -109,10 +111,11 @@ async def verify_scan_path_guardrails(scan_path: ScanPathResult, base_url: str) 
         for server in scan_path.servers:
             if server.signature is not None:
                 server.result = [
-                    EntityScanResult(status="could not reach verification guardrail server " + errstr) for _ in server.entities
+                    EntityScanResult(status="could not reach verification guardrail server " + errstr)
+                    for _ in server.entities
                 ]
         return scan_path
-                
+
 
 async def verify_scan_path(scan_path: ScanPathResult, base_url: str, use_guardrails) -> ScanPathResult:
     if use_guardrails:

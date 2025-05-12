@@ -199,7 +199,10 @@ async def main():
         "--use-guardrails",
         default=False,
         action="store_true",
-        help="If true, uses guardrails to verify the scan results. A --base-url must be provided, and it must be a local guardrail service, not a public api.",
+        help=(
+            "If true, uses guardrails to verify the scan results. "
+            "A --base-url must be provided, and it must be a local guardrail service, not a public api."
+        ),
     )
 
     # INSPECT command
