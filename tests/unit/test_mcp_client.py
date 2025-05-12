@@ -3,6 +3,17 @@
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
+from mcp.types import (
+    Implementation,
+    InitializeResult,
+    Prompt,
+    PromptsCapability,
+    Resource,
+    ResourcesCapability,
+    ServerCapabilities,
+    Tool,
+    ToolsCapability,
+)
 
 from mcp_scan.mcp_client import check_server, check_server_with_timeout, scan_mcp_config_file
 from mcp_scan.models import StdioServer
@@ -28,27 +39,38 @@ async def test_check_server_mocked(mock_stdio_client):
     mock_write = AsyncMock()
 
     # Mock initialize response
-    mock_meta = Mock()
-    mock_meta.capabilities = Mock()
-    mock_meta.capabilities.prompts = Mock()
-    mock_meta.capabilities.resources = Mock()
-    mock_meta.capabilities.tools = Mock()
-    mock_meta.capabilities.prompts.supported = True
-    mock_meta.capabilities.resources.supported = True
-    mock_meta.capabilities.tools.supported = True
-    mock_session.initialize = AsyncMock(return_value=mock_meta)
+    mock_metadata = InitializeResult(
+        protocolVersion="1.0",
+        capabilities=ServerCapabilities(
+            prompts=PromptsCapability(),
+            resources=ResourcesCapability(),
+            tools=ToolsCapability(),
+        ),
+        serverInfo=Implementation(
+            name="TestServer",
+            version="1.0",
+        ),
+    )
+    mock_session.initialize = AsyncMock(return_value=mock_metadata)
 
     # Mock list responses
     mock_prompts = Mock()
-    mock_prompts.prompts = ["prompt1", "prompt2"]
+    mock_prompts.prompts = [
+        Prompt(name="prompt1"),
+        Prompt(name="prompt"),
+    ]
     mock_session.list_prompts = AsyncMock(return_value=mock_prompts)
 
     mock_resources = Mock()
-    mock_resources.resources = ["resource1"]
+    mock_resources.resources = [Resource(name="resource1", uri="tel:+1234567890")]
     mock_session.list_resources = AsyncMock(return_value=mock_resources)
 
     mock_tools = Mock()
-    mock_tools.tools = ["tool1", "tool2", "tool3"]
+    mock_tools.tools = [
+        Tool(name="tool1", inputSchema={}),
+        Tool(name="tool2", inputSchema={}),
+        Tool(name="tool3", inputSchema={}),
+    ]
     mock_session.list_tools = AsyncMock(return_value=mock_tools)
 
     # Set up the mock stdio client to return our mocked read/write pair
@@ -71,12 +93,12 @@ async def test_check_server_mocked(mock_stdio_client):
     # Test function with mocks
     with patch("mcp_scan.mcp_client.ClientSession", MockClientSession):
         server = StdioServer(command="mcp", args=["run", "some_file.py"])
-        prompts, resources, tools = await check_server(server, 2, True)
+        signature = await check_server(server, 2, True)
 
     # Verify the results
-    assert len(prompts) == 2
-    assert len(resources) == 1
-    assert len(tools) == 3
+    assert len(signature.prompts) == 2
+    assert len(signature.resources) == 1
+    assert len(signature.tools) == 3
 
 
 @pytest.mark.anyio
@@ -84,11 +106,11 @@ async def test_math_server():
     path = "tests/mcp_servers/configs_files/math_config.json"
     servers = (await scan_mcp_config_file(path)).get_servers()
     for name, server in servers.items():
-        prompts, resources, tools = await check_server_with_timeout(server, 5, False)
+        signature = await check_server_with_timeout(server, 5, False)
         if name == "Math":
-            assert len(prompts) == 0
-            assert len(resources) == 0
-            assert {t.name for t in tools} == {"add", "subtract", "multiply", "divide"}
+            assert len(signature.prompts) == 0
+            assert len(signature.resources) == 0
+            assert {t.name for t in signature.tools} == {"add", "subtract", "multiply", "divide"}
 
 
 @pytest.mark.anyio
@@ -96,15 +118,15 @@ async def test_all_server():
     path = "tests/mcp_servers/configs_files/all_config.json"
     servers = (await scan_mcp_config_file(path)).get_servers()
     for name, server in servers.items():
-        prompts, resources, tools = await check_server_with_timeout(server, 5, False)
+        signature = await check_server_with_timeout(server, 5, False)
         if name == "Math":
-            assert len(prompts) == 0
-            assert len(resources) == 0
-            assert {t.name for t in tools} == {"add", "subtract", "multiply", "divide"}
+            assert len(signature.prompts) == 0
+            assert len(signature.resources) == 0
+            assert {t.name for t in signature.tools} == {"add", "subtract", "multiply", "divide"}
         if name == "Weather":
-            assert len(prompts) == 0
-            assert len(resources) == 0
-            assert {t.name for t in tools} == {"weather"}
+            assert len(signature.prompts) == 0
+            assert len(signature.resources) == 0
+            assert {t.name for t in signature.tools} == {"weather"}
 
 
 @pytest.mark.anyio
@@ -112,8 +134,8 @@ async def test_weather_server():
     path = "tests/mcp_servers/configs_files/weather_config.json"
     servers = (await scan_mcp_config_file(path)).get_servers()
     for name, server in servers.items():
-        prompts, resources, tools = await check_server_with_timeout(server, 5, False)
+        signature = await check_server_with_timeout(server, 5, False)
         if name == "Weather":
-            assert len(prompts) == 0
-            assert len(resources) == 0
-            assert {t.name for t in tools} == {"weather"}
+            assert len(signature.prompts) == 0
+            assert len(signature.resources) == 0
+            assert {t.name for t in signature.tools} == {"weather"}

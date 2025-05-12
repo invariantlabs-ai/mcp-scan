@@ -159,19 +159,18 @@ class MCPScanner:
         logger.info("Scanning server: %s, inspect_only: %s", server.name, inspect_only)
         result = server.model_copy(deep=True)
         try:
-            entities = await check_server_with_timeout(server.server, self.server_timeout, self.suppress_mcpserver_io)
-            result.prompts, result.resources, result.tools = entities
+            result.signature = await check_server_with_timeout(
+                server.server, self.server_timeout, self.suppress_mcpserver_io
+            )
             logger.debug(
                 "Server %s has %d prompts, %d resources, %d tools",
                 server.name,
-                len(result.prompts),
-                len(result.resources),
-                len(result.tools),
+                len(result.signature.prompts),
+                len(result.signature.resources),
+                len(result.signature.tools),
             )
 
             if not inspect_only:
-                logger.debug("Verifying server: %s", server.name)
-                result = await verify_server(result, base_url=self.base_url)
                 logger.debug("Checking if server has changed: %s", server.name)
                 result = await self.check_server_changed(result)
                 logger.debug("Checking whitelist for server: %s", server.name)
@@ -189,6 +188,8 @@ class MCPScanner:
         for i, server in enumerate(path_result.servers):
             logger.debug("Scanning server %d/%d: %s", i + 1, len(path_result.servers), server.name)
             path_result.servers[i] = await self.scan_server(server, inspect_only)
+        logger.debug("Verifying server path: %s", path)
+        path_result = await verify_server(path_result, base_url=self.base_url)
         path_result.cross_ref_result = await self.check_cross_references(path_result)
         await self.emit("path_scanned", path_result)
         return path_result
@@ -205,7 +206,6 @@ class MCPScanner:
             other_entity_names = [e.name for s in other_servers for e in s.entities]
             flagged_names = set(map(str.lower, other_server_names + other_entity_names))
             logger.debug("Found %d potential cross-reference names", len(flagged_names))
-
             for entity in server.entities:
                 tokens = (entity.description or "").lower().split()
                 for token in tokens:
