@@ -19,7 +19,7 @@ class TestFullScanFlow:
             temp_file.write(sample_configs[0])  # Use the first config from the fixture
             temp_file.flush()
             result = subprocess.run(
-                ["uv", "run", "-m", "src.mcp_scan.run", "scan", "--json", fn, "--base-url", "http://0.0.0.0:9099"],
+                ["uv", "run", "-m", "src.mcp_scan.run", "scan", "--json", fn],
                 capture_output=True,
                 text=True,
             )
