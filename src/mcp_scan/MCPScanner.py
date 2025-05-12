@@ -10,7 +10,7 @@ from mcp_scan.models import CrossRefResult, ScanError, ScanPathResult, ServerSca
 from .mcp_client import check_server_with_timeout, scan_mcp_config_file
 from .StorageFile import StorageFile
 from .utils import calculate_distance
-from .verify_api import verify_server
+from .verify_api import verify_scan_path
 
 # Set up logger for this module
 logger = logging.getLogger(__name__)
@@ -57,6 +57,7 @@ class MCPScanner:
         storage_file: str = "~/.mcp-scan",
         server_timeout: int = 10,
         suppress_mcpserver_io: bool = True,
+        use_guardrails: bool = False,
         **kwargs: Any,
     ):
         logger.info("Initializing MCPScanner")
@@ -69,6 +70,7 @@ class MCPScanner:
         self.storage_file = StorageFile(self.storage_file_path)
         self.server_timeout = server_timeout
         self.suppress_mcpserver_io = suppress_mcpserver_io
+        self.use_guardrails = use_guardrails
         self.context_manager = None
         logger.debug(
             "MCPScanner initialized with timeout: %d, checks_per_server: %d", server_timeout, checks_per_server
@@ -189,7 +191,7 @@ class MCPScanner:
             logger.debug("Scanning server %d/%d: %s", i + 1, len(path_result.servers), server.name)
             path_result.servers[i] = await self.scan_server(server, inspect_only)
         logger.debug("Verifying server path: %s", path)
-        path_result = await verify_server(path_result, base_url=self.base_url)
+        path_result = await verify_scan_path(path_result, base_url=self.base_url, use_guardrails=self.use_guardrails)
         path_result.cross_ref_result = await self.check_cross_references(path_result)
         await self.emit("path_scanned", path_result)
         return path_result

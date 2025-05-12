@@ -195,6 +195,12 @@ async def main():
         help="Number of times to check each server (default: 1)",
         metavar="NUM",
     )
+    scan_parser.add_argument(
+        "--use-guardrails",
+        default=False,
+        action="store_true",
+        help="If true, uses guardrails to verify the scan results. A --base-url must be provided, and it must be a local guardrail service, not a public api.",
+    )
 
     # INSPECT command
     inspect_parser = subparsers.add_parser(

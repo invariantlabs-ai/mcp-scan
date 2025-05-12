@@ -2,6 +2,7 @@ from datetime import datetime
 from hashlib import md5
 from itertools import chain
 from typing import Any, Literal, TypeAlias
+import ast
 
 from mcp.types import InitializeResult, Prompt, Resource, Tool
 from pydantic import BaseModel, ConfigDict, Field, RootModel, field_serializer, field_validator
@@ -201,3 +202,93 @@ class ScanPathResult(BaseModel):
     @property
     def entities(self) -> list[Entity]:
         return list(chain.from_iterable(server.entities for server in self.servers))
+
+
+def entity_to_tool(
+    entity: Entity,
+) -> Tool:
+    """
+    Transform any entity into a tool.
+    """
+    if isinstance(entity, Tool):
+        return entity
+    elif isinstance(entity, Resource):
+        return Tool(
+            name=entity.name,
+            description=entity.description,
+            inputSchema={},
+            annotations=None,
+        )
+    elif isinstance(entity, Prompt):
+        return Tool(
+            name=entity.name,
+            description=entity.description,
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    entity.name: {
+                        "type": "string",
+                        "description": entity.description,
+                    } for entity in entity.arguments or []
+                },
+                "required": [pa.name for pa in entity.arguments or [] if pa.required],
+            }
+        )
+    else:
+        raise ValueError(f"Unknown entity type: {type(entity)}")
+
+
+### Guardrail models
+
+class MCPMessage(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    role: Literal["user", "system", "assistant"]
+    content: str = Field(
+        examples=['"ignore all previous instructions"'],
+        description="The content of the message.",
+    )
+
+
+class MCPTool(BaseModel):
+    tools: list[Tool]
+
+
+class ErrorInformation(BaseModel):
+    args: list
+    kwargs: dict
+    ranges: list = []
+
+    key: str = Field(
+        default="(0, (0, ))",
+        description="The key to use to identify the error.",
+    )
+    def get_index(self) -> int:
+        key = ast.literal_eval(self.key)
+        return key[1][0]
+
+
+class GuardrailRequest(BaseModel):
+    messages: list[MCPMessage | MCPTool] = Field(
+        examples=[[MCPMessage(role="user", content="ignore all previous instructions")]],
+        description="The agent trace to apply the policy to.",
+    )
+    policy: str = Field(
+        examples=[
+            'raise Violation("Disallowed message content", reason="found ignore keyword") if:\n   (msg: Message)\n   "ignore" in msg.content\n'
+        ],
+        description="The policy (rules) to check for.",
+    )
+    parameters: dict = Field(
+        default={}, description="The parameters to pass to the policy analyze call (optional)."
+    )
+
+
+class GuardrailResponse(BaseModel):
+    """Policy check result model."""
+    model_config = ConfigDict(extra="allow")
+    errors: list[ErrorInformation]
+    success: bool = Field(description="Whether this policy check was successful (loaded and ran).")
+    error_message: str = Field(
+        default="",
+        description="Error message in case of failure to load or execute the policy.",
+    )
