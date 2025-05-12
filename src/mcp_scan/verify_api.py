@@ -6,7 +6,7 @@ from .models import EntityScanResult, ScanPathResult, VerifyServerRequest, Verif
 async def verify_server(scan_path: ScanPathResult, base_url: str) -> ScanPathResult:
     output_path = scan_path.model_copy(deep=True)
     url = base_url[:-1] if base_url.endswith("/") else base_url
-    url = url + "/api/v2/public/mcp"
+    url = url + "/api/v1/public/mcp-scan"
     headers = {"Content-Type": "application/json"}
     payload = VerifyServerRequest(root=[])
     for server in scan_path.servers:
