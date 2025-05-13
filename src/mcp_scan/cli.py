@@ -6,6 +6,7 @@ import sys
 
 import psutil
 import rich
+from invariant.__main__ import add_extra
 from rich.logging import RichHandler
 
 from mcp_scan.gateway import MCPGatewayConfig, MCPGatewayInstaller
@@ -124,6 +125,13 @@ def add_server_arguments(parser):
         choices=["oneline", "compact", "full"],
         help="Pretty print the output (default: compact)",
     )
+    server_group.add_argument(
+        "--install-extras",
+        type=list[str],
+        default=None,
+        help="Install extras for the Invariant Gateway - use 'all' or a space-separated list of extras",
+        metavar="EXTRA",
+    )
 
 
 def add_install_arguments(parser):
@@ -194,6 +202,11 @@ def check_install_args(args):
         args.api_key = input("API key (or just press enter to install with --local-only): ")
         if not args.api_key:
             args.local_only = True
+
+
+def install_extras(args):
+    if hasattr(args, "install_extras") and args.install_extras:
+        add_extra(args.install_extras, "-y")
 
 
 def main():
@@ -341,6 +354,7 @@ def main():
         metavar="PORT",
     )
     add_common_arguments(server_parser)
+    add_server_arguments(server_parser)
 
     # PROXY command
     proxy_parser = subparsers.add_parser("proxy", help="Installs and proxies MCP requests, uninstalls on exit")
@@ -455,10 +469,12 @@ def main():
         asyncio.run(run_scan_inspect(args=args))
         sys.exit(0)
     elif args.command == "server":
+        install_extras(args)
         server()
         sys.exit(0)
     elif args.command == "proxy":
         args.local_only = True
+        install_extras(args)
         asyncio.run(install())
         print("[Proxy installed, you may need to restart/reload your MCP clients to use it]")
         server(on_exit=uninstall)

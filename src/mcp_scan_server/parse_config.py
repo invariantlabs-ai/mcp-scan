@@ -1,8 +1,14 @@
+import os
 from functools import lru_cache
 from pathlib import Path
 
+import rich
+from invariant.__main__ import shortname
+from invariant.analyzer.extras import extras_available
+
 from mcp_scan_server.format_guardrail import (
     blacklist_tool_from_guardrail,
+    extract_requires,
     whitelist_tool_from_guardrail,
 )
 from mcp_scan_server.models import (
@@ -18,7 +24,6 @@ from mcp_scan_server.models import (
 # - tool shorthands are guardrails that are defined in the server config for a tool such as pii: "block"
 # - server shorthands are guardrails that are defined in the server config for a server such as pii: "block"
 # - shorthands are thus always of the form <guardrail>:<action> and refer to both tools and servers
-
 
 # Constants
 DEFAULT_GUARDRAIL_DIR = Path(__file__).with_suffix("").parents[1] / "mcp_scan_server" / "guardrail_templates"
@@ -44,6 +49,22 @@ def load_template(name: str, directory: Path = DEFAULT_GUARDRAIL_DIR) -> str:
     return path.read_text(encoding="utf-8")
 
 
+def _print_missing_openai_key_message(template: str) -> None:
+    rich.print(
+        f"[yellow]Missing OPENAI_API_KEY for default guardrail [cyan bold]{template}[/cyan bold][/yellow]\n"
+        f"[green]Hint: Please set the [bold white]OPENAI_API_KEY[/bold white] environment variable and try again.[/green]\n"
+    )
+
+
+def _print_missing_dependencies_message(template: str, missing_extras: list) -> None:
+    short_extras = [shortname(extra.name) for extra in missing_extras]
+    rich.print(
+        f"[yellow]Missing dependencies for default guardrail [cyan bold]{template}[/cyan bold][/yellow]\n"
+        f"[green]Hint: Install them with [bold white]--install-extras {' '.join(short_extras)} or [bold white]all[/bold white][/green]\n"
+    )
+
+
+@lru_cache
 def get_available_templates(directory: Path = DEFAULT_GUARDRAIL_DIR) -> tuple[str, ...]:
     """Get all guardrail templates in directory.
 
@@ -53,7 +74,24 @@ def get_available_templates(directory: Path = DEFAULT_GUARDRAIL_DIR) -> tuple[st
     Returns:
         A tuple of guardrail template names.
     """
-    return tuple(p.stem for p in directory.glob("*.gr"))
+    all_templates = {p.stem for p in directory.glob("*.gr")}
+    available_templates = set(all_templates)  # Create a copy to modify
+
+    for template in all_templates:
+        extras_required = extract_requires(load_template(template))
+
+        # Check for OpenAI API key requirement
+        if any(extra.name == "OpenAI" for extra in extras_required) and not os.getenv("OPENAI_API_KEY"):
+            _print_missing_openai_key_message(template)
+            available_templates = available_templates - {template}
+
+        # Check for missing dependencies
+        missing_extras = [extra for extra in extras_required if not extras_available(extra)]
+        if missing_extras:
+            _print_missing_dependencies_message(template, missing_extras)
+            available_templates = available_templates - {template}
+
+    return tuple(available_templates)
 
 
 def generate_policy(

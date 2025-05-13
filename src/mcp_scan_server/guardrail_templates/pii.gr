@@ -1,3 +1,5 @@
+# {{ REQUIRES: [transformers_extra, presidio_extra]}}
+
 from invariant.detectors import pii
 
 raise PolicyViolation("Found PII in tool output.") if:

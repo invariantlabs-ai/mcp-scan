@@ -1,3 +1,5 @@
+# {{ REQUIRES: []}}
+
 raise PolicyViolation("Detected link in tool output.") if:
     (tooloutput: ToolOutput)
     {{ BLACKLIST_WHITELIST }}

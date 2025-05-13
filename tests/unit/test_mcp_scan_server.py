@@ -9,7 +9,11 @@ from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
-from mcp_scan_server.format_guardrail import blacklist_tool_from_guardrail, whitelist_tool_from_guardrail
+from mcp_scan_server.format_guardrail import (
+    REQUIRES_PATTERN,
+    blacklist_tool_from_guardrail,
+    whitelist_tool_from_guardrail,
+)
 from mcp_scan_server.models import (
     DatasetPolicy,
     GuardrailConfig,
@@ -58,12 +62,13 @@ def extract_tool_names(code: str) -> list[str]:
     return tool_names
 
 
-def get_number_of_guardrail_templates(path: Path | None = None) -> int:
+@patch("mcp_scan_server.parse_config.get_available_templates", return_value=("pii", "moderated", "links", "secrets"))
+def get_number_of_guardrail_templates(mock_get_templates, path: Path | None = None) -> int:
     """Get the number of guardrail templates in the default_guardrails directory."""
     if path is None:
         path = BASE_TEMPLATE_PATH
     # Count the number of files in the directory that end with .gr
-    return len([f for f in os.listdir(path) if f.endswith(".gr")])
+    return len(mock_get_templates(path))
 
 
 def get_template_names(path: Path | None = None) -> list[str]:
@@ -138,12 +143,10 @@ cursor:
 async def test_get_all_policies_valid_config(valid_guardrail_config_file):
     """Test that the get_all_policies function returns the correct policies for a valid config file."""
     policies = await get_all_policies(valid_guardrail_config_file, "cursor", "server1")
-    print(policies)
     assert len(policies) == 5
     assert all(isinstance(policy, DatasetPolicy) for policy in policies)
 
     policies = await get_all_policies(valid_guardrail_config_file, "cursor", "server2")
-    print(policies)
     assert len(policies) == 4
     assert all(isinstance(policy, DatasetPolicy) for policy in policies)
 
@@ -319,6 +322,14 @@ def test_all_default_guardrails_have_blacklist_whitelist_statement(default_guard
             It must include exactly '{{ BLACKLIST_WHITELIST }}'."""
 
 
+def test_all_default_guardrails_have_requires_statement(default_guardrails):
+    """Test that all default guardrails have a requires statement."""
+    for guardrail_name, guardrail_content in default_guardrails.items():
+        match = re.search(REQUIRES_PATTERN, guardrail_content)
+        assert match is not None, f"""Default guardrail '{guardrail_name}' does not have a requires statement.
+            It must include exactly '{{ REQUIRES: [...]}}'."""
+
+
 @pytest.mark.parametrize(
     "tool_names",
     [
@@ -429,10 +440,12 @@ async def test_parse_default_guardrails():
     }
 
 
+# use mock of get_available_templates
 @pytest.mark.parametrize("client", ["cursor", "browsermcp"])
 @pytest.mark.parametrize("server", ["server1", "server2"])
 @pytest.mark.anyio
-async def test_empty_config_generates_default_guardrails(client, server):
+@patch("mcp_scan_server.parse_config.get_available_templates", return_value=("pii", "moderated", "links", "secrets"))
+async def test_empty_config_generates_default_guardrails(mock_get_templates, client, server):
     """Test that the parse_config function generates the correct policies."""
     config = GuardrailConfigFile()
     policies = await parse_config(config, client, server)
@@ -446,7 +459,8 @@ async def test_empty_config_generates_default_guardrails(client, server):
 
 
 @pytest.mark.anyio
-async def test_empty_string_config_generates_default_guardrails():
+@patch("mcp_scan_server.parse_config.get_available_templates", return_value=("pii", "moderated", "links", "secrets"))
+async def test_empty_string_config_generates_default_guardrails(mock_get_templates):
     """Test that the parse_config function generates the correct policies."""
     config_str = """
     """
@@ -489,7 +503,8 @@ async def test_server_shorthands_override_default_guardrails():
 
 
 @pytest.mark.anyio
-async def test_tools_partially_override_default_guardrails():
+@patch("mcp_scan_server.parse_config.get_available_templates", return_value=("pii", "moderated", "links", "secrets"))
+async def test_tools_partially_override_default_guardrails(mock_get_templates):
     """Test that tools partially override default guardrails."""
     config = GuardrailConfigFile(
         {
@@ -527,7 +542,6 @@ async def test_tools_partially_override_default_guardrails():
 
             # extract blacklist from content
             blacklist = extract_tool_names(policy.content)
-            print(blacklist)
             assert blacklist == ["tool_name"]
 
 
