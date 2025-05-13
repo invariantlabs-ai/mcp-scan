@@ -1,6 +1,9 @@
+import ast
+from typing import TYPE_CHECKING
+
 import aiohttp
 from invariant.analyzer.policy import LocalPolicy
-import ast
+
 from .models import (
     EntityScanResult,
     ScanPathResult,
@@ -8,7 +11,9 @@ from .models import (
     VerifyServerResponse,
     entity_to_tool,
 )
-from mcp.types import Tool
+
+if TYPE_CHECKING:
+    from mcp.types import Tool
 
 POLICY_PATH = "src/mcp_scan/policy.gr"
 
@@ -75,8 +80,9 @@ async def verify_scan_path_locally(scan_path: ScanPathResult) -> ScanPathResult:
         idx: int = ast.literal_eval(error.key)[1][0]
         if results[idx].verified:
             results[idx].verified = False
-            results[idx].status = "failed"
-        results[idx].status += " - " + " ".join(error.args)
+        if results[idx].status is None:
+            results[idx].status = "failed - "
+        results[idx].status += " ".join(error.args or [])  # type: ignore
 
     for server in output_path.servers:
         if server.signature is None:

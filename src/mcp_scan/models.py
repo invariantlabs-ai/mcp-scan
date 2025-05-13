@@ -1,4 +1,3 @@
-import ast
 from datetime import datetime
 from hashlib import md5
 from itertools import chain
