@@ -14,3 +14,4 @@
 - `0.1.10-12` automatic releases, updated to newer mcp client
 - `0.1.13-14` Bug fix for printing. Now consider full signature when analyzing a tool.
 - `0.1.15` Added local-only mode for scanning.
+- `0.1.16` Fix when handling tools or args that contain dots.
