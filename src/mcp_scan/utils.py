@@ -26,7 +26,7 @@ def rebalance_command_args(command, args):
             r"""
             command: WORD+
             WORD: (PART|SQUOTEDPART|DQUOTEDPART)
-            PART: /[^\s'".]+/
+            PART: /[^\s'"]+/
             SQUOTEDPART: /'[^']'/
             DQUOTEDPART: /"[^"]"/
             %import common.WS
