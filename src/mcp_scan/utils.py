@@ -27,15 +27,15 @@ def rebalance_command_args(command, args):
     global _command_parser
     if _command_parser is None:
         _command_parser = Lark(
-r"""
-command: WORD+
-WORD: (PART|SQUOTEDPART|DQUOTEDPART)
-PART: /[^\s'"]+/
-SQUOTEDPART: /'[^']*'/
-DQUOTEDPART: /"[^"]*"/
-%import common.WS
-%ignore WS
-""",
+            r"""
+            command: WORD+
+            WORD: (PART|SQUOTEDPART|DQUOTEDPART)
+            PART: /[^\s'"]+/
+            SQUOTEDPART: /'[^']*'/
+            DQUOTEDPART: /"[^"]*"/
+            %import common.WS
+            %ignore WS
+            """,
             parser="lalr",
             start="command",
             regex=True,
@@ -46,7 +46,7 @@ DQUOTEDPART: /"[^"]*"/
         args = command_parts[1:] + (args or [])
         command = command_parts[0]
     except Exception as e:
-        raise CommandParsingError()
+        raise CommandParsingError(f"Failed to parse command: {e}") from e
     return command, args
 
 
