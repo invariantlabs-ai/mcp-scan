@@ -20,7 +20,7 @@ dependencies = [
     "regex>=2024.11.6",
     "aiohttp>=3.11.16",
     "rapidfuzz>=3.13.0",
-    "invariant-ai>=0.3.2"
+    "invariant-ai>=0.3.3"
 ]
 
 [project.scripts]

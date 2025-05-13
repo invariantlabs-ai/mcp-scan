@@ -1,16 +1,14 @@
 import aiohttp
 from invariant.analyzer.policy import LocalPolicy
-
+import ast
 from .models import (
     EntityScanResult,
-    GuardrailRequest,
-    GuardrailResponse,
-    MCPTool,
     ScanPathResult,
     VerifyServerRequest,
     VerifyServerResponse,
     entity_to_tool,
 )
+from mcp.types import Tool
 
 POLICY_PATH = "src/mcp_scan/policy.gr"
 
@@ -62,20 +60,19 @@ def get_policy() -> str:
 
 async def verify_scan_path_locally(scan_path: ScanPathResult) -> ScanPathResult:
     output_path = scan_path.model_copy(deep=True)
-    tools_to_scan: list = []
+    tools_to_scan: list[Tool] = []
     for server in scan_path.servers:
         # None server signature are servers which are not reachable.
         if server.signature is not None:
             for entity in server.entities:
                 tools_to_scan.append(entity_to_tool(entity))
-    messages = [MCPTool(tools=tools_to_scan).model_dump()]
-    print(messages)
+    messages = [{"tools": [tool.model_dump() for tool in tools_to_scan]}]
 
     policy = LocalPolicy.from_string(get_policy())
     check_result = await policy.a_analyze(messages)
     results = [EntityScanResult(verified=True) for _ in tools_to_scan]
     for error in check_result.errors:
-        idx = error.get_index()
+        idx: int = ast.literal_eval(error.key)[1][0]
         if results[idx].verified:
             results[idx].verified = False
             results[idx].status = "failed"
@@ -89,64 +86,6 @@ async def verify_scan_path_locally(scan_path: ScanPathResult) -> ScanPathResult:
     if results:
         raise Exception("Not all results were consumed. This should not happen.")
     return output_path
-
-
-async def verify_scan_path_guardrails(scan_path: ScanPathResult, base_url: str) -> ScanPathResult:
-    output_path = scan_path.model_copy(deep=True)
-    tools_to_scan: list = []
-    for server in scan_path.servers:
-        # None server signature are servers which are not reachable.
-        if server.signature is not None:
-            for entity in server.entities:
-                tools_to_scan.append(entity_to_tool(entity))
-
-    payload = GuardrailRequest(
-        policy=get_policy(),
-        messages=[MCPTool(tools=tools_to_scan)],
-    )
-    headers = {
-        "Content-Type": "application/json",
-    }
-
-    url = base_url[:-1] if base_url.endswith("/") else base_url
-    url = url + "/api/v1/policy/check"
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.post(url, headers=headers, data=payload.model_dump_json()) as response:
-                if response.status != 200:
-                    raise Exception(f"Error from Guardrail: {response.status} - {await response.text()}")
-                else:
-                    result_bytes: bytes = await response.read()
-                    check_result = GuardrailResponse.model_validate_json(result_bytes)
-        results = [EntityScanResult(verified=True) for _ in tools_to_scan]
-        for error in check_result.errors:
-            idx = error.get_index()
-            if results[idx].verified:
-                results[idx].verified = False
-                results[idx].status = "failed"
-            results[idx].status += " - " + " ".join(error.args)
-
-        for server in output_path.servers:
-            if server.signature is None:
-                continue
-            server.result = results[: len(server.entities)]
-            results = results[len(server.entities) :]
-        if results:
-            raise Exception("Not all results were consumed. This should not happen.")
-        return output_path
-    except Exception as e:
-        try:
-            errstr = str(e.args[0])
-            errstr = errstr.splitlines()[0]
-        except Exception:
-            errstr = ""
-        for server in scan_path.servers:
-            if server.signature is not None:
-                server.result = [
-                    EntityScanResult(status="could not reach verification guardrail server " + errstr)
-                    for _ in server.entities
-                ]
-        return scan_path
 
 
 async def verify_scan_path(scan_path: ScanPathResult, base_url: str, run_locally: bool) -> ScanPathResult:
