@@ -1,21 +1,28 @@
-from mcp_scan.utils import calculate_distance, rebalance_command_args
+from mcp_scan.utils import calculate_distance, rebalance_command_args, CommandParsingError
 import pytest
 
 
 @pytest.mark.parametrize(
-    "input_command, input_args, expected_command, expected_args",
+    "input_command, input_args, expected_command, expected_args, raises_error",
     [
-        ("ls -l", ["-a"], "ls", ["-l", "-a"]),
-        ("ls -l", [], "ls", ["-l"]),
-        ("ls   -l    ", [], "ls", ["-l"]),
-        ("ls   -l    .local", [], "ls", ["-l", ".local"]),
-        ("ls   -l    example.local", [], "ls", ["-l", "example.local"]),
+        ("ls -l", ["-a"], "ls", ["-l", "-a"], False),
+        ("ls -l", [], "ls", ["-l"], False),
+        ("ls   -l    ", [], "ls", ["-l"], False),
+        ("ls   -l    .local", [], "ls", ["-l", ".local"], False),
+        ("ls   -l    example.local", [], "ls", ["-l", "example.local"], False),
+        ("ls \"hello\"", [], "ls", ["\"hello\""], False),
+        ("ls -l \"my file.txt\" 'data.csv'", [], "ls", ["-l", "\"my file.txt\"", "'data.csv'"], False),
+        ("ls \"unterminated", [], "", [], True)
     ]
 )
-def test_rebalance_command_args(input_command, input_args, expected_command, expected_args):
-    command, args = rebalance_command_args(input_command, input_args)
-    assert command == expected_command
-    assert args == expected_args
+def test_rebalance_command_args(input_command: str, input_args: list[str], expected_command: str, expected_args: list[str], raises_error: bool):
+    try:
+        command, args = rebalance_command_args(input_command, input_args)
+        assert command == expected_command
+        assert args == expected_args
+        assert not raises_error
+    except CommandParsingError:
+        assert raises_error
 
 
 def test_calculate_distance():
