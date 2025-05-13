@@ -195,6 +195,12 @@ async def main():
         help="Number of times to check each server (default: 1)",
         metavar="NUM",
     )
+    scan_parser.add_argument(
+        "--local-only",
+        default=False,
+        action="store_true",
+        help="Only run verification locally. Does not run all checks, results will be less accurate.",
+    )
 
     # INSPECT command
     inspect_parser = subparsers.add_parser(

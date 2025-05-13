@@ -1,6 +1,6 @@
 [project]
 name = "mcp-scan"
-version = "0.1.14"
+version = "0.1.15"
 description = "MCP Scan tool"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -20,6 +20,7 @@ dependencies = [
     "regex>=2024.11.6",
     "aiohttp>=3.11.16",
     "rapidfuzz>=3.13.0",
+    "invariant-ai>=0.3.3"
 ]
 
 [project.scripts]

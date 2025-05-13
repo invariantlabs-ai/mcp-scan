@@ -201,3 +201,38 @@ class ScanPathResult(BaseModel):
     @property
     def entities(self) -> list[Entity]:
         return list(chain.from_iterable(server.entities for server in self.servers))
+
+
+def entity_to_tool(
+    entity: Entity,
+) -> Tool:
+    """
+    Transform any entity into a tool.
+    """
+    if isinstance(entity, Tool):
+        return entity
+    elif isinstance(entity, Resource):
+        return Tool(
+            name=entity.name,
+            description=entity.description,
+            inputSchema={},
+            annotations=None,
+        )
+    elif isinstance(entity, Prompt):
+        return Tool(
+            name=entity.name,
+            description=entity.description,
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    entity.name: {
+                        "type": "string",
+                        "description": entity.description,
+                    }
+                    for entity in entity.arguments or []
+                },
+                "required": [pa.name for pa in entity.arguments or [] if pa.required],
+            },
+        )
+    else:
+        raise ValueError(f"Unknown entity type: {type(entity)}")
