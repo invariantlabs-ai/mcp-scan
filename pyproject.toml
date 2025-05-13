@@ -9,7 +9,7 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "mcp[cli]>=1.7.1",
+    "mcp[cli]==1.7.1",
     "rich>=14.0.0",
     "aiofiles>=23.1.0",
     "types-aiofiles",
@@ -20,6 +20,7 @@ dependencies = [
     "regex>=2024.11.6",
     "aiohttp>=3.11.16",
     "rapidfuzz>=3.13.0",
+    "invariant-ai>=0.3.2"
 ]
 
 [project.scripts]

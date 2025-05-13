@@ -196,13 +196,10 @@ async def main():
         metavar="NUM",
     )
     scan_parser.add_argument(
-        "--use-guardrails",
+        "--local-only",
         default=False,
         action="store_true",
-        help=(
-            "If true, uses guardrails to verify the scan results. "
-            "A --base-url must be provided, and it must be a local guardrail service, not a public api."
-        ),
+        help="Only run verification locally. Does not run all checks, results will be less accurate.",
     )
 
     # INSPECT command
