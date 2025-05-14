@@ -9,7 +9,7 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "mcp[cli]>=1.7.1",
+    "mcp[cli]==1.7.1",
     "rich>=14.0.0",
     "aiofiles>=23.1.0",
     "types-aiofiles",
