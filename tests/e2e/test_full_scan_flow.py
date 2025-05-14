@@ -45,13 +45,13 @@ class TestFullScanFlow:
         )
         assert result.returncode == 0, f"Command failed with error: {result.stderr}"
         output = json.loads(result.stdout)
-        signatures: dict[str, dict] = {}
         results: dict[str, dict] = {}
         for server in output[path]["servers"]:
-            signatures[server["name"]] = server["signature"]
             results[server["name"]] = server["result"]
-        for name in signatures:
-            assert signatures[name] == json.load(open(f"tests/mcp_servers/signatures/{name.lower()}_server_signature.json")), f"Signature mismatch for {name} server"
+            server["signature"]["metadata"]["serverInfo"]["version"] = "mcp_version" # swap actual version with placeholder
+
+            with open(f"tests/mcp_servers/signatures/{server['name'].lower()}_server_signature.json") as f:
+                assert server["signature"] == json.load(f), f"Signature mismatch for {server['name']} server"
         
         assert results["Weather"] == [{
             'changed': None,
@@ -66,25 +66,7 @@ class TestFullScanFlow:
             'status': None,
             'verified': True,
             'whitelisted': None,
-        }, {
-            'changed': None,
-            'messages': [],
-            'status': None,
-            'verified': True,
-            'whitelisted': None,
-        }, {
-            'changed': None,
-            'messages': [],
-            'status': None,
-            'verified': True,
-            'whitelisted': None,
-        }, {
-            'changed': None,
-            'messages': [],
-            'status': None,
-            'verified': True,
-            'whitelisted': None,
-        }]
+        }] * 4
 
     def test_inspect(self):
         path = "tests/mcp_servers/configs_files/all_config.json"
@@ -98,11 +80,10 @@ class TestFullScanFlow:
         print(output)
         assert path in output
         for server in output[path]["servers"]:
-            if server["name"] == "Weather":
-                assert server["signature"] == json.load(open("tests/mcp_servers/signatures/weather_server_signature.json")), "Signature mismatch for Weather server"
-            if server["name"] == "Math":
-                assert server["signature"] == json.load(open("tests/mcp_servers/signatures/math_server_signature.json")), "Signature mismatch for Math server"
+            server["signature"]["metadata"]["serverInfo"]["version"] = "mcp_version" # swap actual version with placeholder
 
+            with open(f"tests/mcp_servers/signatures/{server['name'].lower()}_server_signature.json") as f:
+                assert server["signature"] == json.load(f), f"Signature mismatch for {server['name']} server"
 
     def vscode_settings_no_mcp(self):
         settings = {
