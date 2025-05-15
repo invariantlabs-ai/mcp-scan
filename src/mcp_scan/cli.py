@@ -127,7 +127,7 @@ def add_server_arguments(parser):
     )
     server_group.add_argument(
         "--install-extras",
-        type=list[str],
+        nargs="+",
         default=None,
         help="Install extras for the Invariant Gateway - use 'all' or a space-separated list of extras",
         metavar="EXTRA",
@@ -206,7 +206,7 @@ def check_install_args(args):
 
 def install_extras(args):
     if hasattr(args, "install_extras") and args.install_extras:
-        add_extra(args.install_extras, "-y")
+        add_extra(*args.install_extras, "-y")
 
 
 def main():

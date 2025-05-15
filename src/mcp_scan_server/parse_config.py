@@ -94,6 +94,34 @@ def get_available_templates(directory: Path = DEFAULT_GUARDRAIL_DIR) -> tuple[st
     return tuple(available_templates)
 
 
+def generate_disable_tool_policy(
+    tool_name: str,
+    client_name: str,
+    server_name: str,
+) -> DatasetPolicy:
+    """Generate a guardrail policy to disable a tool.
+
+    Args:
+        tool_name: The name of the tool to disable.
+        client_name: The name of the client.
+        server_name: The name of the server.
+
+    Returns:
+        A DatasetPolicy object configured to disable the tool.
+    """
+    template = load_template("disable_tool", directory=DEFAULT_GUARDRAIL_DIR / "tool_templates")
+    content = template.replace("{{ tool_name }}", tool_name)
+    rule_id = f"{client_name}-{server_name}-{tool_name}-disabled"
+
+    return DatasetPolicy(
+        id=rule_id,
+        name=rule_id,
+        content=content,
+        enabled=True,
+        action=GuardrailMode.block,
+    )
+
+
 def generate_policy(
     name: str,
     mode: GuardrailMode,
@@ -142,6 +170,7 @@ def generate_policy(
 def collect_guardrails(
     server_shorthand_guardrails: dict[str, GuardrailMode],
     tool_shorthand_guardrails: dict[str, dict[str, GuardrailMode]],
+    disabled_tools: list[str],
     client: str,
     server: str,
 ) -> list[DatasetPolicy]:
@@ -155,6 +184,7 @@ def collect_guardrails(
     Args:
         server_shorthand_guardrails: Server-specific shorthand guardrails.
         tool_shorthand_guardrails: Tool-specific shorthand guardrails.
+        disabled_tools: List of tools that are disabled.
         client: The client name.
         server: The server name.
 
@@ -206,10 +236,13 @@ def collect_guardrails(
     for name in remaining_templates:
         policies.append(generate_policy(name, GuardrailMode.log, client, server))
 
+    # Emit rules to disable disabled tools
+    for tool_name in disabled_tools:
+        policies.append(generate_disable_tool_policy(tool_name, client, server))
+
     return policies
 
 
-# Parsing functions
 def parse_custom_guardrails(config: ServerGuardrailConfig, client: str, server: str) -> list[DatasetPolicy]:
     """Parse custom guardrails from the server config.
 
@@ -251,25 +284,32 @@ def parse_server_shorthand_guardrails(
 
 def parse_tool_shorthand_guardrails(
     config: ServerGuardrailConfig,
-) -> dict[str, dict[str, GuardrailMode]]:
+) -> tuple[dict[str, dict[str, GuardrailMode]], list[str]]:
     """Parse tool-specific shorthand guardrails from the server config.
 
     Args:
         config: The server guardrail config.
 
     Returns:
-        A dictionary mapping guardrail names to tool names to modes.
+        Tuple of:
+        - A dictionary mapping guardrail names to tool names to modes.
+        - A list of tool names that are disabled.
     """
     result: dict[str, dict[str, GuardrailMode]] = {}
+    disabled_tools: list[str] = []
 
     for tool_name, tool_cfg in (config.tools or {}).items():
         for field, value in tool_cfg:
             if field not in {"custom_guardrails", "enabled"} and value is not None:
                 result.setdefault(field, {})[tool_name] = value
 
-    return result
+            if field == "enabled" and isinstance(value, bool) and not value:
+                disabled_tools.append(tool_name)
+
+    return result, disabled_tools
 
 
+@lru_cache
 async def parse_config(
     config: GuardrailConfigFile,
     client_name: str | None = None,
@@ -297,11 +337,11 @@ async def parse_config(
 
             # Parse guardrails for this client-server pair
             server_shorthands = parse_server_shorthand_guardrails(server_config)
-            tool_shorthands = parse_tool_shorthand_guardrails(server_config)
+            tool_shorthands, disabled_tools = parse_tool_shorthand_guardrails(server_config)
             custom_guardrails = parse_custom_guardrails(server_config, client, server)
 
             # Collect and resolve guardrails
-            policies.extend(collect_guardrails(server_shorthands, tool_shorthands, client, server))
+            policies.extend(collect_guardrails(server_shorthands, tool_shorthands, disabled_tools, client, server))
             policies.extend(custom_guardrails)
 
     # Create all default guardrails if no guardrails are configured

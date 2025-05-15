@@ -7,6 +7,7 @@ import pytest
 import yaml  # type: ignore
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
+from invariant.analyzer import LocalPolicy
 from pydantic import ValidationError
 
 from mcp_scan_server.format_guardrail import (
@@ -392,7 +393,7 @@ def test_format_guardrail_blacklist_tool(tool_names):
     )
 
 
-@pytest.mark.anyio
+@pytest.mark.asyncio
 async def test_parse_tool_guardrails():
     """Test that the parse_tool_guardrails function parses tool guardrails correctly."""
     server_guardrail_config = ServerGuardrailConfig(
@@ -414,15 +415,17 @@ async def test_parse_tool_guardrails():
         },
     )
 
-    res = parse_tool_shorthand_guardrails(server_guardrail_config)
+    guardrails, disabled_tools = parse_tool_shorthand_guardrails(server_guardrail_config)
 
-    assert res == {
+    assert guardrails == {
         "pii": {"tool_name": GuardrailMode.block, "tool_name2": GuardrailMode.block},
         "moderated": {"tool_name": GuardrailMode.paused, "tool_name2": GuardrailMode.paused},
     }
 
+    assert disabled_tools == []
 
-@pytest.mark.anyio
+
+@pytest.mark.asyncio
 async def test_parse_default_guardrails():
     """Test that the parse_default_guardrails function parses default guardrails correctly."""
     server_guardrail_config = ServerGuardrailConfig(
@@ -443,7 +446,7 @@ async def test_parse_default_guardrails():
 # use mock of get_available_templates
 @pytest.mark.parametrize("client", ["cursor", "browsermcp"])
 @pytest.mark.parametrize("server", ["server1", "server2"])
-@pytest.mark.anyio
+@pytest.mark.asyncio
 @patch("mcp_scan_server.parse_config.get_available_templates", return_value=("pii", "moderated", "links", "secrets"))
 async def test_empty_config_generates_default_guardrails(mock_get_templates, client, server):
     """Test that the parse_config function generates the correct policies."""
@@ -458,7 +461,7 @@ async def test_empty_config_generates_default_guardrails(mock_get_templates, cli
     assert all(policy.action == GuardrailMode.log for policy in policies)
 
 
-@pytest.mark.anyio
+@pytest.mark.asyncio
 @patch("mcp_scan_server.parse_config.get_available_templates", return_value=("pii", "moderated", "links", "secrets"))
 async def test_empty_string_config_generates_default_guardrails(mock_get_templates):
     """Test that the parse_config function generates the correct policies."""
@@ -474,7 +477,7 @@ async def test_empty_string_config_generates_default_guardrails(mock_get_templat
     assert len(policies) == get_number_of_guardrail_templates()
 
 
-@pytest.mark.anyio
+@pytest.mark.asyncio
 async def test_server_shorthands_override_default_guardrails():
     """Test that server shorthands override default guardrails."""
     config = GuardrailConfigFile(
@@ -502,7 +505,7 @@ async def test_server_shorthands_override_default_guardrails():
             assert policy.enabled is True
 
 
-@pytest.mark.anyio
+@pytest.mark.asyncio
 @patch("mcp_scan_server.parse_config.get_available_templates", return_value=("pii", "moderated", "links", "secrets"))
 async def test_tools_partially_override_default_guardrails(mock_get_templates):
     """Test that tools partially override default guardrails."""
@@ -545,7 +548,7 @@ async def test_tools_partially_override_default_guardrails(mock_get_templates):
             assert blacklist == ["tool_name"]
 
 
-@pytest.mark.anyio
+@pytest.mark.asyncio
 async def test_parse_config():
     """Test that the parse_config function parses the config file correctly."""
     config = GuardrailConfigFile(
@@ -582,3 +585,52 @@ async def test_parse_config():
     # secrets creates 1 policy because it is defined as a server shorthand
     # links creates 2 policies -- one for the tool_name shorthand and one default
     assert len(config) == 7
+
+
+@pytest.mark.asyncio
+async def test_disable_tool():
+    """Test that the disable_tool function disables a tool correctly."""
+    config = GuardrailConfigFile(
+        {
+            "cursor": {
+                "server1": ServerGuardrailConfig(
+                    tools={
+                        "tool_name": ToolGuardrailConfig(
+                            enabled=False,
+                        ),
+                    },
+                ),
+            }
+        }
+    )
+    policies = await parse_config(config, "cursor", "server1")
+
+    found_disabled_tool = False
+    disabled_policy_content = ""
+
+    for policy in policies:
+        if policy.id == "cursor-server1-tool_name-disabled":
+            found_disabled_tool = True
+            disabled_policy_content = policy.content
+            break
+
+    # Check that the disabled tool policy is found
+    assert found_disabled_tool, "Disabled tool policy not found"
+
+    policy = LocalPolicy.from_string(disabled_policy_content)
+
+    # Check that no error is raised when the tool is not in the trace
+    result = await policy.a_analyze([{"role": "user", "content": "Hello!"}])
+    assert result.errors == []
+
+    # Check that the tool is blocked
+    result = await policy.a_analyze(
+        [
+            {
+                "role": "assistant",
+                "content": None,
+                "tool_calls": [{"id": "1", "type": "function", "function": {"name": "tool_name", "arguments": {}}}],
+            }
+        ]
+    )
+    assert len(result.errors) == 1, "Tool should be blocked"
