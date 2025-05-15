@@ -70,7 +70,7 @@ class StdioServer(BaseModel):
     command: str
     args: list[str] | None = None
     type: Literal["stdio"] | None = "stdio"
-    env: dict[str, str] = {}
+    env: dict[str, str] | None = None
 
 
 class MCPConfig(BaseModel):

@@ -55,7 +55,7 @@ def install_gateway(
     if is_invariant_installed(server):
         raise MCPServerAlreadyGateway()
 
-    env = server.env | {
+    env = (server.env or {}) | {
         "INVARIANT_API_KEY": config.api_key or "<no-api-key>",
         "INVARIANT_API_URL": invariant_api_url,
         "GUARDRAILS_API_URL": invariant_api_url,
@@ -98,11 +98,14 @@ def uninstall_gateway(
 
     assert isinstance(server.args, list), "args is not a list"
     args, unknown = parser.parse_known_args(server.args[2:])
-    new_env = {
-        k: v
-        for k, v in server.env.items()
-        if k != "INVARIANT_API_KEY" and k != "INVARIANT_API_URL" and k != "GUARDRAILS_API_URL"
-    }
+    if server.env is None:
+        new_env = None
+    else:
+        new_env = {
+            k: v
+            for k, v in server.env.items()
+            if k != "INVARIANT_API_KEY" and k != "INVARIANT_API_URL" and k != "GUARDRAILS_API_URL"
+        } or None
     assert args.exec is not None, "exec is None"
     assert args.exec, "exec is empty"
     return StdioServer(
@@ -228,4 +231,11 @@ class MCPGatewayInstaller:
             if verbose:
                 rich.print(path_print_tree)
             with open(os.path.expanduser(path), "w") as f:
-                f.write(config.model_dump_json(indent=4) + "\n")
+                f.write(
+                    config.model_dump_json(
+                        indent=4,
+                        exclude={"mcpServers": {key: {"type"} for key in config.mcpServers}},
+                        exclude_none=True,
+                    )
+                    + "\n"
+                )
