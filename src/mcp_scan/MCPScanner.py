@@ -10,7 +10,7 @@ from mcp_scan.models import CrossRefResult, ScanError, ScanPathResult, ServerSca
 from .mcp_client import check_server_with_timeout, scan_mcp_config_file
 from .StorageFile import StorageFile
 from .utils import calculate_distance
-from .verify_api import verify_server
+from .verify_api import verify_scan_path
 
 # Set up logger for this module
 logger = logging.getLogger(__name__)
@@ -57,6 +57,7 @@ class MCPScanner:
         storage_file: str = "~/.mcp-scan",
         server_timeout: int = 10,
         suppress_mcpserver_io: bool = True,
+        local_only: bool = False,
         **kwargs: Any,
     ):
         logger.info("Initializing MCPScanner")
@@ -70,6 +71,7 @@ class MCPScanner:
         self.server_timeout = server_timeout
         self.suppress_mcpserver_io = suppress_mcpserver_io
         self.context_manager = None
+        self.local_only = local_only
         logger.debug(
             "MCPScanner initialized with timeout: %d, checks_per_server: %d", server_timeout, checks_per_server
         )
@@ -109,7 +111,7 @@ class MCPScanner:
         logger.info("Getting servers from path: %s", path)
         result = ScanPathResult(path=path)
         try:
-            servers = scan_mcp_config_file(path).get_servers()
+            servers = (await scan_mcp_config_file(path)).get_servers()
             logger.debug("Found %d servers in path: %s", len(servers), path)
             result.servers = [
                 ServerScanResult(name=server_name, server=server) for server_name, server in servers.items()
@@ -159,19 +161,18 @@ class MCPScanner:
         logger.info("Scanning server: %s, inspect_only: %s", server.name, inspect_only)
         result = server.model_copy(deep=True)
         try:
-            entities = await check_server_with_timeout(server.server, self.server_timeout, self.suppress_mcpserver_io)
-            result.prompts, result.resources, result.tools = entities
+            result.signature = await check_server_with_timeout(
+                server.server, self.server_timeout, self.suppress_mcpserver_io
+            )
             logger.debug(
                 "Server %s has %d prompts, %d resources, %d tools",
                 server.name,
-                len(result.prompts),
-                len(result.resources),
-                len(result.tools),
+                len(result.signature.prompts),
+                len(result.signature.resources),
+                len(result.signature.tools),
             )
 
             if not inspect_only:
-                logger.debug("Verifying server: %s", server.name)
-                result = await verify_server(result, base_url=self.base_url)
                 logger.debug("Checking if server has changed: %s", server.name)
                 result = await self.check_server_changed(result)
                 logger.debug("Checking whitelist for server: %s", server.name)
@@ -189,12 +190,17 @@ class MCPScanner:
         for i, server in enumerate(path_result.servers):
             logger.debug("Scanning server %d/%d: %s", i + 1, len(path_result.servers), server.name)
             path_result.servers[i] = await self.scan_server(server, inspect_only)
+        logger.debug("Verifying server path: %s", path)
+        path_result = await verify_scan_path(path_result, base_url=self.base_url, run_locally=self.local_only)
         path_result.cross_ref_result = await self.check_cross_references(path_result)
         await self.emit("path_scanned", path_result)
         return path_result
 
     async def check_cross_references(self, path_result: ScanPathResult) -> CrossRefResult:
         logger.info("Checking cross references for path: %s", path_result.path)
+        if sum(len(server.entities) for server in path_result.servers) < 2:
+            logger.debug("Not enough entities to check cross references")
+            return CrossRefResult(found=False)
         cross_ref_result = CrossRefResult(found=False)
         for server in path_result.servers:
             other_servers = [s for s in path_result.servers if s != server]
@@ -202,7 +208,6 @@ class MCPScanner:
             other_entity_names = [e.name for s in other_servers for e in s.entities]
             flagged_names = set(map(str.lower, other_server_names + other_entity_names))
             logger.debug("Found %d potential cross-reference names", len(flagged_names))
-
             for entity in server.entities:
                 tokens = (entity.description or "").lower().split()
                 for token in tokens:

@@ -7,6 +7,10 @@ from lark import Lark
 from rapidfuzz.distance import Levenshtein
 
 
+class CommandParsingError(Exception):
+    pass
+
+
 def calculate_distance(responses: list[str], reference: str):
     return sorted([(w, Levenshtein.distance(w, reference)) for w in responses], key=lambda x: x[1])
 
@@ -26,9 +30,9 @@ def rebalance_command_args(command, args):
             r"""
             command: WORD+
             WORD: (PART|SQUOTEDPART|DQUOTEDPART)
-            PART: /[^\s'".]+/
-            SQUOTEDPART: /'[^']'/
-            DQUOTEDPART: /"[^"]"/
+            PART: /[^\s'"]+/
+            SQUOTEDPART: /'[^']*'/
+            DQUOTEDPART: /"[^"]*"/
             %import common.WS
             %ignore WS
             """,
@@ -36,10 +40,13 @@ def rebalance_command_args(command, args):
             start="command",
             regex=True,
         )
-    tree = _command_parser.parse(command)
-    command_parts = [node.value for node in tree.children]
-    args = command_parts[1:] + (args or [])
-    command = command_parts[0]
+    try:
+        tree = _command_parser.parse(command)
+        command_parts = [node.value for node in tree.children]
+        args = command_parts[1:] + (args or [])
+        command = command_parts[0]
+    except Exception as e:
+        raise CommandParsingError(f"Failed to parse command: {e}") from e
     return command, args
 
 

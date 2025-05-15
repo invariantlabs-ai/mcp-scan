@@ -46,7 +46,7 @@ class TestFullProxyFlow:
         process = subprocess.Popen(command)
 
         # start client
-        config = scan_mcp_config_file(toy_server_add_config_file)
+        config = await scan_mcp_config_file(toy_server_add_config_file)
         servers = list(config.mcpServers.values())
         assert len(servers) == 1
         server = servers[0]

@@ -143,7 +143,7 @@ class MCPGatewayInstaller:
         for path in self.paths:
             config: MCPConfig | None = None
             try:
-                config = scan_mcp_config_file(path)
+                config = await scan_mcp_config_file(path)
                 status = f"found {len(config.get_servers())} server{'' if len(config.get_servers()) == 1 else 's'}"
             except FileNotFoundError:
                 status = "file does not exist"
@@ -190,7 +190,7 @@ class MCPGatewayInstaller:
         for path in self.paths:
             config: MCPConfig | None = None
             try:
-                config = scan_mcp_config_file(path)
+                config = await scan_mcp_config_file(path)
                 status = f"found {len(config.get_servers())} server{'' if len(config.get_servers()) == 1 else 's'}"
             except FileNotFoundError:
                 status = "file does not exist"
@@ -202,7 +202,7 @@ class MCPGatewayInstaller:
                 continue
 
             path_print_tree = Tree("│")
-            config = scan_mcp_config_file(path)
+            config = await scan_mcp_config_file(path)
             new_servers: dict[str, SSEServer | StdioServer] = {}
             for name, server in config.get_servers().items():
                 if isinstance(server, StdioServer):

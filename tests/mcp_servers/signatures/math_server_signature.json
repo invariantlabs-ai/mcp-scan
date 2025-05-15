@@ -1,0 +1,121 @@
+{
+    "metadata": {
+        "meta": null,
+        "protocolVersion": "2024-11-05",
+        "capabilities": {
+            "experimental": {},
+            "logging": null,
+            "prompts": {
+                "listChanged": false
+            },
+            "resources": {
+                "subscribe": false,
+                "listChanged": false
+            },
+            "tools": {
+                "listChanged": false
+            }
+        },
+        "serverInfo": {
+            "name": "Math",
+            "version": "mcp_version"
+        },
+        "instructions": null
+    },
+    "prompts": [],
+    "resources": [],
+    "tools": [
+        {
+            "name": "add",
+            "description": "Add two numbers.",
+            "inputSchema": {
+                "properties": {
+                    "a": {
+                        "title": "A",
+                        "type": "integer"
+                    },
+                    "b": {
+                        "title": "B",
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "a",
+                    "b"
+                ],
+                "title": "addArguments",
+                "type": "object"
+            },
+            "annotations": null
+        },
+        {
+            "name": "subtract",
+            "description": "Subtract two numbers.",
+            "inputSchema": {
+                "properties": {
+                    "a": {
+                        "title": "A",
+                        "type": "integer"
+                    },
+                    "b": {
+                        "title": "B",
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "a",
+                    "b"
+                ],
+                "title": "subtractArguments",
+                "type": "object"
+            },
+            "annotations": null
+        },
+        {
+            "name": "multiply",
+            "description": "Multiply two numbers.",
+            "inputSchema": {
+                "properties": {
+                    "a": {
+                        "title": "A",
+                        "type": "integer"
+                    },
+                    "b": {
+                        "title": "B",
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "a",
+                    "b"
+                ],
+                "title": "multiplyArguments",
+                "type": "object"
+            },
+            "annotations": null
+        },
+        {
+            "name": "divide",
+            "description": "Divide two numbers.",
+            "inputSchema": {
+                "properties": {
+                    "a": {
+                        "title": "A",
+                        "type": "integer"
+                    },
+                    "b": {
+                        "title": "B",
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "a",
+                    "b"
+                ],
+                "title": "divideArguments",
+                "type": "object"
+            },
+            "annotations": null
+        }
+    ]
+}

@@ -1,0 +1,47 @@
+{
+    "metadata": {
+        "meta": null,
+        "protocolVersion": "2024-11-05",
+        "capabilities": {
+            "experimental": {},
+            "logging": null,
+            "prompts": {
+                "listChanged": false
+            },
+            "resources": {
+                "subscribe": false,
+                "listChanged": false
+            },
+            "tools": {
+                "listChanged": false
+            }
+        },
+        "serverInfo": {
+            "name": "Weather",
+            "version": "mcp_version"
+        },
+        "instructions": null
+    },
+    "prompts": [],
+    "resources": [],
+    "tools": [
+        {
+            "name": "weather",
+            "description": "Get current weather for a location.",
+            "inputSchema": {
+                "properties": {
+                    "location": {
+                        "title": "Location",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "location"
+                ],
+                "title": "weatherArguments",
+                "type": "object"
+            },
+            "annotations": null
+        }
+    ]
+}
