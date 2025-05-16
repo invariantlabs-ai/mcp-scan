@@ -137,6 +137,7 @@ async def scan_mcp_config_file(path: str) -> MCPConfig:
         logger.debug("Opening config file")
         with open(path) as f:
             content = f.read()
+            print("CONTENT", content)
         logger.debug("Config file read successfully")
         # use json5 to support comments as in vscode
         config = pyjson5.loads(content)

@@ -2,7 +2,7 @@ name: Tests
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, fix-ci-v-0-2 ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
