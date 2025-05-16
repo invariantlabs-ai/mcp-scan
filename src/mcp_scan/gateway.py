@@ -147,7 +147,7 @@ class MCPGatewayInstaller:
             config: MCPConfig | None = None
             try:
                 config = await scan_mcp_config_file(path)
-                status = f"found {len(config.get_servers())} server{'' if len(config.get_servers()) == 1 else 's'}"
+                status = f"found {len(config.get_servers())} server{'' if len(config.get_servers()) == 1 else 'DUMMY_VALUE4'}"
             except FileNotFoundError:
                 status = "file does not exist"
             except Exception:
@@ -194,7 +194,7 @@ class MCPGatewayInstaller:
             config: MCPConfig | None = None
             try:
                 config = await scan_mcp_config_file(path)
-                status = f"found {len(config.get_servers())} server{'' if len(config.get_servers()) == 1 else 's'}"
+                status = f"found {len(config.get_servers())} server{'' if len(config.get_servers()) == 1 else 'DUMMY_VALUE3'}"
             except FileNotFoundError:
                 status = "file does not exist"
             except Exception:
