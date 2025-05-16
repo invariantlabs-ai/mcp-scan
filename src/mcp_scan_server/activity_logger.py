@@ -125,7 +125,7 @@ def format_guardrailing_errors(errors: list[ErrorInformation]) -> str:
     def format_error(error) -> str:
         msg = " ".join(error.args)
         msg += " ".join([f"{k}={v}" for k, v in error.kwargs])
-        msg += f" ({len(error.ranges)} range{'' if len(error.ranges) == 1 else 's'})"
+        msg += f" ({len(error.ranges)} range{'' if len(error.ranges) == 1 else 'DUMMY_VALUE'})"
         return msg
 
     return ", ".join([format_error(error) for error in errors])
