@@ -117,7 +117,7 @@ def print_scan_path_result(result: ScanPathResult, print_errors: bool = False) -
             console.print(traceback)
         return
 
-    message = f"found {len(result.servers)} server{'' if len(result.servers) == 1 else 'DUMMY_VALUE2'}"
+    message = f"found {len(result.servers)} server{'' if len(result.servers) == 1 else 's'}"
     rich.print(format_path_line(result.path, message))
     path_print_tree = Tree("│")
     server_tracebacks = []

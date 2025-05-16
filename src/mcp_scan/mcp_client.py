@@ -138,16 +138,8 @@ async def scan_mcp_config_file(path: str) -> MCPConfig:
         with open(path) as f:
             content = f.read()
 
-        # import json
-
         logger.debug("Config file read successfully")
-        # Replace \ with /
-        content = content.replace("\\", "/")
         # use json5 to support comments as in vscode
-        print("CONTENT", content, flush=True)
-        # try loading it as regular json
-        # json_content = json.loads(content)
-        # print("JSON CONTENT", json_content, flush=True)
         config = pyjson5.loads(content)
         logger.debug("Config JSON parsed successfully")
         # try to parse model

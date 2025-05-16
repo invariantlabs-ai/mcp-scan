@@ -130,7 +130,7 @@ def toy_server_add_config_file(toy_server_add_config):
     with TempFile(mode="w") as temp_file:
         temp_file.write(toy_server_add_config)
         temp_file.flush()
-        yield temp_file.name
+        yield temp_file.name.replace("\\", "/")
 
 
 @pytest.fixture
