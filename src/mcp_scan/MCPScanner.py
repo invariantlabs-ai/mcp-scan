@@ -211,7 +211,10 @@ class MCPScanner:
             for entity in server.entities:
                 tokens = (entity.description or "").lower().split()
                 for token in tokens:
-                    best_distance = calculate_distance(reference=token, responses=list(flagged_names))[0]
+                    distances = calculate_distance(reference=token, responses=list(flagged_names))
+                    if not distances:
+                        continue  # Skip if there are no flagged names to compare
+                    best_distance = distances[0]
                     if ((best_distance[1] <= 2) and (len(token) >= 5)) or (token in flagged_names):
                         logger.warning("Cross-reference found: %s with token %s", entity.name, token)
                         cross_ref_result.found = True
