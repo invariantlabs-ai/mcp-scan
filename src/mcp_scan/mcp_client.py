@@ -65,25 +65,36 @@ async def check_server(
                 if not isinstance(server_config, SSEServer) or meta.capabilities.prompts:
                     logger.debug("Fetching prompts")
                     try:
-                        prompts = (await session.list_prompts()).prompts
+                        result = await session.list_prompts()
+                        prompts = result.prompts if result else []
                         logger.debug("Found %d prompts", len(prompts))
-                    except Exception:
-                        logger.exception("Failed to list prompts")
-
+                    except Exception as e:
+                        if "Method not found" in str(e):
+                            logger.debug("Prompts not supported by this server")
+                        else:
+                            logger.exception("Failed to list prompts")
                 if not isinstance(server_config, SSEServer) or meta.capabilities.resources:
                     logger.debug("Fetching resources")
                     try:
-                        resources = (await session.list_resources()).resources
+                        result = await session.list_resources()
+                        resources = result.resources if result else []
                         logger.debug("Found %d resources", len(resources))
-                    except Exception:
-                        logger.exception("Failed to list resources")
+                    except Exception as e:
+                        if "Method not found" in str(e):
+                            logger.debug("Resources not supported by this server")
+                        else:
+                            logger.exception("Failed to list resources")
                 if not isinstance(server_config, SSEServer) or meta.capabilities.tools:
                     logger.debug("Fetching tools")
                     try:
-                        tools = (await session.list_tools()).tools
+                        result = await session.list_tools()
+                        tools = result.tools if result else []
                         logger.debug("Found %d tools", len(tools))
-                    except Exception:
-                        logger.exception("Failed to list tools")
+                    except Exception as e:
+                        if "Method not found" in str(e):
+                            logger.debug("Tools not supported by this server")
+                        else:
+                            logger.exception("Failed to list tools")
                 logger.info("Server check completed successfully")
                 return ServerSignature(
                     metadata=meta,
