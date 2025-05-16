@@ -208,14 +208,15 @@ class MCPScanner:
             other_entity_names = [e.name for s in other_servers for e in s.entities]
             flagged_names = set(map(str.lower, other_server_names + other_entity_names))
             logger.debug("Found %d potential cross-reference names", len(flagged_names))
-            for entity in server.entities:
-                tokens = (entity.description or "").lower().split()
-                for token in tokens:
-                    best_distance = calculate_distance(reference=token, responses=list(flagged_names))[0]
-                    if ((best_distance[1] <= 2) and (len(token) >= 5)) or (token in flagged_names):
-                        logger.warning("Cross-reference found: %s with token %s", entity.name, token)
-                        cross_ref_result.found = True
-                        cross_ref_result.sources.append(f"{entity.name}:{token}")
+            if flagged_names:
+                for entity in server.entities:
+                    tokens = (entity.description or "").lower().split()
+                    for token in tokens:
+                        best_distance = calculate_distance(reference=token, responses=list(flagged_names))[0]
+                        if ((best_distance[1] <= 2) and (len(token) >= 5)) or (token in flagged_names):
+                            logger.warning("Cross-reference found: %s with token %s", entity.name, token)
+                            cross_ref_result.found = True
+                            cross_ref_result.sources.append(f"{entity.name}:{token}")
 
         if cross_ref_result.found:
             logger.info("Cross references detected with %d sources", len(cross_ref_result.sources))
