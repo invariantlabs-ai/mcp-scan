@@ -14,23 +14,21 @@ from mcp.types import (
     Tool,
     ToolsCapability,
 )
+from pytest_lazy_fixtures import lf
 
 from mcp_scan.mcp_client import check_server, check_server_with_timeout, scan_mcp_config_file
 from mcp_scan.models import StdioServer
-from mcp_scan.utils import TempFile
 
 
-@pytest.mark.anyio
-async def test_scan_mcp_config(sample_configs):
-    for config in sample_configs:
-        with TempFile(mode="w") as temp_file:
-            temp_file.write(config)
-            temp_file.flush()
-
-            config = await scan_mcp_config_file(temp_file.name)
+@pytest.mark.parametrize(
+    "sample_config_file", [lf("claudestyle_config_file"), lf("vscode_mcp_config_file"), lf("vscode_config_file")]
+)
+@pytest.mark.asyncio
+async def test_scan_mcp_config(sample_config_file):
+    await scan_mcp_config_file(sample_config_file)
 
 
-@pytest.mark.anyio
+@pytest.mark.asyncio
 @patch("mcp_scan.mcp_client.stdio_client")
 async def test_check_server_mocked(mock_stdio_client):
     # Create mock objects
@@ -101,7 +99,7 @@ async def test_check_server_mocked(mock_stdio_client):
     assert len(signature.tools) == 3
 
 
-@pytest.mark.anyio
+@pytest.mark.asyncio
 async def test_math_server():
     path = "tests/mcp_servers/configs_files/math_config.json"
     servers = (await scan_mcp_config_file(path)).get_servers()
@@ -113,7 +111,7 @@ async def test_math_server():
             assert {t.name for t in signature.tools} == {"add", "subtract", "multiply", "divide"}
 
 
-@pytest.mark.anyio
+@pytest.mark.asyncio
 async def test_all_server():
     path = "tests/mcp_servers/configs_files/all_config.json"
     servers = (await scan_mcp_config_file(path)).get_servers()
@@ -129,7 +127,7 @@ async def test_all_server():
             assert {t.name for t in signature.tools} == {"weather"}
 
 
-@pytest.mark.anyio
+@pytest.mark.asyncio
 async def test_weather_server():
     path = "tests/mcp_servers/configs_files/weather_config.json"
     servers = (await scan_mcp_config_file(path)).get_servers()

@@ -4,7 +4,6 @@ import os
 import subprocess
 from typing import AsyncContextManager  # noqa: UP035
 
-import aiofiles  # type: ignore
 import pyjson5
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.sse import sse_client
@@ -26,35 +25,38 @@ from .utils import rebalance_command_args
 logger = logging.getLogger(__name__)
 
 
+def get_client(
+    server_config: SSEServer | StdioServer, timeout: int | None = None, verbose: bool = False
+) -> AsyncContextManager:
+    if isinstance(server_config, SSEServer):
+        logger.debug("Creating SSE client with URL: %s", server_config.url)
+        return sse_client(
+            url=server_config.url,
+            headers=server_config.headers,
+            # env=server_config.env, #Not supported by MCP yet, but present in vscode
+            timeout=timeout,
+        )
+    else:
+        logger.debug("Creating stdio client")
+        # handle complex configs
+        command, args = rebalance_command_args(server_config.command, server_config.args)
+        logger.debug("Using command: %s, args: %s", command, args)
+        server_params = StdioServerParameters(
+            command=command,
+            args=args,
+            env=server_config.env,
+        )
+        return stdio_client(server_params, errlog=subprocess.DEVNULL if not verbose else None)
+
+
 async def check_server(
     server_config: SSEServer | StdioServer, timeout: int, suppress_mcpserver_io: bool
 ) -> ServerSignature:
     logger.info("Checking server with config: %s, timeout: %s", server_config, timeout)
 
-    def get_client(server_config: SSEServer | StdioServer, verbose: bool = False) -> AsyncContextManager:
-        if isinstance(server_config, SSEServer):
-            logger.debug("Creating SSE client with URL: %s", server_config.url)
-            return sse_client(
-                url=server_config.url,
-                headers=server_config.headers,
-                # env=server_config.env, #Not supported by MCP yet, but present in vscode
-                timeout=timeout,
-            )
-        else:
-            logger.debug("Creating stdio client")
-            # handle complex configs
-            command, args = rebalance_command_args(server_config.command, server_config.args)
-            logger.debug("Using command: %s, args: %s", command, args)
-            server_params = StdioServerParameters(
-                command=command,
-                args=args,
-                env=server_config.env,
-            )
-            return stdio_client(server_params, errlog=subprocess.DEVNULL if not verbose else None)
-
     async def _check_server(verbose: bool) -> ServerSignature:
         logger.info("Initializing server connection")
-        async with get_client(server_config, verbose=verbose) as (read, write):
+        async with get_client(server_config, timeout=timeout, verbose=verbose) as (read, write):
             async with ClientSession(read, write) as session:
                 meta = await session.initialize()
                 logger.debug("Server initialized with metadata: %s", meta)
@@ -133,8 +135,8 @@ async def scan_mcp_config_file(path: str) -> MCPConfig:
 
     try:
         logger.debug("Opening config file")
-        async with aiofiles.open(path) as f:
-            content = await f.read()
+        with open(path) as f:
+            content = f.read()
         logger.debug("Config file read successfully")
         # use json5 to support comments as in vscode
         config = pyjson5.loads(content)
