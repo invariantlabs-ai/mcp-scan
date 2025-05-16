@@ -108,7 +108,7 @@ def toy_server_add_file(toy_server_add):
     with TempFile(mode="w", suffix=".py") as temp_file:
         temp_file.write(toy_server_add)
         temp_file.flush()
-        yield temp_file.name
+        yield temp_file.name.replace("\\", "/")
 
 
 @pytest.fixture
