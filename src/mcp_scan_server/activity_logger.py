@@ -4,9 +4,7 @@ from typing import Literal
 
 from fastapi import FastAPI, Request
 from invariant.analyzer.policy import ErrorInformation
-from rich import print
-from rich.rule import Rule
-from rich.syntax import Syntax
+from rich.console import Console
 
 from mcp_scan_server.models import PolicyCheckResult
 
@@ -28,9 +26,62 @@ class ActivityLogger:
         # last logged (session_id, tool_call_id), so we can skip logging tool call headers if it is directly
         # followed by output
         self.last_logged_tool: tuple[str, str] | None = None
+        self.console = Console()
 
     def empty_metadata(self):
         return {"client": "Unknown Client", "mcp_server": "Unknown Server", "user": None}
+
+    def log_tool_call(self, user_portion, client, server, name, tool_args):
+        if self.pretty == "oneline":
+            self.console.print(
+                f"→ [bold blue]{client}[/bold blue]{user_portion} used [bold green]{server}[/bold green] to [bold green]{name}[/bold green]({tool_args})"
+            )
+        elif self.pretty == "compact":
+            self.console.rule(
+                f"→ [bold blue]{client}[/bold blue]{user_portion} used [bold green]{server}[/bold green] to [bold green]{name}[/bold green]"
+            )
+            self.console.print("Arguments:", tool_args)
+        elif self.pretty == "full":
+            self.console.rule(
+                f"→ [bold blue]{client}[/bold blue]{user_portion} used [bold green]{server}[/bold green] to [bold green]{name}[/bold green]"
+            )
+            self.console.print("Arguments:", json.dumps(tool_args))
+
+    def log_tool_output(self, has_header, user_portion, name, client, server, content):
+        def compact_content(input: str) -> str:
+            try:
+                input = json.loads(input)
+                input = repr(input)
+            except ValueError:
+                pass
+            return input.replace("\n", " ").replace("\r", "")
+
+        def full_content(input: str) -> str:
+            try:
+                input = json.loads(input)
+                input = json.dumps(input, indent=2)
+            except ValueError:
+                pass
+            return input
+
+        if self.pretty == "oneline":
+            text = "← "
+            if not has_header:
+                text += f"[bold blue]{client}[/bold blue]{user_portion} used [bold green]{server}[/bold green] to [bold green]{name}[/bold green]: "
+            text += compact_content(content)
+            self.console.print(text)
+        elif self.pretty == "compact":
+            if not has_header:
+                self.console.rule(
+                    f"← [bold blue]{client}[/bold blue]{user_portion} used [bold green]{server}[/bold green] to [bold green]{name}[/bold green]"
+                )
+            self.console.print(compact_content(content))
+        elif self.pretty == "full":
+            if not has_header:
+                self.console.rule(
+                    f"← [bold blue]{client}[/bold blue]{user_portion} used [bold green]{server}[/bold green] to [bold green]{name}[/bold green]"
+                )
+            self.console.print(full_content(content))
 
     async def log(
         self,
@@ -56,24 +107,10 @@ class ActivityLogger:
                 self.logged_output[(session_id, "output-" + msg.get("tool_call_id"))] = True
 
                 has_header = self.last_logged_tool == (session_id, msg.get("tool_call_id"))
-
-                if not has_header:
-                    print(Rule())
-                    # left arrow for output
-                    user_portion = "" if user is None else f" ([bold red]{user}[/bold red])"
-                    name = tool_names.get(msg.get("tool_call_id"), "<unknown tool>")
-                    print(
-                        f"← [bold blue]{client}[/bold blue]{user_portion} used [bold green]{server}[/bold green] to [bold green]{name}[/bold green]"
-                    )
-                print(Rule())
-
-                # tool output
+                user_portion = "" if user is None else f" ([bold red]{user}[/bold red])"
+                name = tool_names.get(msg.get("tool_call_id"), "<unknown tool>")
                 content = message_content(msg)
-                if type(content) is str and content.startswith("Error"):
-                    print(Syntax(content, "pytb", theme="monokai"))
-                else:
-                    print(Syntax(content, "json", theme="monokai"))
-                print(Rule())
+                self.log_tool_output(has_header, user_portion, name, client, server, content)
 
             else:
                 for tc in msg.get("tool_calls") or []:
@@ -87,24 +124,15 @@ class ActivityLogger:
 
                     self.last_logged_tool = (session_id, tc.get("id"))
 
-                    # header
                     user_portion = "" if user is None else f" ([bold red]{user}[/bold red])"
-
-                    print(Rule())
-                    print(
-                        f"→ [bold blue]{client}[/bold blue]{user_portion} used [bold green]{server}[/bold green] to [bold green]{name}[/bold green]"
-                    )
-                    print(Rule())
-
-                    # tool arguments
-                    print(Syntax(json.dumps(tool_args, indent=2), "json", theme="monokai"))
+                    self.log_tool_call(user_portion, client, server, name, tool_args)
 
         any_error = guardrails_results and any(
             result.result is not None and len(result.result.errors) > 0 for result in guardrails_results
         )
 
         if any_error:
-            print(Rule())
+            self.console.rule()
             if guardrails_results is not None:
                 for guardrail_result in guardrails_results:
                     if (
@@ -112,11 +140,11 @@ class ActivityLogger:
                         and len(guardrail_result.result.errors) > 0
                         and guardrails_action is not None
                     ):
-                        print(
+                        self.console.print(
                             f"[bold red]GUARDRAIL {guardrails_action.upper()}[/bold red]",
                             format_guardrailing_errors(guardrail_result.result.errors),
                         )
-            print(Rule())
+            self.console.rule()
 
 
 def format_guardrailing_errors(errors: list[ErrorInformation]) -> str:
