@@ -4,7 +4,7 @@ from typing import Literal
 
 import rich
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 
 from mcp_scan_server.activity_logger import setup_activity_logger  # type: ignore
 
@@ -31,7 +31,7 @@ class MCPScanServer:
         config_file_path: str | None = None,
         on_exit: Callable | None = None,
         log_level: str = "error",
-        pretty: Literal["oneline", "compact", "full"] = "compact",
+        pretty: Literal["oneline", "compact", "full", "none"] = "compact",
     ):
         self.port = port
         self.config_file_path = config_file_path
@@ -46,10 +46,24 @@ class MCPScanServer:
         self.app.include_router(push_router, prefix="/api/v1/push")
         self.app.include_router(dataset_trace_router, prefix="/api/v1/trace")
         self.app.include_router(user_router, prefix="/api/v1/user")
+        self.app.get("/")(self.root)
+
+    async def root(self):
+        """Root endpoint for the MCP-scan server that returns a welcome message."""
+        return Response(
+            content="""<h1>MCP Scan Server</h1>
+            <p>Welcome to the Invariant MCP-scan Server!</p>
+            <p>Use the API to interact with the server.</p>
+            <p>Check the documentation for more information.</p>
+            <p>Documentation: <a href="https://explorer.invariantlabs.ai/docs/mcp-scan">https://explorer.invariantlabs.ai/docs/mcp-scan</a></p>
+            """,
+            media_type="text/html",
+            status_code=200,
+        )
 
     async def on_startup(self):
         """Startup event for the FastAPI app."""
-        rich.print("[bold green]MCP-scan server started.[/bold green]")
+        rich.print("[bold green]MCP-scan server started (port http://localhost:" + str(self.port) + ")[/bold green]")
 
         setup_activity_logger(self.app, pretty=self.pretty)
 

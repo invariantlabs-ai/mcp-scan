@@ -17,7 +17,7 @@ class ActivityLogger:
     like the client, user, server name and tool name.
     """
 
-    def __init__(self, pretty: Literal["oneline", "compact", "full"] = "compact"):
+    def __init__(self, pretty: Literal["oneline", "compact", "full", "none"] = "compact"):
         # level of pretty printing
         self.pretty = pretty
 
@@ -31,23 +31,25 @@ class ActivityLogger:
     def empty_metadata(self):
         return {"client": "Unknown Client", "mcp_server": "Unknown Server", "user": None}
 
-    def log_tool_call(self, user_portion, client, server, name, tool_args):
+    def log_tool_call(self, user_portion, client, server, name, tool_args, call_id_portion):
         if self.pretty == "oneline":
             self.console.print(
-                f"→ [bold blue]{client}[/bold blue]{user_portion} used [bold green]{server}[/bold green] to [bold green]{name}[/bold green]({tool_args})"
+                f"→ [bold blue]{client}[/bold blue]{user_portion} used [bold green]{server}[/bold green] to [bold green]{name}[/bold green]({{...}}) {call_id_portion}"
             )
         elif self.pretty == "compact":
             self.console.rule(
-                f"→ [bold blue]{client}[/bold blue]{user_portion} used [bold green]{server}[/bold green] to [bold green]{name}[/bold green]"
+                f"→ [bold blue]{client}[/bold blue]{user_portion} used [bold green]{server}[/bold green] to [bold green]{name}[/bold green] {call_id_portion}"
             )
             self.console.print("Arguments:", tool_args)
         elif self.pretty == "full":
             self.console.rule(
-                f"→ [bold blue]{client}[/bold blue]{user_portion} used [bold green]{server}[/bold green] to [bold green]{name}[/bold green]"
+                f"→ [bold blue]{client}[/bold blue]{user_portion} used [bold green]{server}[/bold green] to [bold green]{name}[/bold green] {call_id_portion}"
             )
             self.console.print("Arguments:", json.dumps(tool_args))
+        elif self.pretty == "none":
+            pass
 
-    def log_tool_output(self, has_header, user_portion, name, client, server, content):
+    def log_tool_output(self, has_header, user_portion, name, client, server, content, tool_call_id):
         def compact_content(input: str) -> str:
             try:
                 input = json.loads(input)
@@ -65,23 +67,29 @@ class ActivityLogger:
             return input
 
         if self.pretty == "oneline":
-            text = "← "
+            text = "← (" + tool_call_id + ") "
             if not has_header:
                 text += f"[bold blue]{client}[/bold blue]{user_portion} used [bold green]{server}[/bold green] to [bold green]{name}[/bold green]: "
-            text += compact_content(content)
+            text += f"tool response ({len(content)} characters)"
             self.console.print(text)
         elif self.pretty == "compact":
             if not has_header:
                 self.console.rule(
-                    f"← [bold blue]{client}[/bold blue]{user_portion} used [bold green]{server}[/bold green] to [bold green]{name}[/bold green]"
+                    "← ("
+                    + tool_call_id
+                    + f") [bold blue]{client}[/bold blue]{user_portion} used [bold green]{server}[/bold green] to [bold green]{name}[/bold green]"
                 )
             self.console.print(compact_content(content))
         elif self.pretty == "full":
             if not has_header:
                 self.console.rule(
-                    f"← [bold blue]{client}[/bold blue]{user_portion} used [bold green]{server}[/bold green] to [bold green]{name}[/bold green]"
+                    "← ("
+                    + tool_call_id
+                    + f") [bold blue]{client}[/bold blue]{user_portion} used [bold green]{server}[/bold green] to [bold green]{name}[/bold green]"
                 )
             self.console.print(full_content(content))
+        elif self.pretty == "none":
+            pass
 
     async def log(
         self,
@@ -107,10 +115,15 @@ class ActivityLogger:
                 self.logged_output[(session_id, "output-" + msg.get("tool_call_id"))] = True
 
                 has_header = self.last_logged_tool == (session_id, msg.get("tool_call_id"))
+                if not has_header:
+                    self.last_logged_tool = (session_id, msg.get("tool_call_id"))
+
                 user_portion = "" if user is None else f" ([bold red]{user}[/bold red])"
                 name = tool_names.get(msg.get("tool_call_id"), "<unknown tool>")
                 content = message_content(msg)
-                self.log_tool_output(has_header, user_portion, name, client, server, content)
+                self.log_tool_output(
+                    has_header, user_portion, name, client, server, content, tool_call_id=msg.get("tool_call_id")
+                )
 
             else:
                 for tc in msg.get("tool_calls") or []:
@@ -125,7 +138,9 @@ class ActivityLogger:
                     self.last_logged_tool = (session_id, tc.get("id"))
 
                     user_portion = "" if user is None else f" ([bold red]{user}[/bold red])"
-                    self.log_tool_call(user_portion, client, server, name, tool_args)
+                    call_id_portion = "(" + tc.get("id") + ")"
+
+                    self.log_tool_call(user_portion, client, server, name, tool_args, call_id_portion)
 
         any_error = guardrails_results and any(
             result.result is not None and len(result.result.errors) > 0 for result in guardrails_results
@@ -144,7 +159,8 @@ class ActivityLogger:
                             f"[bold red]GUARDRAIL {guardrails_action.upper()}[/bold red]",
                             format_guardrailing_errors(guardrail_result.result.errors),
                         )
-            self.console.rule()
+        self.console.rule()
+        self.console.print("")
 
 
 def format_guardrailing_errors(errors: list[ErrorInformation]) -> str:

@@ -7,10 +7,10 @@ import sys
 import psutil
 import rich
 from invariant.__main__ import add_extra
+from mcp_scan_server.server import MCPScanServer
 from rich.logging import RichHandler
 
 from mcp_scan.gateway import MCPGatewayConfig, MCPGatewayInstaller
-from mcp_scan_server.server import MCPScanServer
 
 from .MCPScanner import MCPScanner
 from .paths import WELL_KNOWN_MCP_PATHS, client_shorthands_to_paths
@@ -122,7 +122,7 @@ def add_server_arguments(parser):
         "--pretty",
         type=str,
         default="oneline",
-        choices=["oneline", "compact", "full"],
+        choices=["oneline", "compact", "full", "none"],
         help="Pretty print the output (default: compact)",
     )
     server_group.add_argument(
@@ -173,8 +173,8 @@ def add_install_arguments(parser):
     parser.add_argument(
         "--mcp-scan-server-port",
         type=int,
-        default=8000,
-        help="MCP scan server port (default: 8000).",
+        default=8129,
+        help="MCP scan server port (default: 8129).",
         metavar="PORT",
     )
 
@@ -355,8 +355,8 @@ def main():
     server_parser.add_argument(
         "--port",
         type=int,
-        default=8000,
-        help="Port to run the server on (default: 8000)",
+        default=8129,
+        help="Port to run the server on (default: 8129)",
         metavar="PORT",
     )
     add_common_arguments(server_parser)
@@ -367,8 +367,8 @@ def main():
     proxy_parser.add_argument(
         "--port",
         type=int,
-        default=8000,
-        help="Port to run the server on (default: 8000)",
+        default=8129,
+        help="Port to run the server on (default: 8129)",
         metavar="PORT",
     )
     add_common_arguments(proxy_parser)
