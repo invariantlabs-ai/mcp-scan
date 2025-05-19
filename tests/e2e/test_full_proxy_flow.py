@@ -76,9 +76,25 @@ class TestFullProxyFlow:
         with open(toy_server_add_config_file) as f:
             # assert that 'invariant-gateway' is in the file
             content = f.read()
-            assert "invariant-gateway" in content, (
-                "invariant-gateway wrapper was not found in the config file: " + content
-            )
+
+            if "invariant-gateway" not in content:
+                # terminate the process and get output
+                process.terminate()
+                process.wait()
+
+                # get output
+                stdout, stderr = process.communicate()
+                print(stdout.decode())
+                print(stderr.decode())
+
+                assert "invariant-gateway" in content, (
+                    "invariant-gateway wrapper was not found in the config file: "
+                    + content
+                    + "\nProcess output: "
+                    + stdout.decode()
+                    + "\nError output: "
+                    + stderr.decode()
+                )
 
         # start client
         config = await scan_mcp_config_file(toy_server_add_config_file)
