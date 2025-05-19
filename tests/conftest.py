@@ -1,5 +1,8 @@
 """Global pytest fixtures for mcp-scan tests."""
 
+import uuid
+from pathlib import Path
+
 import pytest
 
 from mcp_scan.utils import TempFile
@@ -127,11 +130,19 @@ def toy_server_add_config(toy_server_add_file):
 
 @pytest.fixture
 def toy_server_add_config_file(toy_server_add_config):
-    with TempFile(mode="w", suffix=".json") as temp_file:
-        temp_file.write(toy_server_add_config)
-        temp_file.flush()
-        temp_file.seek(0)
-        yield temp_file.name.replace("\\", "/")
+    temp_path = Path.cwd() / f"temp_config_{uuid.uuid4().hex}.json"
+    try:
+        # Write config content
+        with temp_path.open("w", encoding="utf-8") as f:
+            f.write(toy_server_add_config)
+            f.flush()
+
+        yield str(temp_path).replace("\\", "/")
+    finally:
+        try:
+            temp_path.unlink()
+        except FileNotFoundError:
+            pass
 
 
 @pytest.fixture
