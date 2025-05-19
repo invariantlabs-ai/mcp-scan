@@ -188,6 +188,11 @@ class MCPGatewayInstaller:
             config.set_servers(new_servers)
             with open(os.path.expanduser(path), "w") as f:
                 f.write(config.model_dump_json(indent=4) + "\n")
+                # flush the file to disk
+                f.flush()
+            # read it again and print it
+            with open(os.path.expanduser(path)) as f:
+                print(os.path.expanduser(path), f.read())
 
     async def uninstall(self, verbose: bool = False) -> None:
         for path in self.paths:
@@ -200,7 +205,7 @@ class MCPGatewayInstaller:
             except Exception:
                 status = "could not parse file"
             if verbose:
-                rich.print(format_path_line(path, status, operation="Installing Gateway"))
+                rich.print(format_path_line(path, status, operation="Uninstalling Gateway"))
             if config is None:
                 continue
 

@@ -127,9 +127,10 @@ def toy_server_add_config(toy_server_add_file):
 
 @pytest.fixture
 def toy_server_add_config_file(toy_server_add_config):
-    with TempFile(mode="w") as temp_file:
+    with TempFile(mode="w", suffix=".json") as temp_file:
         temp_file.write(toy_server_add_config)
         temp_file.flush()
+        temp_file.seek(0)
         yield temp_file.name.replace("\\", "/")
 
 
