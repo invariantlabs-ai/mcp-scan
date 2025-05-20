@@ -120,7 +120,7 @@ def toy_server_add_config(toy_server_add_file):
     "mcpServers": {{
         "toy": {{
             "command": "mcp",
-            "args": ["run", "{toy_server_add_file}"],
+            "args": ["run", "{toy_server_add_file}"]
         }}
     }}
     }}

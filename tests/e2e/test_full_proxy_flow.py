@@ -34,7 +34,7 @@ async def run_toy_server_client(config):
     return result
 
 
-async def ensure_config_file_contains_gateway(config_file, timeout=10):
+async def ensure_config_file_contains_gateway(config_file, timeout=3):
     s = time.time()
     content = ""
 
@@ -45,9 +45,7 @@ async def ensure_config_file_contains_gateway(config_file, timeout=10):
                 return True
         await asyncio.sleep(0.1)
         if time.time() - s > timeout:
-            raise TimeoutError(
-                "Timeout waiting for config file to contain 'invariant-gateway'. Last contents: " + content
-            )
+            return False
 
 
 class TestFullProxyFlow:
@@ -89,31 +87,30 @@ class TestFullProxyFlow:
         process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
         # wait for gateway to be installed
-        await ensure_config_file_contains_gateway(toy_server_add_config_file)
+        if not (await ensure_config_file_contains_gateway(toy_server_add_config_file)):
+            # print out toy_server_add_config_file
+            with open(toy_server_add_config_file) as f:
+                # assert that 'invariant-gateway' is in the file
+                content = f.read()
 
-        # print out toy_server_add_config_file
-        with open(toy_server_add_config_file) as f:
-            # assert that 'invariant-gateway' is in the file
-            content = f.read()
+                if "invariant-gateway" not in content:
+                    # terminate the process and get output
+                    process.terminate()
+                    process.wait()
 
-            if "invariant-gateway" not in content:
-                # terminate the process and get output
-                process.terminate()
-                process.wait()
+                    # get output
+                    stdout, stderr = process.communicate()
+                    print(stdout.decode())
+                    print(stderr.decode())
 
-                # get output
-                stdout, stderr = process.communicate()
-                print(stdout.decode())
-                print(stderr.decode())
-
-                assert "invariant-gateway" in content, (
-                    "invariant-gateway wrapper was not found in the config file: "
-                    + content
-                    + "\nProcess output: "
-                    + stdout.decode()
-                    + "\nError output: "
-                    + stderr.decode()
-                )
+                    assert "invariant-gateway" in content, (
+                        "invariant-gateway wrapper was not found in the config file: "
+                        + content
+                        + "\nProcess output: "
+                        + stdout.decode()
+                        + "\nError output: "
+                        + stderr.decode()
+                    )
 
         # start client
         config = await scan_mcp_config_file(toy_server_add_config_file)
