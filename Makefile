@@ -11,7 +11,7 @@ run:
 
 test:
 	uv pip install -e .[test]
-	uv run pytest
+	uv run pytest -v -ss
 
 clean:
 	rm -rf ./dist
