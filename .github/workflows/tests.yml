@@ -15,14 +15,6 @@ jobs:
         os: [ubuntu-latest]
     steps:
     - uses: actions/checkout@v4
-    - uses: actions/checkout@v4
-      with:
-        repository: invariantlabs-ai/invariant-gateway
-        ref: mcp-metadata
-        path: ${{ github.workspace }}/invariant-gateway
-    - name: Write .env
-      run: |
-        echo "INVARIANT_GATEWAY_DIR=${{ github.workspace }}/invariant-gateway" > .env
     - name: Install the latest version of uv
       uses: astral-sh/setup-uv@v6
     - name: Create venv
