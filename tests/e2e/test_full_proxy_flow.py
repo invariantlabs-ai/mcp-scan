@@ -49,7 +49,7 @@ async def ensure_config_file_contains_gateway(config_file, timeout=3):
 class TestFullProxyFlow:
     """Test cases for end-to-end scanning workflows."""
 
-    PORT = 9123
+    PORT = 18080
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("pretty", ["oneline", "full", "compact"])
@@ -72,6 +72,7 @@ class TestFullProxyFlow:
             "-m",
             "src.mcp_scan.run",
             "proxy",
+            # ensure we are using the right ports
             "--mcp-scan-server-port",
             str(self.PORT),
             "--port",
