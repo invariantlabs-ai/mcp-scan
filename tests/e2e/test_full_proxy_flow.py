@@ -1,6 +1,7 @@
 """End-to-end tests for complete MCP scanning workflow."""
 
 import asyncio
+import os
 import subprocess
 import time
 
@@ -85,7 +86,9 @@ class TestFullProxyFlow:
         command.append(toy_server_add_config_file)
 
         # start process in background
-        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        process = subprocess.Popen(
+            command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env={**os.environ, "COLUMNS": "256"}
+        )
 
         # wait for gateway to be installed
         if not (await ensure_config_file_contains_gateway(toy_server_add_config_file)):
