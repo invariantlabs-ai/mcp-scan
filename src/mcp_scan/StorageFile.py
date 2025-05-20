@@ -7,9 +7,8 @@ from datetime import datetime
 
 import rich
 import yaml  # type: ignore
-from pydantic import ValidationError
-
 from mcp_scan_server.models import GuardrailConfigFile
+from pydantic import ValidationError
 
 from .models import Entity, ScannedEntities, ScannedEntity, entity_type_to_str, hash_entity
 from .utils import upload_whitelist_entry
@@ -173,6 +172,10 @@ class StorageFile:
         """
         guardrails_config_path = os.path.join(self.path, "guardrails_config.yml")
         if not os.path.exists(guardrails_config_path):
+            if not os.path.exists(self.path):
+                os.makedirs(self.path, exist_ok=True)
+            logger.debug("Creating guardrails config file at: %s", guardrails_config_path)
+
             with open(guardrails_config_path, "w") as f:
                 if self.guardrails_config is not None:
                     f.write(self.guardrails_config.model_dump_yaml())
