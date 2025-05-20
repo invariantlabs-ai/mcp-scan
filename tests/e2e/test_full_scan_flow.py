@@ -36,7 +36,15 @@ class TestFullScanFlow:
         except json.JSONDecodeError:
             pytest.fail("Failed to parse JSON output")
 
-    def test_scan(self):
+    @pytest.mark.parametrize(
+        "path, server_names",
+        [
+            ("tests/mcp_servers/configs_files/weather_config.json", ["Weather"]),
+            ("tests/mcp_servers/configs_files/math_config.json", ["Math"]),
+            ("tests/mcp_servers/configs_files/all_config.json", ["Weather", "Math"]),
+        ],
+    )
+    def test_scan(self, path, server_names):
         path = "tests/mcp_servers/configs_files/all_config.json"
         result = subprocess.run(
             ["uv", "run", "-m", "src.mcp_scan.run", "scan", "--json", path],
@@ -53,20 +61,24 @@ class TestFullScanFlow:
             with open(f"tests/mcp_servers/signatures/{server['name'].lower()}_server_signature.json") as f:
                 assert server["signature"] == json.load(f), f"Signature mismatch for {server['name']} server"
         
-        assert results["Weather"] == [{
-            'changed': None,
-            'messages': [],
-            'status': None,
-            'verified': True,
-            'whitelisted': None,
-        }]
-        assert results["Math"] == [{
-            'changed': None,
-            'messages': [],
-            'status': None,
-            'verified': True,
-            'whitelisted': None,
-        }] * 4
+        expected_results = {
+            "Weather": [{
+                    'changed': None,
+                    'messages': [],
+                    'status': None,
+                    'verified': True,
+                    'whitelisted': None,
+                }],
+            "Math": [{
+                    'changed': None,
+                    'messages': [],
+                    'status': None,
+                    'verified': True,
+                    'whitelisted': None,
+                }] * 4,
+        }
+        for server_name in server_names:
+            assert results[server_name] == expected_results[server_name], f"Results mismatch for {server_name} server"
 
     def test_inspect(self):
         path = "tests/mcp_servers/configs_files/all_config.json"
