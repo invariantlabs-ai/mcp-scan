@@ -190,9 +190,7 @@ class MCPGatewayInstaller:
                 f.write(config.model_dump_json(indent=4) + "\n")
                 # flush the file to disk
                 f.flush()
-            # read it again and print it
-            with open(os.path.expanduser(path)) as f:
-                print(os.path.expanduser(path), f.read())
+                os.fsync(f.fileno())
 
     async def uninstall(self, verbose: bool = False) -> None:
         for path in self.paths:
