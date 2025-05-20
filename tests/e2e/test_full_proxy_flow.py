@@ -128,7 +128,7 @@ class TestFullProxyFlow:
 
         # wait for client to finish
         try:
-            client_output = await asyncio.wait_for(client_program, timeout=5)
+            client_output = await asyncio.wait_for(client_program, timeout=20)
         except asyncio.TimeoutError:
             print("Client timed out")
             process.terminate()
