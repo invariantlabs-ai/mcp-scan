@@ -12,6 +12,18 @@ from mcp import ClientSession
 from mcp_scan.mcp_client import get_client, scan_mcp_config_file
 
 
+# Helper function to safely decode subprocess output
+def safe_decode(bytes_output, encoding="utf-8", errors="replace"):
+    """Safely decode subprocess output, handling potential Unicode errors"""
+    if bytes_output is None:
+        return ""
+    try:
+        return bytes_output.decode(encoding)
+    except UnicodeDecodeError:
+        # Fall back to a more lenient error handler
+        return bytes_output.decode(encoding, errors=errors)
+
+
 async def run_toy_server_client(config):
     async with get_client(config) as (read, write):
         async with ClientSession(read, write) as session:
@@ -86,8 +98,18 @@ class TestFullProxyFlow:
         command.append(toy_server_add_config_file)
 
         # start process in background
+        env = {**os.environ, "COLUMNS": "256"}
+        # Ensure proper handling of Unicode on Windows
+        if os.name == "nt":  # Windows
+            # Explicitly set encoding for console on Windows
+            env["PYTHONIOENCODING"] = "utf-8"
+
         process = subprocess.Popen(
-            command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env={**os.environ, "COLUMNS": "256"}
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=env,
+            universal_newlines=False,  # Binary mode for better Unicode handling
         )
 
         # wait for gateway to be installed
@@ -104,16 +126,16 @@ class TestFullProxyFlow:
 
                     # get output
                     stdout, stderr = process.communicate()
-                    print(stdout.decode())
-                    print(stderr.decode())
+                    print(safe_decode(stdout))
+                    print(safe_decode(stderr))
 
                     assert "invariant-gateway" in content, (
                         "invariant-gateway wrapper was not found in the config file: "
                         + content
                         + "\nProcess output: "
-                        + stdout.decode()
+                        + safe_decode(stdout)
                         + "\nError output: "
-                        + stderr.decode()
+                        + safe_decode(stderr)
                     )
 
         with open(toy_server_add_config_file) as f:
@@ -136,9 +158,9 @@ class TestFullProxyFlow:
             process.terminate()
             process.wait()
             stdout, stderr = process.communicate()
-            print(stdout.decode())
-            print(stderr.decode())
-            assert False, "timed out waiting for MCP server to respond"
+            print(safe_decode(stdout))
+            print(safe_decode(stderr))
+            raise AssertionError("timed out waiting for MCP server to respond")
 
         assert int(client_output["result"]) == 3
 
@@ -150,18 +172,20 @@ class TestFullProxyFlow:
         stdout, stderr = process.communicate()
 
         # print full outputs
-        print("stdout: ", stdout.decode())
-        print("stderr: ", stderr.decode())
+        stdout_text = safe_decode(stdout)
+        stderr_text = safe_decode(stderr)
+        print("stdout: ", stdout_text)
+        print("stderr: ", stderr_text)
 
         # basic checks for the log
-        assert "used Toy to tools/list" in stdout.decode(), "basic activity log statement not found"
-        assert "call_1" in stdout.decode(), "call_1 not found in log"
+        assert "used Toy to tools/list" in stdout_text, "basic activity log statement not found"
+        assert "call_1" in stdout_text, "call_1 not found in log"
 
-        assert "call_2" in stdout.decode(), "call_2 not found in log"
-        assert "to add" in stdout.decode(), "call to 'add' not found in log"
+        assert "call_2" in stdout_text, "call_2 not found in log"
+        assert "to add" in stdout_text, "call to 'add' not found in log"
 
         # assert there is no 'address is already in use' error
-        assert "address already in use" not in stderr.decode(), (
+        assert "address already in use" not in stderr_text, (
             "mcp-scan proxy failed to start because the testing port "
             + str(self.PORT)
             + " is already in use. Please make sure to stop any other mcp-scan proxy server running on this port."
