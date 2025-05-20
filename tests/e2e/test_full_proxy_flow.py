@@ -127,7 +127,17 @@ class TestFullProxyFlow:
         client_program = run_toy_server_client(server)
 
         # wait for client to finish
-        client_output = await client_program
+        try:
+            client_output = await asyncio.wait_for(client_program, timeout=5)
+        except asyncio.TimeoutError:
+            print("Client timed out")
+            process.terminate()
+            process.wait()
+            stdout, stderr = process.communicate()
+            print(stdout.decode())
+            print(stderr.decode())
+            assert False, "timed out waiting for MCP server to respond"
+
         assert int(client_output["result"]) == 3
 
         # shut down server
