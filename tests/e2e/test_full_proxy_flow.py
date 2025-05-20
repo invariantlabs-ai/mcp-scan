@@ -62,7 +62,7 @@ async def ensure_config_file_contains_gateway(config_file, timeout=3):
 class TestFullProxyFlow:
     """Test cases for end-to-end scanning workflows."""
 
-    PORT = 18080
+    PORT = 9129
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("pretty", ["oneline", "full", "compact"])
@@ -114,6 +114,14 @@ class TestFullProxyFlow:
 
         # wait for gateway to be installed
         if not (await ensure_config_file_contains_gateway(toy_server_add_config_file)):
+            # if process is not running, raise an error
+            if process.poll() is not None:
+                # process has terminated
+                stdout, stderr = process.communicate()
+                print(safe_decode(stdout))
+                print(safe_decode(stderr))
+                raise AssertionError("process terminated before gateway was installed")
+
             # print out toy_server_add_config_file
             with open(toy_server_add_config_file) as f:
                 # assert that 'invariant-gateway' is in the file
