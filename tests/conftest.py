@@ -1,7 +1,5 @@
 """Global pytest fixtures for mcp-scan tests."""
 
-import uuid
-
 import pytest
 
 from mcp_scan.utils import TempFile
@@ -107,24 +105,24 @@ def add(a: int, b: int) -> int:
 
 @pytest.fixture
 def toy_server_add_file(toy_server_add):
-    # with TempFile(mode="w", suffix=".py") as temp_file:
-    #     temp_file.write(toy_server_add)
-    #     temp_file.flush()
-    #     yield temp_file.name.replace("\\", "/")
-
-    filename = "tmp_toy_server_" + str(uuid.uuid4()) + ".py"
-    # create the file
-    with open(filename, "w") as temp_file:
+    with TempFile(mode="w", suffix=".py") as temp_file:
         temp_file.write(toy_server_add)
         temp_file.flush()
-        temp_file.seek(0)
+        yield temp_file.name.replace("\\", "/")
 
-    # run tests
-    yield filename.replace("\\", "/")
-    # cleanup
-    import os
+    # filename = "tmp_toy_server_" + str(uuid.uuid4()) + ".py"
+    # # create the file
+    # with open(filename, "w") as temp_file:
+    #     temp_file.write(toy_server_add)
+    #     temp_file.flush()
+    #     temp_file.seek(0)
 
-    os.remove(filename)
+    # # run tests
+    # yield filename.replace("\\", "/")
+    # # cleanup
+    # import os
+
+    # os.remove(filename)
 
 
 @pytest.fixture
@@ -143,21 +141,26 @@ def toy_server_add_config(toy_server_add_file):
 
 @pytest.fixture
 def toy_server_add_config_file(toy_server_add_config):
-    filename = "tmp_config_" + str(uuid.uuid4()) + ".json"
-
-    # create the file
-    with open(filename, "w") as temp_file:
+    with TempFile(mode="w", suffix=".json") as temp_file:
         temp_file.write(toy_server_add_config)
         temp_file.flush()
-        temp_file.seek(0)
+        yield temp_file.name.replace("\\", "/")
 
-    # run tests
-    yield filename.replace("\\", "/")
+    # filename = "tmp_config_" + str(uuid.uuid4()) + ".json"
 
-    # cleanup
-    import os
+    # # create the file
+    # with open(filename, "w") as temp_file:
+    #     temp_file.write(toy_server_add_config)
+    #     temp_file.flush()
+    #     temp_file.seek(0)
 
-    os.remove(filename)
+    # # run tests
+    # yield filename.replace("\\", "/")
+
+    # # cleanup
+    # import os
+
+    # os.remove(filename)
 
 
 @pytest.fixture
