@@ -12,7 +12,6 @@ from mcp_scan.mcp_client import get_client, scan_mcp_config_file
 
 
 async def run_toy_server_client(config):
-    await asyncio.sleep(1)
     async with get_client(config) as (read, write):
         async with ClientSession(read, write) as session:
             print("[Client] Initializing connection")
@@ -25,7 +24,6 @@ async def run_toy_server_client(config):
             result = await session.call_tool("add", arguments={"a": 1, "b": 2})
             result = result.content[0].text
             print("[Client] Result: ", result)
-            await asyncio.sleep(0.2)
 
             return {
                 "result": result,
