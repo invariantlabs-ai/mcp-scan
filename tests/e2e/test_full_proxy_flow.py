@@ -146,6 +146,10 @@ class TestFullProxyFlow:
         # collect proxy server output
         stdout, stderr = process.communicate()
 
+        # print full outputs
+        print("stdout: ", stdout.decode())
+        print("stderr: ", stderr.decode())
+
         # basic checks for the log
         assert "used Toy to tools/list" in stdout.decode(), "basic activity log statement not found"
         assert "call_1" in stdout.decode(), "call_1 not found in log"
