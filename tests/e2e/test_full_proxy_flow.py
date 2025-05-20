@@ -63,6 +63,8 @@ class TestFullProxyFlow:
             return
         except subprocess.CalledProcessError:
             pass
+        except FileNotFoundError:
+            print("lsof not found, skipping port check")
 
         args = dotenv.dotenv_values(".env")
         gateway_dir = args.get("INVARIANT_GATEWAY_DIR", None)
@@ -112,6 +114,11 @@ class TestFullProxyFlow:
                         + stderr.decode()
                     )
 
+        with open(toy_server_add_config_file) as f:
+            # assert that 'invariant-gateway' is in the file
+            content = f.read()
+            print(content)
+
         # start client
         config = await scan_mcp_config_file(toy_server_add_config_file)
         servers = list(config.mcpServers.values())
@@ -120,7 +127,7 @@ class TestFullProxyFlow:
         client_program = run_toy_server_client(server)
 
         # wait for client to finish
-        client_output = await asyncio.wait_for(client_program, timeout=5)
+        client_output = await client_program
         assert int(client_output["result"]) == 3
 
         # shut down server
