@@ -2,6 +2,7 @@
 
 import asyncio
 import subprocess
+import time
 
 import dotenv
 import pytest
@@ -31,6 +32,22 @@ async def run_toy_server_client(config):
                 "tools": tools.tools,
             }
     return result
+
+
+async def ensure_config_file_contains_gateway(config_file, timeout=10):
+    s = time.time()
+    content = ""
+
+    while True:
+        with open(config_file) as f:
+            content = f.read()
+            if "invariant-gateway" in content:
+                return True
+        await asyncio.sleep(0.1)
+        if time.time() - s > timeout:
+            raise TimeoutError(
+                "Timeout waiting for config file to contain 'invariant-gateway'. Last contents: " + content
+            )
 
 
 class TestFullProxyFlow:
@@ -70,7 +87,9 @@ class TestFullProxyFlow:
 
         # start process in background
         process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        await asyncio.sleep(1)
+
+        # wait for gateway to be installed
+        await ensure_config_file_contains_gateway(toy_server_add_config_file)
 
         # print out toy_server_add_config_file
         with open(toy_server_add_config_file) as f:
