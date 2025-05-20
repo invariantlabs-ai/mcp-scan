@@ -34,7 +34,7 @@ def format_error(e: ScanError) -> tuple[str, rTraceback | None]:
 
 
 def format_path_line(path: str, status: str | None, operation: str = "Scanning") -> Text:
-    text = f"● {operation} [bold]{path}[/bold] [gray62]{status or ''}[/gray62]"
+    text = f"* {operation} [bold]{path}[/bold] [gray62]{status or ''}[/gray62]"
     return Text.from_markup(text)
 
 
