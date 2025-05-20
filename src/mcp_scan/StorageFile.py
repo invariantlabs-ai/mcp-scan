@@ -172,6 +172,7 @@ class StorageFile:
         """
         guardrails_config_path = os.path.join(self.path, "guardrails_config.yml")
         if not os.path.exists(guardrails_config_path):
+            # make sure the directory exists (otherwise the write below will fail)
             if not os.path.exists(self.path):
                 os.makedirs(self.path, exist_ok=True)
             logger.debug("Creating guardrails config file at: %s", guardrails_config_path)
