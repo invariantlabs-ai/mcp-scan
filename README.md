@@ -18,7 +18,7 @@ MCP-Scan is a security scanning tool designed to both statically and dynamically
 
 
 ## Quick Start
-To run a static MCP-Scan, use the following command:
+To run MCP-Scan statically, use the following command:
 
 ```bash
 uvx mcp-scan@latest
@@ -92,7 +92,7 @@ Options:
 
 #### proxy
 
-Run a proxy server to monitor and guardrail system-wide MCP traffic in real-time. Temporarily sets injects [Gateway](https://github.com/invariantlabs-ai/invariant-gateway) into MCP server configurations, to intercept and analyze traffic. Removes Gateway again after the `proxy` command exits.
+Run a proxy server to monitor and guardrail system-wide MCP traffic in real-time. Temporarily injects [Gateway](https://github.com/invariantlabs-ai/invariant-gateway) into MCP server configurations, to intercept and analyze traffic. Removes Gateway again after the `proxy` command exits.
 
 ```
 mcp-scan proxy [CONFIG_FILE...] [--pretty oneline|compact|full]
