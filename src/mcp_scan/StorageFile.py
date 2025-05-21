@@ -7,7 +7,7 @@ from datetime import datetime
 
 import rich
 import yaml  # type: ignore
-from mcp_scan_server.models import GuardrailConfigFile
+from mcp_scan_server.models import DEFAULT_GUARDRAIL_CONFIG, GuardrailConfigFile
 from pydantic import ValidationError
 
 from .models import Entity, ScannedEntities, ScannedEntity, entity_type_to_str, hash_entity
@@ -179,7 +179,7 @@ class StorageFile:
 
             with open(guardrails_config_path, "w") as f:
                 if self.guardrails_config is not None:
-                    f.write(self.guardrails_config.model_dump_yaml())
+                    f.write(DEFAULT_GUARDRAIL_CONFIG)
         return guardrails_config_path
 
     def save(self) -> None:

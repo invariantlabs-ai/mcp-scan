@@ -8,6 +8,7 @@ from fastapi import FastAPI, Response
 
 from mcp_scan_server.activity_logger import setup_activity_logger  # type: ignore
 
+from .routes.policies import load_guardrails_config_file
 from .routes.policies import router as policies_router  # type: ignore
 from .routes.push import router as push_router
 from .routes.trace import router as dataset_trace_router
@@ -63,9 +64,13 @@ class MCPScanServer:
 
     async def on_startup(self):
         """Startup event for the FastAPI app."""
-        rich.print("[bold green]MCP-scan server started (port http://localhost:" + str(self.port) + ")[/bold green]")
+        rich.print("[bold green]MCP-scan server started (http://localhost:" + str(self.port) + ")[/bold green]")
 
+        # setup activity logger
         setup_activity_logger(self.app, pretty=self.pretty)
+
+        # load config file to validate
+        await load_guardrails_config_file(self.config_file_path)
 
     async def life_span(self, app: FastAPI):
         """Lifespan event for the FastAPI app."""

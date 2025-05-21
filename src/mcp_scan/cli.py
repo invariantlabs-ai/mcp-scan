@@ -121,7 +121,7 @@ def add_server_arguments(parser):
     server_group.add_argument(
         "--pretty",
         type=str,
-        default="oneline",
+        default="compact",
         choices=["oneline", "compact", "full", "none"],
         help="Pretty print the output (default: compact)",
     )
@@ -484,6 +484,7 @@ def main():
         asyncio.run(install())
         print("[Proxy installed, you may need to restart/reload your MCP clients to use it]")
         server(on_exit=uninstall)
+        sys.exit(0)
     else:
         # This shouldn't happen due to argparse's handling
         rich.print(f"[bold red]Unknown command: {args.command}[/bold red]")

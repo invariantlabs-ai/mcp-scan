@@ -6,6 +6,21 @@ import yaml  # type: ignore
 from invariant.analyzer.policy import AnalysisResult
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
+# default guardrail config is a commented out example
+DEFAULT_GUARDRAIL_CONFIG = """# client-name:  # the client shorthand (e.g. claude, cursor, vscode, windsurf)
+#   arxiv-mcp-server:  # the server name as defined in the server config
+#     guardrails:
+#       pii: block  # configure individual guardrails
+      
+#       custom_guardrails:  # List of custom guardrails
+#         - name: "Custom Guardrail"
+#           id: "custom_guardrail_1"
+#           action: block
+#           content: |
+#             raise "Error" if:
+#               (msg: ToolOutput)
+#               "error" in msg.content"""
+
 
 class PolicyRunsOn(str, Enum):
     """Policy runs on enum."""

@@ -1,3 +1,4 @@
+import logging
 import os
 from functools import lru_cache
 from pathlib import Path
@@ -17,6 +18,8 @@ from mcp_scan_server.models import (
     GuardrailMode,
     ServerGuardrailConfig,
 )
+
+logger = logging.getLogger(__name__)
 
 # Naming scheme for guardrails:
 # - default guardrails are guardrails that are implicit and always applied
@@ -326,6 +329,7 @@ async def parse_config(
         A list of DatasetPolicy objects with all guardrails.
     """
     policies: list[DatasetPolicy] = []
+    found = False
 
     for client, client_config in config.items():
         if (client_name and client != client_name) or not client_config:
@@ -334,6 +338,8 @@ async def parse_config(
         for server, server_config in client_config.items():
             if server_name and server != server_name:
                 continue
+            # mark as found
+            found = True
 
             # Parse guardrails for this client-server pair
             server_shorthands = parse_server_shorthand_guardrails(server_config)
@@ -343,6 +349,11 @@ async def parse_config(
             # Collect and resolve guardrails
             policies.extend(collect_guardrails(server_shorthands, tool_shorthands, disabled_tools, client, server))
             policies.extend(custom_guardrails)
+
+    if not found:
+        logger.warning(
+            "No guardrails found for client '%s' and server '%s'. Using default guardrails.", client_name, server_name
+        )
 
     # Create all default guardrails if no guardrails are configured
     if len(policies) == 0:
