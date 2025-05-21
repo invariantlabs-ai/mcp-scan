@@ -7,17 +7,19 @@ from invariant.analyzer.policy import AnalysisResult
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
 # default guardrail config is a commented out example
-DEFAULT_GUARDRAIL_CONFIG = """# client-name:  # the client shorthand (e.g. claude, cursor, vscode, windsurf)
-#   arxiv-mcp-server:  # the server name as defined in the server config
+DEFAULT_GUARDRAIL_CONFIG = """# # configure your custom MCP guardrails here (documentation: https://explorer.invariantlabs.ai/docs/mcp-scan/guardrails/)
+# <client-name>:  # your client's shorthand (e.g., cursor, claude, windsurf)
+#   <server-name>:  # your server's name according to the mcp config (e.g., whatsapp-mcp)
 #     guardrails:
-#       pii: block  # configure individual guardrails
-      
-#       custom_guardrails:  # List of custom guardrails
-#         - name: "Custom Guardrail"
-#           id: "custom_guardrail_1"
-#           action: block
+#       secrets: block # block calls/results with secrets
+
+#       custom_guardrails:
+#         # define a rule using Invariant Guardrails, https://explorer.invariantlabs.ai/docs/guardrails/
+#         - name: "Filter tool results with 'error'"
+#           id: "error_filter_guardrail"
+#           action: block # or 'log'
 #           content: |
-#             raise "Error" if:
+#             raise "An error was found." if:
 #               (msg: ToolOutput)
 #               "error" in msg.content"""
 
