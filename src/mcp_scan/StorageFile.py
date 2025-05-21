@@ -6,6 +6,8 @@ import os
 from datetime import datetime
 
 import rich
+import yaml  # type: ignore
+from mcp_scan_server.models import GuardrailConfigFile
 from pydantic import ValidationError
 
 from .models import Entity, ScannedEntities, ScannedEntity, entity_type_to_str, hash_entity
@@ -19,16 +21,22 @@ class StorageFile:
     def __init__(self, path: str):
         logger.debug("Initializing StorageFile with path: %s", path)
         self.path = os.path.expanduser(path)
+
         logger.debug("Expanded path: %s", self.path)
         # if path is a file
         self.scanned_entities: ScannedEntities = ScannedEntities({})
         self.whitelist: dict[str, str] = {}
+        self.guardrails_config: GuardrailConfigFile = GuardrailConfigFile()
 
-        if os.path.isfile(path):
-            msg = f"Legacy storage file detected at {path}, converting to new format"
-            logger.info(msg)
-            rich.print(f"[bold]{msg}[/bold]")
+        if os.path.isfile(self.path):
+            rich.print(f"[bold]Legacy storage file detected at {self.path}, converting to new format[/bold]")
             # legacy format
+            with open(self.path) as f:
+                legacy_data = json.load(f)
+            if "__whitelist" in legacy_data:
+                self.whitelist = legacy_data["__whitelist"]
+                del legacy_data["__whitelist"]
+
             try:
                 logger.debug("Loading legacy format file")
                 with open(path) as f:
@@ -52,6 +60,7 @@ class StorageFile:
         if os.path.exists(path) and os.path.isdir(path):
             logger.debug("Path exists and is a directory: %s", path)
             scanned_entities_path = os.path.join(path, "scanned_entities.json")
+
             if os.path.exists(scanned_entities_path):
                 logger.debug("Loading scanned entities from: %s", scanned_entities_path)
                 with open(scanned_entities_path) as f:
@@ -68,6 +77,22 @@ class StorageFile:
                 with open(whitelist_path) as f:
                     self.whitelist = json.load(f)
                     logger.info("Successfully loaded whitelist with %d entries", len(self.whitelist))
+
+            guardrails_config_path = os.path.join(self.path, "guardrails_config.yml")
+            if os.path.exists(guardrails_config_path):
+                with open(guardrails_config_path) as f:
+                    try:
+                        guardrails_config_data = yaml.safe_load(f.read()) or {}
+                        self.guardrails_config = GuardrailConfigFile.model_validate(guardrails_config_data)
+                    except yaml.YAMLError as e:
+                        rich.print(
+                            f"[bold red]Could not parse guardrails config file {guardrails_config_path}: {e}[/bold red]"
+                        )
+                    except ValidationError as e:
+                        rich.print(
+                            f"[bold red]Could not validate guardrails config file "
+                            f"{guardrails_config_path}: {e}[/bold red]"
+                        )
 
     def reset_whitelist(self) -> None:
         logger.info("Resetting whitelist")
@@ -138,6 +163,24 @@ class StorageFile:
         result = hash in self.whitelist.values()
         logger.debug("Checking if entity %s is whitelisted: %s", entity.name, result)
         return result
+
+    def create_guardrails_config(self) -> str:
+        """
+        If the guardrails config file does not exist, create it with default values.
+
+        Returns the path to the guardrails config file.
+        """
+        guardrails_config_path = os.path.join(self.path, "guardrails_config.yml")
+        if not os.path.exists(guardrails_config_path):
+            # make sure the directory exists (otherwise the write below will fail)
+            if not os.path.exists(self.path):
+                os.makedirs(self.path, exist_ok=True)
+            logger.debug("Creating guardrails config file at: %s", guardrails_config_path)
+
+            with open(guardrails_config_path, "w") as f:
+                if self.guardrails_config is not None:
+                    f.write(self.guardrails_config.model_dump_yaml())
+        return guardrails_config_path
 
     def save(self) -> None:
         logger.info("Saving storage data to %s", self.path)

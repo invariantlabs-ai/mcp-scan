@@ -11,12 +11,16 @@ classifiers = [
 dependencies = [
     "mcp[cli]==1.7.1",
     "rich>=14.0.0",
+    "pyjson5>=1.6.8",
     "aiofiles>=23.1.0",
     "types-aiofiles",
-    "pyjson5>=1.6.8",
     "pydantic>=2.11.2",
     "lark>=1.1.9",
     "psutil>=5.9.0",
+    "fastapi>=0.115.12",
+    "uvicorn>=0.34.2",
+    "invariant-sdk>=0.0.11",
+    "pyyaml>=6.0.2",
     "regex>=2024.11.6",
     "aiohttp>=3.11.16",
     "rapidfuzz>=3.13.0",
@@ -36,7 +40,9 @@ packages = ["mcp_scan"]
 [project.optional-dependencies]
 test = [
     "pytest>=7.4.0",
-    "anyio>=4.0.0"
+    "pytest-lazy-fixtures>=1.1.2",
+    "pytest-asyncio>=0.26.0",
+    "trio>=0.30.0",
 ]
 dev = [
     "shiv>=1.0.4",
@@ -80,6 +86,8 @@ ignore = [
     "D106",   # Missing docstring in public nested class
     "D107",   # Missing docstring in __init__
     "SIM117", # nested with
+    "B008", # Allow Depends(...) in default arguments
+    "E501" # line too long
 ]
 
 [tool.ruff.lint.per-file-ignores]

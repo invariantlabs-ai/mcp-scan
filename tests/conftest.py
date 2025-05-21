@@ -2,11 +2,7 @@
 
 import pytest
 
-
-@pytest.fixture
-def sample_fixture():
-    """Sample fixture for demonstration purposes."""
-    return "sample_value"
+from mcp_scan.utils import TempFile
 
 
 @pytest.fixture
@@ -20,6 +16,14 @@ def claudestyle_config():
         }
     }
 }"""
+
+
+@pytest.fixture
+def claudestyle_config_file(claudestyle_config):
+    with TempFile(mode="w") as temp_file:
+        temp_file.write(claudestyle_config)
+        temp_file.flush()
+        yield temp_file.name
 
 
 @pytest.fixture
@@ -51,6 +55,14 @@ def vscode_mcp_config():
 
 
 @pytest.fixture
+def vscode_mcp_config_file(vscode_mcp_config):
+    with TempFile(mode="w") as temp_file:
+        temp_file.write(vscode_mcp_config)
+        temp_file.flush()
+        yield temp_file.name
+
+
+@pytest.fixture
 def vscode_config():
     """Sample VSCode settings.json with MCP config."""
     return """// settings.json
@@ -68,6 +80,89 @@ def vscode_config():
 
 
 @pytest.fixture
-def sample_configs(claudestyle_config, vscode_mcp_config, vscode_config):
-    """List of all sample configs."""
-    return [claudestyle_config, vscode_mcp_config, vscode_config]
+def vscode_config_file(vscode_config):
+    with TempFile(mode="w") as temp_file:
+        temp_file.write(vscode_config)
+        temp_file.flush()
+        yield temp_file.name
+
+
+@pytest.fixture
+def toy_server_add():
+    """Example toy server from the mcp docs."""
+    return """
+from mcp.server.fastmcp import FastMCP
+
+# Create an MCP server
+mcp = FastMCP("Demo")
+
+# Add an addition tool
+@mcp.tool()
+def add(a: int, b: int) -> int:
+    return a + b
+"""
+
+
+@pytest.fixture
+def toy_server_add_file(toy_server_add):
+    with TempFile(mode="w", suffix=".py") as temp_file:
+        temp_file.write(toy_server_add)
+        temp_file.flush()
+        yield temp_file.name.replace("\\", "/")
+
+    # filename = "tmp_toy_server_" + str(uuid.uuid4()) + ".py"
+    # # create the file
+    # with open(filename, "w") as temp_file:
+    #     temp_file.write(toy_server_add)
+    #     temp_file.flush()
+    #     temp_file.seek(0)
+
+    # # run tests
+    # yield filename.replace("\\", "/")
+    # # cleanup
+    # import os
+
+    # os.remove(filename)
+
+
+@pytest.fixture
+def toy_server_add_config(toy_server_add_file):
+    return f"""
+    {{
+    "mcpServers": {{
+        "toy": {{
+            "command": "mcp",
+            "args": ["run", "{toy_server_add_file}"]
+        }}
+    }}
+    }}
+    """
+
+
+@pytest.fixture
+def toy_server_add_config_file(toy_server_add_config):
+    with TempFile(mode="w", suffix=".json") as temp_file:
+        temp_file.write(toy_server_add_config)
+        temp_file.flush()
+        yield temp_file.name.replace("\\", "/")
+
+    # filename = "tmp_config_" + str(uuid.uuid4()) + ".json"
+
+    # # create the file
+    # with open(filename, "w") as temp_file:
+    #     temp_file.write(toy_server_add_config)
+    #     temp_file.flush()
+    #     temp_file.seek(0)
+
+    # # run tests
+    # yield filename.replace("\\", "/")
+
+    # # cleanup
+    # import os
+
+    # os.remove(filename)
+
+
+@pytest.fixture
+def math_server_config_path():
+    return "tests/mcp_servers/mcp_config.json"

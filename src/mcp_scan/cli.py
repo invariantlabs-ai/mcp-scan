@@ -1,16 +1,22 @@
 import argparse
+import asyncio
 import json
 import logging
 import sys
 
 import psutil
 import rich
+from invariant.__main__ import add_extra
+from mcp_scan_server.server import MCPScanServer
 from rich.logging import RichHandler
 
-from mcp_scan.MCPScanner import MCPScanner
-from mcp_scan.printer import print_scan_result
-from mcp_scan.StorageFile import StorageFile
-from mcp_scan.version import version_info
+from mcp_scan.gateway import MCPGatewayConfig, MCPGatewayInstaller
+
+from .MCPScanner import MCPScanner
+from .paths import WELL_KNOWN_MCP_PATHS, client_shorthands_to_paths
+from .printer import print_scan_result
+from .StorageFile import StorageFile
+from .version import version_info
 
 # Configure logging to suppress all output by default
 logging.getLogger().setLevel(logging.CRITICAL + 1)  # Higher than any standard level
@@ -57,34 +63,6 @@ def get_invoking_name():
 
 def str2bool(v: str) -> bool:
     return v.lower() in ("true", "1", "t", "y", "yes")
-
-
-if sys.platform == "linux" or sys.platform == "linux2":
-    WELL_KNOWN_MCP_PATHS = [
-        "~/.codeium/windsurf/mcp_config.json",  # windsurf
-        "~/.cursor/mcp.json",  # cursor
-        "~/.vscode/mcp.json",  # vscode
-        "~/.config/Code/User/settings.json",  # vscode linux
-    ]
-elif sys.platform == "darwin":
-    # OS X
-    WELL_KNOWN_MCP_PATHS = [
-        "~/.codeium/windsurf/mcp_config.json",  # windsurf
-        "~/.cursor/mcp.json",  # cursor
-        "~/Library/Application Support/Claude/claude_desktop_config.json",  # Claude Desktop mac
-        "~/.vscode/mcp.json",  # vscode
-        "~/Library/Application Support/Code/User/settings.json",  # vscode mac
-    ]
-elif sys.platform == "win32":
-    WELL_KNOWN_MCP_PATHS = [
-        "~/.codeium/windsurf/mcp_config.json",  # windsurf
-        "~/.cursor/mcp.json",  # cursor
-        "~/AppData/Roaming/Claude/claude_desktop_config.json",  # Claude Desktop windows
-        "~/.vscode/mcp.json",  # vscode
-        "~/AppData/Roaming/Code/User/settings.json",  # vscode windows
-    ]
-else:
-    WELL_KNOWN_MCP_PATHS = []
 
 
 def add_common_arguments(parser):
@@ -140,9 +118,98 @@ def add_server_arguments(parser):
         help="Suppress stdout/stderr from MCP servers (default: True)",
         metavar="BOOL",
     )
+    server_group.add_argument(
+        "--pretty",
+        type=str,
+        default="oneline",
+        choices=["oneline", "compact", "full", "none"],
+        help="Pretty print the output (default: compact)",
+    )
+    server_group.add_argument(
+        "--install-extras",
+        nargs="+",
+        default=None,
+        help="Install extras for the Invariant Gateway - use 'all' or a space-separated list of extras",
+        metavar="EXTRA",
+    )
 
 
-async def main():
+def add_install_arguments(parser):
+    parser.add_argument(
+        "files",
+        type=str,
+        nargs="*",
+        default=WELL_KNOWN_MCP_PATHS,
+        help=(
+            "Different file locations to scan. "
+            "This can include custom file locations as long as "
+            "they are in an expected format, including Claude, "
+            "Cursor or VSCode format."
+        ),
+    )
+    parser.add_argument(
+        "--project_name",
+        type=str,
+        default="mcp-gateway",
+        help="Project name for the Invariant Gateway",
+    )
+    parser.add_argument(
+        "--api-key",
+        type=str,
+        help="API key for the Invariant Gateway",
+    )
+    parser.add_argument(
+        "--local-only",
+        default=False,
+        action="store_true",
+        help="Prevent pushing traces to the explorer.",
+    )
+    parser.add_argument(
+        "--gateway-dir",
+        type=str,
+        help="Source directory for the Invariant Gateway. Set this, if you want to install a custom gateway implementation. (default: the published package is used).",
+        default=None,
+    )
+    parser.add_argument(
+        "--mcp-scan-server-port",
+        type=int,
+        default=8129,
+        help="MCP scan server port (default: 8129).",
+        metavar="PORT",
+    )
+
+
+def add_uninstall_arguments(parser):
+    parser.add_argument(
+        "files",
+        type=str,
+        nargs="*",
+        default=WELL_KNOWN_MCP_PATHS,
+        help=(
+            "Different file locations to scan. "
+            "This can include custom file locations as long as "
+            "they are in an expected format, including Claude, Cursor or VSCode format."
+        ),
+    )
+
+
+def check_install_args(args):
+    if args.command == "install" and not args.local_only and not args.api_key:
+        # prompt for api key
+        print(
+            "To install mcp-scan with remote logging, you need an Invariant API key (https://explorer.invariantlabs.ai/settings).\n"
+        )
+        args.api_key = input("API key (or just press enter to install with --local-only): ")
+        if not args.api_key:
+            args.local_only = True
+
+
+def install_extras(args):
+    if hasattr(args, "install_extras") and args.install_extras:
+        add_extra(*args.install_extras, "-y")
+
+
+def main():
     # Create main parser with description
     program_name = get_invoking_name()
     parser = argparse.ArgumentParser(
@@ -268,6 +335,13 @@ async def main():
         help="Hash of the entity to whitelist",
         metavar="HASH",
     )
+    # install
+    install_parser = subparsers.add_parser("install", help="Install Invariant Gateway")
+    add_install_arguments(install_parser)
+
+    # uninstall
+    uninstall_parser = subparsers.add_parser("uninstall", help="Uninstall Invariant Gateway")
+    add_uninstall_arguments(uninstall_parser)
 
     # HELP command
     help_parser = subparsers.add_parser(  # noqa: F841
@@ -276,15 +350,77 @@ async def main():
         description="Display detailed help information and examples.",
     )
 
+    # SERVER command
+    server_parser = subparsers.add_parser("server", help="Start the MCP scan server")
+    server_parser.add_argument(
+        "--port",
+        type=int,
+        default=8129,
+        help="Port to run the server on (default: 8129)",
+        metavar="PORT",
+    )
+    add_common_arguments(server_parser)
+    add_server_arguments(server_parser)
+
+    # PROXY command
+    proxy_parser = subparsers.add_parser("proxy", help="Installs and proxies MCP requests, uninstalls on exit")
+    proxy_parser.add_argument(
+        "--port",
+        type=int,
+        default=8129,
+        help="Port to run the server on (default: 8129)",
+        metavar="PORT",
+    )
+    add_common_arguments(proxy_parser)
+    add_server_arguments(proxy_parser)
+    add_install_arguments(proxy_parser)
+
     # Parse arguments (default to 'scan' if no command provided)
     args = parser.parse_args(["scan"] if len(sys.argv) == 1 else None)
 
+    # postprocess the files argument (if shorthands are used)
+    if hasattr(args, "files") and args.files is None:
+        args.files = client_shorthands_to_paths(args.files)
+
     # Display version banner
-    if not args.json:
+    if not (hasattr(args, "json") and args.json):
         rich.print(f"[bold blue]Invariant MCP-scan v{version_info}[/bold blue]\n")
 
+    async def install():
+        try:
+            check_install_args(args)
+        except argparse.ArgumentError as e:
+            parser.error(e)
+
+        invariant_api_url = (
+            f"http://localhost:{args.mcp_scan_server_port}" if args.local_only else "https://explorer.invariantlabs.ai"
+        )
+        installer = MCPGatewayInstaller(paths=args.files, invariant_api_url=invariant_api_url)
+        await installer.install(
+            gateway_config=MCPGatewayConfig(
+                project_name=args.project_name,
+                push_explorer=True,
+                api_key=args.api_key or "",
+                source_dir=args.gateway_dir,
+            ),
+            verbose=True,
+        )
+
+    async def uninstall():
+        installer = MCPGatewayInstaller(paths=args.files)
+        await installer.uninstall(verbose=True)
+
+    def server(on_exit=None):
+        sf = StorageFile(args.storage_file)
+        guardrails_config_path = sf.create_guardrails_config()
+        mcp_scan_server = MCPScanServer(
+            port=args.port, config_file_path=guardrails_config_path, on_exit=on_exit, pretty=args.pretty
+        )
+        mcp_scan_server.run()
+
     # Set up logging if verbose flag is enabled
-    setup_logging(args.verbose or False)
+    do_log = hasattr(args, "verbose") and args.verbose
+    setup_logging(do_log)
 
     # Handle commands
     if args.command == "help":
@@ -313,7 +449,13 @@ async def main():
             whitelist_parser.print_help()
             sys.exit(1)
     elif args.command == "inspect":
-        await run_scan_inspect(mode="inspect", args=args)
+        asyncio.run(run_scan_inspect(mode="inspect", args=args))
+        sys.exit(0)
+    elif args.command == "install":
+        asyncio.run(install())
+        sys.exit(0)
+    elif args.command == "uninstall":
+        asyncio.run(uninstall())
         sys.exit(0)
     elif args.command == "whitelist":
         if args.reset:
@@ -330,8 +472,18 @@ async def main():
             rich.print("[bold red]Please provide a name and hash.[/bold red]")
             sys.exit(1)
     elif args.command == "scan" or args.command is None:  # default to scan
-        await run_scan_inspect(args=args)
+        asyncio.run(run_scan_inspect(args=args))
         sys.exit(0)
+    elif args.command == "server":
+        install_extras(args)
+        server()
+        sys.exit(0)
+    elif args.command == "proxy":
+        args.local_only = True
+        install_extras(args)
+        asyncio.run(install())
+        print("[Proxy installed, you may need to restart/reload your MCP clients to use it]")
+        server(on_exit=uninstall)
     else:
         # This shouldn't happen due to argparse's handling
         rich.print(f"[bold red]Unknown command: {args.command}[/bold red]")
@@ -350,4 +502,8 @@ async def run_scan_inspect(mode="scan", args=None):
         result = {r.path: r.model_dump() for r in result}
         print(json.dumps(result, indent=2))
     else:
-        print_scan_result(result, args.print_errors)
+        print_scan_result(result)
+
+
+if __name__ == "__main__":
+    main()
