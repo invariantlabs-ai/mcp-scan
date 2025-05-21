@@ -189,7 +189,7 @@ class TestFullProxyFlow:
         print("stderr: ", stderr_text)
 
         # basic checks for the log
-        assert "used Toy to tools/list" in stdout_text, "basic activity log statement not found"
+        assert "used toy to tools/list" in stdout_text, "basic activity log statement not found"
         assert "call_1" in stdout_text, "call_1 not found in log"
 
         assert "call_2" in stdout_text, "call_2 not found in log"
