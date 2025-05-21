@@ -3,7 +3,19 @@
 [<img src="https://devin.ai/assets/deepwiki-badge.png" alt="Ask DeepWiki.com" height="20"/>](https://deepwiki.com/invariantlabs-ai/mcp-scan)
 <a href="https://discord.gg/dZuZfhKnJ4"><img src="https://img.shields.io/discord/1265409784409231483?style=plastic&logo=discord&color=blueviolet&logoColor=white" height=18/></a>
 
+[Documentation](https://explorer.invariantlabs.ai/docs/mcp-scan)
+
 MCP-Scan is a security scanning tool designed to both statically and dynamically scan and monitor your installed MCP servers and check them for common security vulnerabilities like [prompt injections](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks), [tool poisoning](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks) and [cross-origin escalations](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks).
+
+## Features
+
+- Scanning of Claude, Cursor, Windsurf, and other file-based MCP client configurations
+- Scanning for prompt injection attacks in tools and [tool poisoning attacks](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks) using [Guardrails](https://github.com/invariantlabs-ai/invariant?tab=readme-ov-file#analyzer)
+- Audit MCP calls in real-time using runtime monitoring of MCP traffic using [`mcp-scan proxy`](#proxy)
+- Enforce guardrailing policies on tool calls and responses, including PII detection, secrets detection, tool restrictions and [entirely custom guardrailing policies](https://explorer.invariantlabs.ai/docs/mcp-scan/guardrails).
+- Detect cross-origin escalation attacks (e.g. [tool shadowing](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks))
+- Implements _tool pinning_ to detect and prevent [MCP rug pull attacks](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks), i.e. detects changes to MCP tools via hashing
+
 
 ## Quick Start
 To run a static MCP-Scan, use the following command:
@@ -20,16 +32,6 @@ npx mcp-scan@latest
 
 ### Example Run
 [![demo](demo.svg)](https://asciinema.org/a/716858)
-
-
-## Features
-
-- Scanning of Claude, Cursor, Windsurf, and other file-based MCP client configurations
-- Scanning for prompt injection attacks in tools and [tool poisoning attacks](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks) using [Guardrails](https://github.com/invariantlabs-ai/invariant?tab=readme-ov-file#analyzer)
-- Live runtime monitoring of MCP traffic using [`mcp-scan proxy`](#proxy)
-- _MCP guardrailing_ of tool calls and responses, including PII detection, secrets detection, tool restrictions and [custom guardrailing policies](https://explorer.invariantlabs.ai/docs/mcp-scan/guardrails).
-- Detection of cross-origin escalation attacks ([tool shadowing](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks))
-- _Tool Pinning_ to detect and prevent [MCP rug pull attacks](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks), i.e. detects changes to MCP tools via hashing
 
 ## How It Works
 
