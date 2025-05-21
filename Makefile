@@ -11,7 +11,7 @@ run:
 
 test:
 	uv pip install -e .[test]
-	PYTHONPATH=src uv run pytest
+	uv run pytest
 
 clean:
 	rm -rf ./dist
