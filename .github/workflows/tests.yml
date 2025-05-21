@@ -21,3 +21,18 @@ jobs:
       run: uv venv
     - name: Run tests
       run: make test
+    # build and store whl as artifact
+    - name: Build and store whl
+      run: |
+        make build
+        mkdir -p ${{ github.workspace }}/artifacts
+        cp dist/*.whl ${{ github.workspace }}/artifacts/
+      if: github.event_name == 'push'
+    # upload whl as artifact
+    - name: upload rest-result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: whl
+          path: ${{ github.workspace }}/artifacts/*.whl
+
