@@ -1,6 +1,6 @@
 [project]
 name = "mcp-scan"
-version = "0.2"
+version = "0.2.0.1"
 description = "MCP Scan tool"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -35,7 +35,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
-packages = ["mcp_scan"]
+packages = ["mcp_scan","mcp_scan_server"]
 
 [project.optional-dependencies]
 test = [
