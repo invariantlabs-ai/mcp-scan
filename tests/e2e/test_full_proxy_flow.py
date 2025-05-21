@@ -66,6 +66,11 @@ class TestFullProxyFlow:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("pretty", ["oneline", "full", "compact"])
+    # skip on windows
+    @pytest.mark.skipif(
+        os.name == "nt",
+        reason="Skipping test on Windows due to subprocess handling issues",
+    )
     async def test_basic(self, toy_server_add_config_file, pretty):
         # if available, check for 'lsof' and make sure the port is not in use
         try:
@@ -172,12 +177,10 @@ class TestFullProxyFlow:
 
         assert int(client_output["result"]) == 3
 
-        # shut down server
+        # shut down server and collect output
         process.terminate()
-        process.wait()
-
-        # collect proxy server output
         stdout, stderr = process.communicate()
+        process.wait()
 
         # print full outputs
         stdout_text = safe_decode(stdout)

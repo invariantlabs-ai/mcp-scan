@@ -237,7 +237,6 @@ class MCPGatewayInstaller:
                 f.write(
                     config.model_dump_json(
                         indent=4,
-                        exclude={"mcpServers": {key: {"type"} for key in config.mcpServers}},
                         exclude_none=True,
                     )
                     + "\n"

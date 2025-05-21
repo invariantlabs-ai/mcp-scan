@@ -102,8 +102,8 @@ class ActivityLogger:
         Console-logs the relevant parts of the given messages and metadata.
         """
         session_id = metadata.get("session_id", "<no session id>")
-        client = metadata.get("client", "Unknown Client").capitalize()
-        server = metadata.get("mcp_server", "Unknown Server").capitalize()
+        client = metadata.get("client", "Unknown Client")
+        server = metadata.get("mcp_server", "Unknown Server")
         user = metadata.get("user", None)
 
         tool_names: dict[str, str] = {}
@@ -124,6 +124,7 @@ class ActivityLogger:
                 self.log_tool_output(
                     has_header, user_portion, name, client, server, content, tool_call_id=msg.get("tool_call_id")
                 )
+                self.console.print("")
 
             else:
                 for tc in msg.get("tool_calls") or []:
@@ -141,6 +142,7 @@ class ActivityLogger:
                     call_id_portion = "(" + tc.get("id") + ")"
 
                     self.log_tool_call(user_portion, client, server, name, tool_args, call_id_portion)
+                    self.console.print("")
 
         any_error = guardrails_results and any(
             result.result is not None and len(result.result.errors) > 0 for result in guardrails_results
@@ -159,8 +161,8 @@ class ActivityLogger:
                             f"[bold red]GUARDRAIL {guardrails_action.upper()}[/bold red]",
                             format_guardrailing_errors(guardrail_result.result.errors),
                         )
-        self.console.rule()
-        self.console.print("")
+            self.console.rule()
+            self.console.print("")
 
 
 def format_guardrailing_errors(errors: list[ErrorInformation]) -> str:
