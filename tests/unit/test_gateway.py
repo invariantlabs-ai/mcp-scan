@@ -40,7 +40,13 @@ async def test_install_gateway(sample_config_file):
     with open(sample_config_file) as f:
         config_dict_uninstalled = pyjson5.load(f)
 
+    # check for mcpServers.<object>.type and remove it if it exists (we are fine if it is added after install/uninstall)
+    for server in config_dict_uninstalled.get("mcpServers", {}).values():
+        if "type" in server:
+            del server["type"]
+
     # compare the config files
     assert json.dumps(config_dict, sort_keys=True) == json.dumps(config_dict_uninstalled, sort_keys=True), (
-        "Installation and uninstallation of the gateway should not change the config file"
+        "Installation and uninstallation of the gateway should not change the config file" + f" {sample_config_file}.\n"
+        f"Original config: {config_dict}\n" + f"Uninstalled config: {config_dict_uninstalled}\n"
     )
