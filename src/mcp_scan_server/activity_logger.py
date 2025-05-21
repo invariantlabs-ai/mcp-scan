@@ -54,6 +54,7 @@ class ActivityLogger:
             try:
                 input = json.loads(input)
                 input = repr(input)
+                input = input[:400] + "..." if len(input) > 400 else input
             except ValueError:
                 pass
             return input.replace("\n", " ").replace("\r", "")
@@ -79,7 +80,7 @@ class ActivityLogger:
                     + tool_call_id
                     + f") [bold blue]{client}[/bold blue]{user_portion} used [bold green]{server}[/bold green] to [bold green]{name}[/bold green]"
                 )
-            self.console.print(compact_content(content))
+            self.console.print(compact_content(content), markup=False)
         elif self.pretty == "full":
             if not has_header:
                 self.console.rule(
@@ -87,7 +88,7 @@ class ActivityLogger:
                     + tool_call_id
                     + f") [bold blue]{client}[/bold blue]{user_portion} used [bold green]{server}[/bold green] to [bold green]{name}[/bold green]"
                 )
-            self.console.print(full_content(content))
+            self.console.print(full_content(content), markup=False)
         elif self.pretty == "none":
             pass
 
@@ -193,7 +194,7 @@ async def get_activity_logger(request: Request) -> ActivityLogger:
     return request.app.state.activity_logger
 
 
-def setup_activity_logger(app: FastAPI, pretty: Literal["oneline", "compact", "full"] = "compact"):
+def setup_activity_logger(app: FastAPI, pretty: Literal["oneline", "compact", "full", "none"] = "compact"):
     """
     Sets up the ActivityLogger as a dependency for the given FastAPI app.
     """

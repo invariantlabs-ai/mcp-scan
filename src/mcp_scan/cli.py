@@ -121,7 +121,7 @@ def add_server_arguments(parser):
     server_group.add_argument(
         "--pretty",
         type=str,
-        default="oneline",
+        default="compact",
         choices=["oneline", "compact", "full", "none"],
         help="Pretty print the output (default: compact)",
     )

@@ -63,7 +63,7 @@ class MCPScanServer:
 
     async def on_startup(self):
         """Startup event for the FastAPI app."""
-        rich.print("[bold green]MCP-scan server started (port http://localhost:" + str(self.port) + ")[/bold green]")
+        rich.print("[bold green]MCP-scan server started (http://localhost:" + str(self.port) + ")[/bold green]")
 
         setup_activity_logger(self.app, pretty=self.pretty)
 
