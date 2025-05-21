@@ -58,7 +58,7 @@ async def load_guardrails_config_file(config_file_path: str) -> GuardrailConfigF
         except ValidationError as e:
             rich.print(f"[bold red]Error validating guardrail config file: {e}[/bold red]")
             raise ValueError("Invalid guardrails config file at " + config_file_path) from e
-        except Exception:
+        except Exception as e:
             raise ValueError("Invalid guardrails config file at " + config_file_path) from e
 
     if not config:

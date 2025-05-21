@@ -63,7 +63,8 @@ def _print_missing_dependencies_message(template: str, missing_extras: list) -> 
     short_extras = [shortname(extra.name) for extra in missing_extras]
     rich.print(
         f"[yellow]Missing dependencies for default guardrail [cyan bold]{template}[/cyan bold][/yellow]\n"
-        f"[green]Hint: Install them with [bold white]--install-extras {' '.join(short_extras)} or [bold white]all[/bold white][/green]\n"
+        f"[green]Hint: Install them with [bold white]--install-extras {' '.join(short_extras)}[/bold white][/green]\n"
+        f"[green]Hint: Install all extras with [bold white]--install-extras all[/bold white][/green]\n"
     )
 
 
