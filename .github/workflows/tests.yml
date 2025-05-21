@@ -28,11 +28,10 @@ jobs:
         mkdir -p ${{ github.workspace }}/artifacts
         cp dist/*.whl ${{ github.workspace }}/artifacts/
       if: github.event_name == 'push'
-    # upload whl as artifact
-    - name: upload rest-result
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: whl
-          path: ${{ github.workspace }}/artifacts/*.whl
+    - name: upload whl
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: whl
+        path: ${{ github.workspace }}/artifacts/*.whl
 
