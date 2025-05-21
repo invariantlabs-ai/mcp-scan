@@ -37,6 +37,9 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 include = ["src/mcp_scan", "src/mcp_scan_server"]
 
+[tool.hatch.build.targets.sdist]
+include = ["src/mcp_scan", "src/mcp_scan_server"]
+
 [project.optional-dependencies]
 test = [
     "pytest>=7.4.0",
