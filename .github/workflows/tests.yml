@@ -28,7 +28,7 @@ jobs:
         mkdir -p ${{ github.workspace }}/artifacts
         cp dist/*.whl ${{ github.workspace }}/artifacts/
     - name: upload whl
-      if: always()
+      if: matrix.os == 'ubuntu-latest'
       uses: actions/upload-artifact@v4
       with:
         name: whl
