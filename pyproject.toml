@@ -29,13 +29,16 @@ dependencies = [
 
 [project.scripts]
 mcp-scan = "mcp_scan.run:run"
-[build-system]
-requires = ["setuptools>=61.0", "wheel"]
-build-backend = "setuptools.build_meta"
 
-[tool.setuptools]
-package-dir = {"" = "src"}
-packages = ["mcp_scan","mcp_scan_server","mcp_scan_server.routes"]
+[tool.hatch.build.targets.sdist]
+include = ["./src/mcp_scan","./src/mcp_scan_server"]
+
+[tool.hatch.build.targets.wheel]
+include = ["./src/mcp_scan","./src/mcp_scan_server"]
+
+[tool.hatch.build.targets.wheel.sources]
+"./src/mcp_scan" = "mcp_scan"
+"./src/mcp_scan_server" = "mcp_scan_server"
 
 [project.optional-dependencies]
 test = [
