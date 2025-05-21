@@ -17,6 +17,7 @@ from pydantic import ValidationError
 from mcp_scan_server.activity_logger import ActivityLogger, get_activity_logger
 
 from ..models import (
+    DEFAULT_GUARDRAIL_CONFIG,
     BatchCheckRequest,
     BatchCheckResponse,
     DatasetPolicy,
@@ -26,6 +27,45 @@ from ..models import (
 from ..parse_config import parse_config
 
 router = APIRouter()
+
+
+async def load_guardrails_config_file(config_file_path: str) -> GuardrailConfigFile:
+    """Load the guardrails config file.
+
+    Args:
+        config_file_path: The path to the config file.
+
+    Returns:
+        The loaded config file.
+    """
+    if not os.path.exists(config_file_path):
+        rich.print(
+            f"""[bold red]Guardrail config file not found: {config_file_path}. Creating an empty one.[/bold red]"""
+        )
+        config = GuardrailConfigFile()
+        with open(config_file_path, "w") as f:
+            f.write(DEFAULT_GUARDRAIL_CONFIG)
+
+    with open(config_file_path) as f:
+        try:
+            config = yaml.load(f, Loader=yaml.FullLoader)
+        except yaml.YAMLError as e:
+            rich.print(f"[bold red]Error loading guardrail config file: {e}[/bold red]")
+            raise ValueError("Invalid guardrails config file at " + config_file_path) from e
+
+        try:
+            config = GuardrailConfigFile.model_validate(config)
+        except ValidationError as e:
+            rich.print(f"[bold red]Error validating guardrail config file: {e}[/bold red]")
+            raise ValueError("Invalid guardrails config file at " + config_file_path) from e
+        except Exception:
+            raise ValueError("Invalid guardrails config file at " + config_file_path) from e
+
+    if not config:
+        rich.print(f"[bold red]Guardrail config file is empty: {config_file_path}[/bold red]")
+        raise ValueError("Empty config file")
+
+    return config
 
 
 async def get_all_policies(
@@ -43,28 +83,15 @@ async def get_all_policies(
     Returns:
         A list of DatasetPolicy objects.
     """
-    if not os.path.exists(config_file_path):
-        rich.print(
-            f"""[bold red]Guardrail config file not found: {config_file_path}. Creating an empty one.[/bold red]"""
-        )
-        config = GuardrailConfigFile()
-        with open(config_file_path, "w") as f:
-            f.write(config.model_dump_yaml())
 
-    with open(config_file_path) as f:
-        try:
-            config = yaml.load(f, Loader=yaml.FullLoader)
-        except yaml.YAMLError as e:
-            rich.print(f"[bold red]Error loading guardrail config file: {e}[/bold red]")
-            raise fastapi.HTTPException(status_code=400, detail=str(e)) from e
-
-        try:
-            config = GuardrailConfigFile.model_validate(config)
-        except ValidationError as e:
-            rich.print(f"[bold red]Error validating guardrail config file: {e}[/bold red]")
-            raise fastapi.HTTPException(status_code=400, detail=str(e)) from e
-        except Exception as e:
-            raise fastapi.HTTPException(status_code=400, detail=str(e)) from e
+    try:
+        config = await load_guardrails_config_file(config_file_path)
+    except ValueError as e:
+        rich.print(f"[bold red]Error loading guardrail config file: {config_file_path}[/bold red]")
+        raise fastapi.HTTPException(
+            status_code=400,
+            detail="Error loading guardrail config file",
+        ) from e
 
     configured_policies = await parse_config(config, client_name, server_name)
     return configured_policies

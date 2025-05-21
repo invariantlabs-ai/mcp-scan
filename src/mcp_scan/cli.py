@@ -484,6 +484,7 @@ def main():
         asyncio.run(install())
         print("[Proxy installed, you may need to restart/reload your MCP clients to use it]")
         server(on_exit=uninstall)
+        sys.exit(0)
     else:
         # This shouldn't happen due to argparse's handling
         rich.print(f"[bold red]Unknown command: {args.command}[/bold red]")
