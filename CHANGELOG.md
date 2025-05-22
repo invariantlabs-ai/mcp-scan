@@ -16,3 +16,4 @@
 - `0.1.15` Added local-only mode for scanning.
 - `0.1.16` Fix when handling tools or args that contain dots.
 - `0.1.17` Fix single server would throw an error.
+- `0.2.1` `mcp-scan proxy` for live MCP guardrailing, [MCP guardrails](https://explorer.invariantlabs.ai/docs/mcp-scan/guardrails/)
