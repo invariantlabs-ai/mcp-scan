@@ -8,7 +8,6 @@ from fastapi import FastAPI, Response
 
 from mcp_scan_server.activity_logger import setup_activity_logger  # type: ignore
 
-from .routes.policies import load_guardrails_config_file
 from .routes.policies import router as policies_router  # type: ignore
 from .routes.push import router as push_router
 from .routes.trace import router as dataset_trace_router
@@ -69,7 +68,8 @@ class MCPScanServer:
         # setup activity logger
         setup_activity_logger(self.app, pretty=self.pretty)
 
-        # load config file to validate
+        from .routes.policies import load_guardrails_config_file
+
         await load_guardrails_config_file(self.config_file_path)
 
     async def life_span(self, app: FastAPI):

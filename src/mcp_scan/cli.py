@@ -7,10 +7,10 @@ import sys
 import psutil
 import rich
 from invariant.__main__ import add_extra
-from mcp_scan_server.server import MCPScanServer
 from rich.logging import RichHandler
 
 from mcp_scan.gateway import MCPGatewayConfig, MCPGatewayInstaller
+from mcp_scan_server.server import MCPScanServer
 
 from .MCPScanner import MCPScanner
 from .paths import WELL_KNOWN_MCP_PATHS, client_shorthands_to_paths
