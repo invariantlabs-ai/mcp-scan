@@ -21,3 +21,17 @@ jobs:
       run: uv venv
     - name: Run tests
       run: make test
+    # build and store whl as artifact
+    - name: Build and store whl
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        make build
+        mkdir -p ${{ github.workspace }}/artifacts
+        cp dist/*.whl ${{ github.workspace }}/artifacts/
+    - name: Upload whl artifact for this build
+      if: matrix.os == 'ubuntu-latest'
+      uses: actions/upload-artifact@v4
+      with:
+        name: mcp-scan-latest.whl
+        path: ${{ github.workspace }}/artifacts/*.whl
+
