@@ -8,6 +8,7 @@ from mcp_scan.utils import CommandParsingError, calculate_distance, rebalance_co
     [
         ("ls -l", ["-a"], "ls", ["-l", "-a"], False),
         ("ls -l", [], "ls", ["-l"], False),
+        ("ls -lt", ["-r", "-a"], "ls", ["-lt", "-r", "-a"], False),
         ("ls   -l    ", [], "ls", ["-l"], False),
         ("ls   -l    .local", [], "ls", ["-l", ".local"], False),
         ("ls   -l    example.local", [], "ls", ["-l", "example.local"], False),
