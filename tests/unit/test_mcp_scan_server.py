@@ -470,14 +470,27 @@ async def test_empty_string_config_generates_default_guardrails(mock_get_templat
     """Test that the parse_config function generates the correct policies."""
     config_str = """
     """
+
+    number_of_templates = get_number_of_guardrail_templates()
+
     config = GuardrailConfigFile.model_validate(config_str)
     policies = await parse_config(config)
-    assert len(policies) == get_number_of_guardrail_templates()
+    assert len(policies) == number_of_templates
 
     config_str = None
     config = GuardrailConfigFile.model_validate(config_str)
     policies = await parse_config(config)
-    assert len(policies) == get_number_of_guardrail_templates()
+    assert len(policies) == number_of_templates
+
+    # Check that parsing in client and server args still works
+    policies = await parse_config(config, "cursor", None)
+    assert len(policies) == number_of_templates
+
+    policies = await parse_config(config, None, "server1")
+    assert len(policies) == number_of_templates
+
+    policies = await parse_config(config, "cursor", "server1")
+    assert len(policies) == number_of_templates
 
 
 @pytest.mark.asyncio
@@ -587,7 +600,7 @@ async def test_parse_config():
             )
         }
     )
-    policies = await parse_config(config)
+    policies = await parse_config(config, "cursor", "server1")
 
     # We should have 7 policies since:
     # pii creates 1 policy because the action (block) of all shorthands match
@@ -700,6 +713,33 @@ cursor:
           "error" in msg.content
 """
     config = GuardrailConfigFile.model_validate(yaml.safe_load(config))
-    policies = await parse_config(config)
+    policies = await parse_config(config, "cursor", "server1")
     assert len(policies) == 1
     assert "this is a custom error" in policies[0].content
+
+
+@pytest.mark.asyncio
+@patch("mcp_scan_server.parse_config.get_available_templates", return_value=("pii",))
+async def test_defaults_are_added_with_client_level_guardrails(mock_get_templates):
+    """Test that defaults are added with client level guardrails."""
+    config = GuardrailConfigFile(
+        {
+            "cursor": ClientGuardrailConfig(
+                custom_guardrails=[
+                    {
+                        "name": "Guardrail 1",
+                        "id": "guardrail_1",
+                        "enabled": True,
+                        "content": "raise 'custom error' if: (msg: Message)",
+                    }
+                ]
+            )
+        }
+    )
+
+    policies = await parse_config(config, "cursor", "server1")
+    assert len(policies) == 2
+
+    policy_ids = [policy.id for policy in policies]
+    assert "guardrail_1" in policy_ids
+    assert "cursor-server1-pii-default" in policy_ids

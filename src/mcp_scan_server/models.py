@@ -1,6 +1,7 @@
 import datetime
 from collections.abc import ItemsView
 from enum import Enum
+from typing import Any
 
 import yaml  # type: ignore
 from invariant.analyzer.policy import AnalysisResult
@@ -234,6 +235,9 @@ class GuardrailConfigFile:
 
     def __getitem__(self, key: str) -> dict[str, ServerGuardrailConfig]:
         return self.clients[key]
+
+    def get(self, key: str, default: Any = None) -> dict[str, ServerGuardrailConfig]:
+        return self.clients.get(key, default)
 
     def __getattr__(self, key: str) -> dict[str, ServerGuardrailConfig]:
         return self.clients[key]
