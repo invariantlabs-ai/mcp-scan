@@ -13,6 +13,7 @@ from mcp_scan_server.format_guardrail import (
     whitelist_tool_from_guardrail,
 )
 from mcp_scan_server.models import (
+    ClientGuardrailConfig,
     DatasetPolicy,
     GuardrailConfigFile,
     GuardrailMode,
@@ -313,6 +314,20 @@ def parse_tool_shorthand_guardrails(
     return result, disabled_tools
 
 
+def parse_client_guardrails(
+    config: ClientGuardrailConfig,
+) -> list[DatasetPolicy]:
+    """Parse client-specific guardrails from the client config.
+
+    Args:
+        config: The client guardrail config.
+
+    Returns:
+        A list of DatasetPolicy objects from client guardrails.
+    """
+    return config.custom_guardrails or []
+
+
 @lru_cache
 async def parse_config(
     config: GuardrailConfigFile,
@@ -330,17 +345,17 @@ async def parse_config(
         A list of DatasetPolicy objects with all guardrails.
     """
     policies: list[DatasetPolicy] = []
-    found = False
 
     for client, client_config in config.items():
         if (client_name and client != client_name) or not client_config:
             continue
 
-        for server, server_config in client_config.items():
+        # Add client-level (custom) guardrails directly to the policies
+        policies.extend(parse_client_guardrails(client_config))
+
+        for server, server_config in client_config.servers.items():
             if server_name and server != server_name:
                 continue
-            # mark as found
-            found = True
 
             # Parse guardrails for this client-server pair
             server_shorthands = parse_server_shorthand_guardrails(server_config)
@@ -351,13 +366,12 @@ async def parse_config(
             policies.extend(collect_guardrails(server_shorthands, tool_shorthands, disabled_tools, client, server))
             policies.extend(custom_guardrails)
 
-    if not found:
+    # Create all default guardrails if no guardrails are configured
+    if len(policies) == 0:
         logger.warning(
             "No guardrails found for client '%s' and server '%s'. Using default guardrails.", client_name, server_name
         )
 
-    # Create all default guardrails if no guardrails are configured
-    if len(policies) == 0:
         for name in get_available_templates():
             policies.append(generate_policy(name, GuardrailMode.log, client_name, server_name))
 

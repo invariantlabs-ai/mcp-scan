@@ -16,6 +16,7 @@ from mcp_scan_server.format_guardrail import (
     whitelist_tool_from_guardrail,
 )
 from mcp_scan_server.models import (
+    ClientGuardrailConfig,
     DatasetPolicy,
     GuardrailConfig,
     GuardrailConfigFile,
@@ -86,36 +87,38 @@ def valid_guardrail_config_file(tmp_path):
     config_file.write_text(
         """
 cursor:
-  server1:
-    guardrails:
-      pii: "block"
-      moderated: "block"
-      links: "block"
-      secrets: "block"
+  servers:
+    server1:
+      guardrails:
+        pii: "block"
+        moderated: "block"
+        links: "block"
+        secrets: "block"
 
-      custom_guardrails:
-        - name: "Guardrail 1"
-          id: "guardrail_1"
-          enabled: true
-          action: "block"
-          content: |
-            raise "error" if:
-              (msg: ToolOutput)
-              "Test1" in msg.content
-
-    tools:
-        tool_name:
+        custom_guardrails:
+          - name: "Guardrail 1"
+            id: "guardrail_1"
             enabled: true
-            pii: "block"
-            moderated: "block"
-            links: "block"
-            secrets: "block"
-  server2:
-    guardrails:
-      pii: "block"
-      moderated: "block"
-      links: "block"
-      secrets: "block"
+            action: "block"
+            content: |
+              raise "error" if:
+                (msg: ToolOutput)
+                "Test1" in msg.content
+
+      tools:
+        tool_name:
+          enabled: true
+          pii: "block"
+          moderated: "block"
+          links: "block"
+          secrets: "block"
+
+    server2:
+      guardrails:
+        pii: "block"
+        moderated: "block"
+        links: "block"
+        secrets: "block"
 """
     )
     return str(config_file)
@@ -482,14 +485,16 @@ async def test_server_shorthands_override_default_guardrails():
     """Test that server shorthands override default guardrails."""
     config = GuardrailConfigFile(
         {
-            "cursor": {
-                "server1": ServerGuardrailConfig(
-                    guardrails=GuardrailConfig(
-                        pii=GuardrailMode.block,
-                        moderated=GuardrailMode.paused,
+            "cursor": ClientGuardrailConfig(
+                servers={
+                    "server1": ServerGuardrailConfig(
+                        guardrails=GuardrailConfig(
+                            pii=GuardrailMode.block,
+                            moderated=GuardrailMode.paused,
+                        ),
                     ),
-                ),
-            }
+                },
+            )
         }
     )
     policies = await parse_config(config, "cursor", "server1")
@@ -511,15 +516,17 @@ async def test_tools_partially_override_default_guardrails(mock_get_templates):
     """Test that tools partially override default guardrails."""
     config = GuardrailConfigFile(
         {
-            "cursor": {
-                "server1": ServerGuardrailConfig(
-                    tools={
-                        "tool_name": ToolGuardrailConfig(
-                            pii=GuardrailMode.block,
-                        ),
-                    },
-                )
-            }
+            "cursor": ClientGuardrailConfig(
+                servers={
+                    "server1": ServerGuardrailConfig(
+                        tools={
+                            "tool_name": ToolGuardrailConfig(
+                                pii=GuardrailMode.block,
+                            ),
+                        },
+                    ),
+                },
+            )
         }
     )
 
@@ -551,40 +558,43 @@ async def test_tools_partially_override_default_guardrails(mock_get_templates):
 @pytest.mark.asyncio
 async def test_parse_config():
     """Test that the parse_config function parses the config file correctly."""
+
     config = GuardrailConfigFile(
         {
-            "cursor": {
-                "server1": ServerGuardrailConfig(
-                    guardrails=GuardrailConfig(
-                        pii=GuardrailMode.block,
-                        moderated=GuardrailMode.log,
-                        secrets=GuardrailMode.paused,
-                    ),
-                    tools={
-                        "tool_name": ToolGuardrailConfig(
+            "cursor": ClientGuardrailConfig(
+                servers={
+                    "server1": ServerGuardrailConfig(
+                        guardrails=GuardrailConfig(
                             pii=GuardrailMode.block,
-                            moderated=GuardrailMode.paused,
-                            links=GuardrailMode.log,
-                            enabled=True,
+                            moderated=GuardrailMode.log,
+                            secrets=GuardrailMode.paused,
                         ),
-                        "tool_name2": ToolGuardrailConfig(
-                            pii=GuardrailMode.block,
-                            moderated=GuardrailMode.block,
-                            enabled=True,
-                        ),
-                    },
-                )
-            }
+                        tools={
+                            "tool_name": ToolGuardrailConfig(
+                                pii=GuardrailMode.block,
+                                moderated=GuardrailMode.paused,
+                                links=GuardrailMode.log,
+                                enabled=True,
+                            ),
+                            "tool_name2": ToolGuardrailConfig(
+                                pii=GuardrailMode.block,
+                                moderated=GuardrailMode.block,
+                                enabled=True,
+                            ),
+                        },
+                    )
+                }
+            )
         }
     )
-    config = await parse_config(config)
+    policies = await parse_config(config)
 
     # We should have 7 policies since:
     # pii creates 1 policy because the action (block) of all shorthands match
     # moderated creates 3 policies (one for each action)
     # secrets creates 1 policy because it is defined as a server shorthand
     # links creates 2 policies -- one for the tool_name shorthand and one default
-    assert len(config) == 7
+    assert len(policies) == 7
 
 
 @pytest.mark.asyncio
@@ -592,15 +602,17 @@ async def test_disable_tool():
     """Test that the disable_tool function disables a tool correctly."""
     config = GuardrailConfigFile(
         {
-            "cursor": {
-                "server1": ServerGuardrailConfig(
-                    tools={
-                        "tool_name": ToolGuardrailConfig(
-                            enabled=False,
-                        ),
-                    },
-                ),
-            }
+            "cursor": ClientGuardrailConfig(
+                servers={
+                    "server1": ServerGuardrailConfig(
+                        tools={
+                            "tool_name": ToolGuardrailConfig(
+                                enabled=False,
+                            ),
+                        },
+                    ),
+                },
+            )
         }
     )
     policies = await parse_config(config, "cursor", "server1")
@@ -634,3 +646,60 @@ async def test_disable_tool():
         ]
     )
     assert len(result.errors) == 1, "Tool should be blocked"
+
+
+@pytest.mark.asyncio
+@patch("mcp_scan_server.parse_config.get_available_templates", return_value=())
+async def test_server_level_guardrails_are_applied_to_all_servers(mock_get_templates):
+    """Test that server level guardrails are applied to all servers."""
+    config = GuardrailConfigFile(
+        {
+            "cursor": ClientGuardrailConfig(
+                custom_guardrails=[
+                    {
+                        "name": "Guardrail 1",
+                        "id": "guardrail_1",
+                        "enabled": True,
+                        "action": "block",
+                        "content": "raise 'error' if: (msg: Message) 'error' in msg.content",
+                    }
+                ]
+            )
+        }
+    )
+
+    # Test that regardless of the server, the guardrail is applied when the client is cursor
+    policies = await parse_config(config, "cursor", "server1")
+    assert len(policies) == 1
+    assert "error" in policies[0].content
+
+    policies = await parse_config(config, "cursor", "server2")
+    assert len(policies) == 1
+    assert "error" in policies[0].content
+
+    # Test that it is not applied when the client is not cursor
+    policies = await parse_config(config, "not_cursor", "server1")
+    assert len(policies) == 0
+
+
+@pytest.mark.asyncio
+@patch("mcp_scan_server.parse_config.get_available_templates", return_value=())
+async def test_server_level_guardrails(mock_get_templates):
+    """Test that server level guardrails are applied correctly."""
+
+    config = """
+cursor:
+  custom_guardrails:
+    - name: "Guardrail 1"
+      id: "guardrail_1"
+      enabled: true
+      action: "block"
+      content: |
+        raise "this is a custom error" if:
+          (msg: Message)
+          "error" in msg.content
+"""
+    config = GuardrailConfigFile.model_validate(yaml.safe_load(config))
+    policies = await parse_config(config)
+    assert len(policies) == 1
+    assert "this is a custom error" in policies[0].content

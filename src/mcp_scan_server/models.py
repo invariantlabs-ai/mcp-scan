@@ -143,6 +143,13 @@ class ServerGuardrailConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class ClientGuardrailConfig(BaseModel):
+    custom_guardrails: list[DatasetPolicy] | None = Field(default=None)
+    servers: dict[str, ServerGuardrailConfig] = Field(default_factory=dict)
+
+    model_config = ConfigDict(extra="forbid")
+
+
 class GuardrailConfigFile:
     """
     The guardrail config file model.
@@ -158,31 +165,40 @@ class GuardrailConfigFile:
     A tool can also be disabled by setting enabled to False.
 
     Example config file:
-    ```
+    ```yaml
     cursor:  # The client
-      whatsapp:  # The server
-        guardrails:
-          pii: block  # Shorthand guardrail
-          moderated: paused
+      custom_guardrails:  # List of client-wide custom guardrails
+        - name: "Custom Guardrail"
+          id: "custom_guardrail_1"
+          action: block
+          content: |
+            raise "Error" if:
+              (msg: Message)
+              "error" in msg.content
+      servers:
+        whatsapp:  # The server
+          guardrails:
+            pii: block  # Shorthand guardrail
+            moderated: paused
 
-          custom_guardrails:  # List of custom guardrails
-            - name: "Custom Guardrail"
-              id: "custom_guardrail_1"
-              action: block
-              content: |
-                raise "Error" if:
-                  (msg: Message)
-                  "error" in msg.content
+            custom_guardrails:  # List of custom guardrails
+              - name: "Custom Guardrail"
+                id: "custom_guardrail_1"
+                action: block
+                content: |
+                  raise "Error" if:
+                    (msg: Message)
+                    "error" in msg.content
 
-        tools:  # Dictionary of tools
-          send_message:
-            enabled: false  # Disable the send_message tool
-          read_messages:
-            secrets: block  # Block secrets
+          tools:  # Dictionary of tools
+            send_message:
+              enabled: false  # Disable the send_message tool
+            read_messages:
+              secrets: block  # Block secrets
     ```
     """
 
-    ConfigFileStructure = dict[str, dict[str, ServerGuardrailConfig]]
+    ConfigFileStructure = dict[str, ClientGuardrailConfig]
     _config_validator = TypeAdapter(ConfigFileStructure)
 
     def __init__(self, clients: ConfigFileStructure | None = None):

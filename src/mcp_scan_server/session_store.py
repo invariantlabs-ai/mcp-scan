@@ -62,7 +62,7 @@ class Session:
 
 class SessionStore:
     """
-    Stores sessions by client_name. Optionally expires sessions after TTL seconds.
+    Stores sessions by client_name.
     """
 
     def __init__(self):
