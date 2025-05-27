@@ -13,6 +13,7 @@ from mcp_scan_server.format_guardrail import (
     whitelist_tool_from_guardrail,
 )
 from mcp_scan_server.models import (
+    ClientGuardrailConfig,
     DatasetPolicy,
     GuardrailConfigFile,
     GuardrailMode,
@@ -100,8 +101,8 @@ def get_available_templates(directory: Path = DEFAULT_GUARDRAIL_DIR) -> tuple[st
 
 def generate_disable_tool_policy(
     tool_name: str,
-    client_name: str,
-    server_name: str,
+    client_name: str | None,
+    server_name: str | None,
 ) -> DatasetPolicy:
     """Generate a guardrail policy to disable a tool.
 
@@ -175,8 +176,8 @@ def collect_guardrails(
     server_shorthand_guardrails: dict[str, GuardrailMode],
     tool_shorthand_guardrails: dict[str, dict[str, GuardrailMode]],
     disabled_tools: list[str],
-    client: str,
-    server: str,
+    client: str | None,
+    server: str | None,
 ) -> list[DatasetPolicy]:
     """Collect all guardrails and resolve conflicts.
 
@@ -247,7 +248,9 @@ def collect_guardrails(
     return policies
 
 
-def parse_custom_guardrails(config: ServerGuardrailConfig, client: str, server: str) -> list[DatasetPolicy]:
+def parse_custom_guardrails(
+    config: ServerGuardrailConfig, client: str | None, server: str | None
+) -> list[DatasetPolicy]:
     """Parse custom guardrails from the server config.
 
     Args:
@@ -313,6 +316,20 @@ def parse_tool_shorthand_guardrails(
     return result, disabled_tools
 
 
+def parse_client_guardrails(
+    config: ClientGuardrailConfig,
+) -> list[DatasetPolicy]:
+    """Parse client-specific guardrails from the client config.
+
+    Args:
+        config: The client guardrail config.
+
+    Returns:
+        A list of DatasetPolicy objects from client guardrails.
+    """
+    return config.custom_guardrails or []
+
+
 @lru_cache
 async def parse_config(
     config: GuardrailConfigFile,
@@ -329,36 +346,33 @@ async def parse_config(
     Returns:
         A list of DatasetPolicy objects with all guardrails.
     """
-    policies: list[DatasetPolicy] = []
-    found = False
+    client_policies: list[DatasetPolicy] = []
+    server_policies: list[DatasetPolicy] = []
+    client_config = config.get(client_name)
 
-    for client, client_config in config.items():
-        if (client_name and client != client_name) or not client_config:
-            continue
+    if client_config:
+        # Add client-level (custom) guardrails directly to the policies
+        client_policies.extend(parse_client_guardrails(client_config))
+        server_config = client_config.servers.get(server_name)
 
-        for server, server_config in client_config.items():
-            if server_name and server != server_name:
-                continue
-            # mark as found
-            found = True
-
+        if server_config:
             # Parse guardrails for this client-server pair
             server_shorthands = parse_server_shorthand_guardrails(server_config)
             tool_shorthands, disabled_tools = parse_tool_shorthand_guardrails(server_config)
-            custom_guardrails = parse_custom_guardrails(server_config, client, server)
+            custom_guardrails = parse_custom_guardrails(server_config, client_name, server_name)
 
-            # Collect and resolve guardrails
-            policies.extend(collect_guardrails(server_shorthands, tool_shorthands, disabled_tools, client, server))
-            policies.extend(custom_guardrails)
+            server_policies.extend(
+                collect_guardrails(server_shorthands, tool_shorthands, disabled_tools, client_name, server_name)
+            )
+            server_policies.extend(custom_guardrails)
 
-    if not found:
+    # Create all default guardrails if no guardrails are configured
+    if len(server_policies) == 0:
         logger.warning(
             "No guardrails found for client '%s' and server '%s'. Using default guardrails.", client_name, server_name
         )
 
-    # Create all default guardrails if no guardrails are configured
-    if len(policies) == 0:
         for name in get_available_templates():
-            policies.append(generate_policy(name, GuardrailMode.log, client_name, server_name))
+            server_policies.append(generate_policy(name, GuardrailMode.log, client_name, server_name))
 
-    return policies
+    return client_policies + server_policies
