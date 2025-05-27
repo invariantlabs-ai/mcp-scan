@@ -16,9 +16,9 @@ session_store = SessionStore()
 async def push_trace(request: Request) -> PushTracesResponse:
     """Push a trace. For now, this is a dummy response."""
 
-    body = await request.body()
-    client = json.loads(body)
-    mcp_client = client.get("metadata")[0].get("client")
+    request_data = await request.body()
+    request_data = json.loads(request_data)
+    mcp_client = request_data.get("metadata")[0].get("client")
     session = session_store[mcp_client]
 
     record_file = request.app.state.record_file

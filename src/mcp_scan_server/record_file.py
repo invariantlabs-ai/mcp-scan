@@ -2,6 +2,7 @@ import json
 import os
 import uuid
 from dataclasses import dataclass
+from typing import Any
 
 import rich
 from invariant_sdk.client import Client
@@ -134,7 +135,10 @@ def parse_record_file_name(record_file: str | None) -> RecordFile | None:
 
 
 async def _push_session_to_explorer(
-    session_data: list[Message], record_file: ExplorerRecordFile, client_name: str
+    session_data: list[Message],
+    record_file: ExplorerRecordFile,
+    client_name: str,
+    annotations: dict[str, Any] | None = None,
 ) -> str | None:
     """
     Push the session to the explorer.
@@ -148,6 +152,7 @@ async def _push_session_to_explorer(
         response = invariant_sdk_client.create_request_and_push_trace(
             messages=[session_data],
             dataset=record_file.dataset_name,
+            annotations=annotations,
             metadata=[
                 {
                     "hierarchy_path": [client_name],
@@ -164,7 +169,10 @@ async def _push_session_to_explorer(
 
 
 async def _push_session_to_local_file(
-    session_data: list[Message], record_file: LocalRecordFile, client_name: str
+    session_data: list[Message],
+    record_file: LocalRecordFile,
+    client_name: str,
+    annotations: dict[str, Any] | None = None,
 ) -> str | None:
     """
     Push the session to the local file.
@@ -198,7 +206,10 @@ async def _format_session_data(session: Session, index: int) -> list[Message]:
 
 
 async def _append_messages_to_explorer(
-    trace_id: str, session_data: list[Message], record_file: ExplorerRecordFile
+    trace_id: str,
+    session_data: list[Message],
+    record_file: ExplorerRecordFile,
+    annotations: dict[str, Any] | None = None,
 ) -> None:
     """
     Append messages to the explorer.
@@ -211,11 +222,12 @@ async def _append_messages_to_explorer(
     invariant_sdk_client.create_request_and_append_messages(
         messages=session_data,
         trace_id=trace_id,
+        annotations=annotations,
     )
 
 
 async def _append_messages_to_local_file(
-    trace_id: str, session_data: list[Message], record_file: LocalRecordFile
+    trace_id: str, session_data: list[Message], record_file: LocalRecordFile, annotations: dict[str, Any] | None = None
 ) -> None:
     """
     Append messages to the local file.
@@ -266,7 +278,9 @@ async def push_session_to_record_file(session: Session, record_file: RecordFile,
     return trace_id
 
 
-async def append_messages_to_record_file(trace_id: str, record_file: RecordFile) -> None:
+async def append_messages_to_record_file(
+    trace_id: str, record_file: RecordFile, annotations: dict[str, Any] | None = None
+) -> None:
     """
     Append messages to the record file.
     """
@@ -284,9 +298,9 @@ async def append_messages_to_record_file(trace_id: str, record_file: RecordFile)
 
     # Otherwise, append to the record file
     if isinstance(record_file, ExplorerRecordFile):
-        await _append_messages_to_explorer(trace_id, session_data, record_file)
+        await _append_messages_to_explorer(trace_id, session_data, record_file, annotations)
     elif isinstance(record_file, LocalRecordFile):
-        await _append_messages_to_local_file(trace_id, session_data, record_file)
+        await _append_messages_to_local_file(trace_id, session_data, record_file, annotations)
     else:
         raise ValueError(f"Invalid record file: {record_file}")
 

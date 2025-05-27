@@ -153,6 +153,7 @@ async def test_push_session_to_record_file_explorer_first_time_calls_create_requ
         messages=[[{"role": "user", "content": "test"}]],
         dataset="test",
         metadata=ANY,  # Ignore metadata
+        annotations=ANY,
     )
 
 
@@ -196,6 +197,7 @@ async def test_push_session_to_record_file_explorer_second_time_calls_append_mes
     mock_client.create_request_and_append_messages.assert_called_once_with(
         messages=[message],
         trace_id=mock_trace_id,
+        annotations=ANY,
     )
 
 
