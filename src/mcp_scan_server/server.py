@@ -8,6 +8,7 @@ from fastapi import FastAPI, Response
 
 from mcp_scan_server.activity_logger import setup_activity_logger  # type: ignore
 
+from .record_file import parse_record_file_name
 from .routes.policies import router as policies_router  # type: ignore
 from .routes.push import router as push_router
 from .routes.trace import router as dataset_trace_router
@@ -32,6 +33,7 @@ class MCPScanServer:
         on_exit: Callable | None = None,
         log_level: str = "error",
         pretty: Literal["oneline", "compact", "full", "none"] = "compact",
+        record_file: str | None = None,
     ):
         self.port = port
         self.config_file_path = config_file_path
@@ -41,6 +43,7 @@ class MCPScanServer:
 
         self.app = FastAPI(lifespan=self.life_span)
         self.app.state.config_file_path = config_file_path
+        self.app.state.record_file = parse_record_file_name(record_file)
 
         self.app.include_router(policies_router, prefix="/api/v1")
         self.app.include_router(push_router, prefix="/api/v1/push")
@@ -64,6 +67,9 @@ class MCPScanServer:
     async def on_startup(self):
         """Startup event for the FastAPI app."""
         rich.print("[bold green]MCP-scan server started (http://localhost:" + str(self.port) + ")[/bold green]")
+
+        if self.app.state.record_file is not None:
+            rich.print(self.app.state.record_file.startup_message())
 
         # setup activity logger
         setup_activity_logger(self.app, pretty=self.pretty)

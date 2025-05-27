@@ -3,6 +3,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
+Message = dict[str, Any]
+
 
 @dataclass(frozen=True)
 class SessionNode:
@@ -11,7 +13,7 @@ class SessionNode:
     """
 
     timestamp: datetime
-    message: dict[str, Any]
+    message: Message
     session_id: str
     server_name: str
     original_session_index: int
@@ -23,6 +25,12 @@ class SessionNode:
     def __lt__(self, other: "SessionNode") -> bool:
         """Sort by timestamp."""
         return self.timestamp < other.timestamp
+
+    def to_json(self) -> Message:
+        """
+        Convert the session node to a message.
+        """
+        return self.message
 
 
 class Session:
@@ -36,6 +44,7 @@ class Session:
     ):
         self.nodes: list[SessionNode] = nodes or []
         self.last_analysis_index: int = -1
+        self.last_pushed_index: int = -1
 
     def merge(self, other: "Session") -> None:
         """
@@ -59,15 +68,27 @@ class Session:
     def __repr__(self):
         return f"Session(nodes={self.get_sorted_nodes()})"
 
+    def to_json(self) -> list[Message]:
+        """
+        Convert the session to a list of messages.
+        """
+        return [node.to_json() for node in self.nodes]
+
 
 class SessionStore:
     """
     Stores sessions by client_name.
     """
 
-    def __init__(self):
-        self.sessions: dict[str, Session] = {}
+    _instance = None
 
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+            cls._instance.sessions = {}
+        return cls._instance
+
+    @classmethod
     def _default_session(self) -> Session:
         return Session()
 
@@ -93,8 +114,20 @@ class SessionStore:
         session.merge(other)
         return session
 
+    def to_json(self) -> dict[str, dict[str, list[dict[str, Any]]]]:
+        """
+        Convert the sessions to a dictionary.
+        """
+        return {"sessions": {client_name: session.to_json() for client_name, session in self.sessions.items()}}
 
-async def to_session(messages: list[dict[str, Any]], server_name: str, session_id: str) -> Session:
+    def clear(self) -> None:
+        """
+        Clear the session store.
+        """
+        self.sessions: dict[str, Session] = {}
+
+
+async def to_session(messages: list[Message], server_name: str, session_id: str) -> Session:
     """
     Convert a list of messages to a session.
     """

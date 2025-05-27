@@ -1,4 +1,5 @@
 import datetime
+import json
 
 import pytest
 
@@ -7,6 +8,18 @@ from src.mcp_scan_server.session_store import Session, SessionNode, SessionStore
 
 def create_timestamped_node(timestamp: datetime.datetime):
     return SessionNode(timestamp=timestamp, message={}, session_id="", server_name="", original_session_index=0)
+
+
+# create a cleanup function to delete the session store and make it run after each test
+def cleanup_session_store():
+    session_store = SessionStore()
+    session_store.clear()
+
+
+@pytest.fixture(autouse=True)
+def cleanup_session_store_after_test():
+    yield
+    cleanup_session_store()
 
 
 @pytest.fixture
@@ -169,3 +182,85 @@ async def test_to_session_function():
             original_session_index=1,
         ),
     ]
+
+
+def test_session_node_to_json():
+    session_node = SessionNode(
+        timestamp=datetime.datetime.now(),
+        message={"role": "user", "content": "Hello, world!"},
+        session_id="session_id",
+        server_name="server_name",
+        original_session_index=0,
+    )
+
+    session = Session(nodes=[session_node])
+
+    session_store = SessionStore()
+    session_store["client_name"] = session
+
+    session_store_json = session_store.to_json()
+    assert session_store_json is not None
+
+
+def test_json_serialization():
+    """Test that the JSON serialization works correctly for all classes."""
+    timestamp = datetime.datetime(2024, 1, 1, 12, 0, 0)
+    message = {"role": "user", "content": "Hello, world!"}
+
+    # Create a session node
+    node = SessionNode(
+        timestamp=timestamp,
+        message=message,
+        session_id="test_session",
+        server_name="test_server",
+        original_session_index=0,
+    )
+
+    # Test SessionNode JSON serialization
+    node_dict = node.to_json()
+    assert node_dict == message
+
+    # Create a session with the node
+    session = Session(nodes=[node])
+
+    # Test Session JSON serialization
+    session_dict = session.to_json()
+    assert session_dict == [message]
+
+    # Create a session store with the session
+    store = SessionStore()
+    store["test_client"] = session
+
+    # Test SessionStore JSON serialization
+    store_json = store.to_json()
+    assert store_json == {"sessions": {"test_client": [message]}}
+
+    # Finally test that we can dump and load
+    store_json_str = json.dumps(store_json)
+    assert store_json_str is not None
+
+    store_dict = json.loads(store_json_str)
+    assert store_dict == {"sessions": {"test_client": [message]}}
+
+
+def test_session_store_shares_state():
+    """Test that the session store shares state between multiple instances."""
+
+    # Create and populate the session store
+    session_store = SessionStore()
+    session_store["client_name_1"] = Session(
+        nodes=[
+            SessionNode(
+                timestamp=datetime.datetime.now(),
+                message={"role": "user", "content": "Hello, world!"},
+                session_id="session_id",
+                server_name="server_name",
+                original_session_index=0,
+            )
+        ]
+    )
+
+    # Create new session store and check that the session is shared
+    session_store_2 = SessionStore()
+    assert session_store_2["client_name_1"] is not None
+    assert session_store_2["client_name_1"].nodes == session_store["client_name_1"].nodes

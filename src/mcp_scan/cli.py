@@ -125,13 +125,34 @@ def add_server_arguments(parser):
         choices=["oneline", "compact", "full", "none"],
         help="Pretty print the output (default: compact)",
     )
-    server_group.add_argument(
+
+
+def add_mcp_scan_server_arguments(parser):
+    """Add arguments related to MCP scan server."""
+    mcp_scan_server_group = parser.add_argument_group("MCP Scan Server Options")
+    mcp_scan_server_group.add_argument(
+        "--port",
+        type=int,
+        default=8129,
+        help="Port to run the server on (default: 8129).",
+        metavar="PORT",
+    )
+    mcp_scan_server_group.add_argument(
+        "--record",
+        type=str,
+        default=None,
+        help="Filename to record the proxy requests to.",
+        metavar="RECORD_FILE",
+    )
+    mcp_scan_server_group.add_argument(
         "--install-extras",
         nargs="+",
         default=None,
         help="Install extras for the Invariant Gateway - use 'all' or a space-separated list of extras",
         metavar="EXTRA",
     )
+
+    return mcp_scan_server_group
 
 
 def add_install_arguments(parser):
@@ -352,28 +373,16 @@ def main():
 
     # SERVER command
     server_parser = subparsers.add_parser("server", help="Start the MCP scan server")
-    server_parser.add_argument(
-        "--port",
-        type=int,
-        default=8129,
-        help="Port to run the server on (default: 8129)",
-        metavar="PORT",
-    )
     add_common_arguments(server_parser)
     add_server_arguments(server_parser)
+    add_mcp_scan_server_arguments(server_parser)
 
     # PROXY command
     proxy_parser = subparsers.add_parser("proxy", help="Installs and proxies MCP requests, uninstalls on exit")
-    proxy_parser.add_argument(
-        "--port",
-        type=int,
-        default=8129,
-        help="Port to run the server on (default: 8129)",
-        metavar="PORT",
-    )
     add_common_arguments(proxy_parser)
     add_server_arguments(proxy_parser)
     add_install_arguments(proxy_parser)
+    add_mcp_scan_server_arguments(proxy_parser)
 
     # Parse arguments (default to 'scan' if no command provided)
     args = parser.parse_args(["scan"] if len(sys.argv) == 1 else None)
@@ -414,7 +423,11 @@ def main():
         sf = StorageFile(args.storage_file)
         guardrails_config_path = sf.create_guardrails_config()
         mcp_scan_server = MCPScanServer(
-            port=args.port, config_file_path=guardrails_config_path, on_exit=on_exit, pretty=args.pretty
+            port=args.port,
+            config_file_path=guardrails_config_path,
+            on_exit=on_exit,
+            pretty=args.pretty,
+            record_file=args.record,
         )
         mcp_scan_server.run()
 
