@@ -67,7 +67,7 @@ Using `mcp-scan proxy`, you can monitor, log, and safeguard all MCP traffic on y
 
 #### Enforcing Guardrails
 
-You can also add guardrailing rules, to restrict and validate the sequence of tool uses. 
+You can also add guardrailing rules, to restrict and validate the sequence of tool uses passing through proxy.
 
 For this, create a `~/.mcp-scan/guardrails_config.yml` with the following contents:
 
@@ -78,7 +78,6 @@ For this, create a `~/.mcp-scan/guardrails_config.yml` with the following conten
       secrets: block # block calls/results with secrets
 
       custom_guardrails:
-        # define a rule using Invariant Guardrails, https://explorer.invariantlabs.ai/docs/guardrails/
         - name: "Filter tool results with 'error'"
           id: "error_filter_guardrail"
           action: block # or 'log'
@@ -88,6 +87,8 @@ For this, create a `~/.mcp-scan/guardrails_config.yml` with the following conten
               "error" in msg.content
 ```
 From then on, all calls proxied via `mcp-scan proxy` will be checked against your configured guardrailing rules for the current client/server.
+
+Custom guardrails are implemented using Invariant Guardrails. To learn more about these rules, [see this playground environment](https://explorer.invariantlabs.ai/docs/guardrails/) and the [official documentation](https://explorer.invariantlabs.ai/docs/).
 
 ## How It Works
 
