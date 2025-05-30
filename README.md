@@ -63,6 +63,7 @@ Using `mcp-scan proxy`, you can monitor, log, and safeguard all MCP traffic on y
 
 #### Example Run
 
+<img width="903" alt="image" src="https://github.com/user-attachments/assets/63ac9632-8663-40c3-a765-0bfdfbdf9a16" />
 
 ## How It Works
 
