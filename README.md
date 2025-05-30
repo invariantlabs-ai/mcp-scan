@@ -80,7 +80,7 @@ For this, create a `~/.mcp-scan/guardrails_config.yml` with the following conten
       custom_guardrails:
         - name: "Filter tool results with 'error'"
           id: "error_filter_guardrail"
-          action: block # or 'log'
+          action: block # or just 'log'
           content: |
             raise "An error was found." if:
               (msg: ToolOutput)
