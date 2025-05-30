@@ -67,7 +67,7 @@ Using `mcp-scan proxy`, you can monitor, log, and safeguard all MCP traffic on y
 
 #### Enforcing Guardrails
 
-You can also add guardrailing rules, to restrict the set of allowed tool calls. 
+You can also add guardrailing rules, to restrict and validate the sequence of tool uses. 
 
 For this, create a `~/.mcp-scan/guardrails_config.yml` with the following contents:
 
