@@ -65,6 +65,30 @@ Using `mcp-scan proxy`, you can monitor, log, and safeguard all MCP traffic on y
 
 <img width="903" alt="image" src="https://github.com/user-attachments/assets/63ac9632-8663-40c3-a765-0bfdfbdf9a16" />
 
+#### Enforcing Guardrails
+
+You can also add guardrailing rules, to restrict the set of allowed tool calls. 
+
+For this, create a `~/.mcp-scan/guardrails_config.yml` with the following contents:
+
+```yml
+<client-name>:  # your client's shorthand (e.g., cursor, claude, windsurf)
+  <server-name>:  # your server's name according to the mcp config (e.g., whatsapp-mcp)
+    guardrails:
+      secrets: block # block calls/results with secrets
+
+      custom_guardrails:
+        # define a rule using Invariant Guardrails, https://explorer.invariantlabs.ai/docs/guardrails/
+        - name: "Filter tool results with 'error'"
+          id: "error_filter_guardrail"
+          action: block # or 'log'
+          content: |
+            raise "An error was found." if:
+              (msg: ToolOutput)
+              "error" in msg.content
+```
+From then on, all calls proxied via `mcp-scan proxy` will be checked against your configured guardrailing rules for the current client/server.
+
 ## How It Works
 
 ### Scanning
