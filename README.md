@@ -1,24 +1,46 @@
 # MCP-Scan: An MCP Security Scanner
 
-[<img src="https://devin.ai/assets/deepwiki-badge.png" alt="Ask DeepWiki.com" height="20"/>](https://deepwiki.com/invariantlabs-ai/mcp-scan)
-<a href="https://discord.gg/dZuZfhKnJ4"><img src="https://img.shields.io/discord/1265409784409231483?style=plastic&logo=discord&color=blueviolet&logoColor=white" height=18/></a>
+[Documentation](https://explorer.invariantlabs.ai/docs/mcp-scan) | [Support Discord](https://discord.gg/dZuZfhKnJ4)
 
-[Documentation](https://explorer.invariantlabs.ai/docs/mcp-scan)
 
-MCP-Scan is a security scanning tool designed to both statically and dynamically scan and monitor your installed MCP servers and check them for common security vulnerabilities like [prompt injections](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks), [tool poisoning](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks) and [cross-origin escalations](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks).
+MCP-Scan is a security scanning tool to both statically and dynamically scan and monitor your MCP connections. It checks them for common security vulnerabilities like [prompt injections](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks), [tool poisoning](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks) and [cross-origin escalations](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks).
+
+It operates in two main modes which can be used jointly or separately:
+
+1. `mcp-scan scan` statically scans all your installed servers for malicious tool descriptions and tools (e.g. [tool poisoning attacks](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks), cross-origin escalation, rug pull attacks). 
+
+    [Quickstart →](#server-scanning).
+
+2. `mcp-scan proxy` continuously monitors your MCP connections in real-time, and can restrict what agent systems can do over MCP (tool call checking, data flow constraints, PII detection, indirect prompt injection etc.). 
+    
+    [Quickstart →](#server-proxying).
+
+<br/>
+<br/>
+
+<div align="center">
+<img src="https://explorer.invariantlabs.ai/docs/mcp-scan/assets/proxy.svg" width="420pt" align="center"/>
+<br/>
+<br/>
+
+_mcp-scan in proxy mode._
+
+</div>
 
 ## Features
 
 - Scanning of Claude, Cursor, Windsurf, and other file-based MCP client configurations
 - Scanning for prompt injection attacks in tools and [tool poisoning attacks](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks) using [Guardrails](https://github.com/invariantlabs-ai/invariant?tab=readme-ov-file#analyzer)
-- Audit MCP calls in real-time using runtime monitoring of MCP traffic using [`mcp-scan proxy`](#proxy)
-- Enforce guardrailing policies on tool calls and responses, including PII detection, secrets detection, tool restrictions and [entirely custom guardrailing policies](https://explorer.invariantlabs.ai/docs/mcp-scan/guardrails).
-- Detect cross-origin escalation attacks (e.g. [tool shadowing](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks))
-- Implements _tool pinning_ to detect and prevent [MCP rug pull attacks](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks), i.e. detects changes to MCP tools via hashing
+- [Enforce guardrailing policies](https://explorer.invariantlabs.ai/docs/mcp-scan/guardrails) on MCP tool calls and responses, including PII detection, secrets detection, tool restrictions and entirely custom guardrailing policies.
+- Audit and log MCP traffic in real-time via [`mcp-scan proxy`](#proxy)
+- Detect cross-origin escalation attacks (e.g. [tool shadowing](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks)), and detect and prevent [MCP rug pull attacks](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks), i.e. mcp-scan detects changes to MCP tools via hashing
 
 
 ## Quick Start
-To run MCP-Scan statically, use the following command:
+
+### Server Scanning
+
+To run a static MCP scan, use the following command:
 
 ```bash
 uvx mcp-scan@latest
@@ -30,8 +52,17 @@ or
 npx mcp-scan@latest
 ```
 
-### Example Run
+This will scan your installed servers for security vulnerabilities in tools, prompts, and resources. It will automatically discover a variety of MCP configurations, including Claude, Cursor and Windsurf.
+
+#### Example Run
 [![demo](demo.svg)](https://asciinema.org/a/716858)
+
+### Server Proxying
+
+Using `mcp-scan proxy`, you can monitor, log, and safeguard all MCP traffic on your machine. This allows you to inspect the runtime behavior of agents and tools, and prevent attacks from e.g., untrusted sources (like websites or emails) that may try to exploit your agents. mcp-scan proxy is a dynamic security layer that runs in the background, and continuously monitors your MCP traffic.
+
+#### Example Run
+
 
 ## How It Works
 
