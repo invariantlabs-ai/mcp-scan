@@ -7,8 +7,9 @@ from datetime import datetime
 
 import rich
 import yaml  # type: ignore
-from mcp_scan_server.models import DEFAULT_GUARDRAIL_CONFIG, GuardrailConfigFile
 from pydantic import ValidationError
+
+from mcp_scan_server.models import DEFAULT_GUARDRAIL_CONFIG, GuardrailConfigFile
 
 from .models import Entity, ScannedEntities, ScannedEntity, entity_type_to_str, hash_entity
 from .utils import upload_whitelist_entry

@@ -1,12 +1,14 @@
 # type: ignore
 import asyncio
 import os
+from typing import Any
 
 import fastapi
 import rich
 import yaml  # type: ignore
 from fastapi import APIRouter, Depends, Request
 from invariant.analyzer.policy import LocalPolicy
+from invariant.analyzer.runtime.nodes import Event
 from invariant.analyzer.runtime.runtime_errors import (
     ExcessivePolicyError,
     InvariantAttributeError,
@@ -15,6 +17,7 @@ from invariant.analyzer.runtime.runtime_errors import (
 from pydantic import ValidationError
 
 from mcp_scan_server.activity_logger import ActivityLogger, get_activity_logger
+from mcp_scan_server.session_store import SessionStore, to_session
 
 from ..models import (
     DEFAULT_GUARDRAIL_CONFIG,
@@ -27,6 +30,7 @@ from ..models import (
 from ..parse_config import parse_config
 
 router = APIRouter()
+session_store = SessionStore()
 
 
 async def load_guardrails_config_file(config_file_path: str) -> GuardrailConfigFile:
@@ -106,7 +110,9 @@ async def get_policy(
     return {"policies": policies}
 
 
-async def check_policy(policy_str: str, messages: list[dict], parameters: dict | None = None) -> PolicyCheckResult:
+async def check_policy(
+    policy_str: str, messages: list[dict[str, Any]], parameters: dict | None = None, from_index: int = -1
+) -> PolicyCheckResult:
     """
     Check a policy using the invariant analyzer.
 
@@ -118,6 +124,10 @@ async def check_policy(policy_str: str, messages: list[dict], parameters: dict |
     Returns:
         A PolicyCheckResult object.
     """
+
+    # If from_index is not provided, assume all but the last message have been analyzed
+    from_index = from_index if from_index != -1 else len(messages) - 1
+
     try:
         policy = LocalPolicy.from_string(policy_str)
 
@@ -127,8 +137,7 @@ async def check_policy(policy_str: str, messages: list[dict], parameters: dict |
                 success=False,
                 error_message=str(policy),
             )
-
-        result = await policy.a_analyze_pending(messages[:-1], [messages[-1]], **(parameters or {}))
+        result = await policy.a_analyze_pending(messages[:from_index], messages[from_index:], **(parameters or {}))
 
         return PolicyCheckResult(
             policy=policy_str,
@@ -162,6 +171,25 @@ def to_json_serializable_dict(obj):
         return type(obj).__name__ + "(" + str(obj) + ")"
 
 
+async def get_messages_from_session(
+    check_request: BatchCheckRequest, client_name: str, server_name: str, session_id: str
+) -> list[Event]:
+    """Get the messages from the session store."""
+    try:
+        session = await to_session(check_request.messages, server_name, session_id)
+        session = session_store.fetch_and_merge(client_name, session)
+        messages = [node.message for node in session.get_sorted_nodes()]
+    except Exception as e:
+        rich.print(
+            f"[bold red]Error parsing messages for client {client_name} and server {server_name}: {e}[/bold red]"
+        )
+
+        # If we fail to parse the session, return the original messages
+        messages = check_request.messages
+
+    return messages
+
+
 @router.post("/policy/check/batch", response_model=BatchCheckResponse)
 async def batch_check_policies(
     check_request: BatchCheckRequest,
@@ -169,20 +197,33 @@ async def batch_check_policies(
     activity_logger: ActivityLogger = Depends(get_activity_logger),
 ):
     """Check a policy using the invariant analyzer."""
+    metadata = check_request.parameters.get("metadata", {})
+
+    mcp_client = metadata.get("client", "Unknown Client")
+    mcp_server = metadata.get("server", "Unknown Server")
+    session_id = metadata.get("session_id", "<no session id>")
+
+    messages = await get_messages_from_session(check_request, mcp_client, mcp_server, session_id)
+    last_analysis_index = session_store[mcp_client].last_analysis_index
+
     results = await asyncio.gather(
-        *[check_policy(policy, check_request.messages, check_request.parameters) for policy in check_request.policies]
+        *[
+            check_policy(policy, messages, check_request.parameters, last_analysis_index)
+            for policy in check_request.policies
+        ]
     )
 
-    metadata = check_request.parameters.get("metadata", {})
+    # Update the last analysis index
+    session_store[mcp_client].last_analysis_index = len(messages)
     guardrails_action = check_request.parameters.get("action", "block")
 
     await activity_logger.log(
         check_request.messages,
         {
-            "client": metadata.get("client", "Unknown Client"),
-            "mcp_server": metadata.get("server", "Unknown Server"),
+            "client": mcp_client,
+            "mcp_server": mcp_server,
             "user": metadata.get("system_user", None),
-            "session_id": metadata.get("session_id", "<no session id>"),
+            "session_id": session_id,
         },
         results,
         guardrails_action,
