@@ -25,7 +25,8 @@ def cleanup_trace_client_mapping():
 
 
 @pytest.mark.parametrize("filename", ["explorer:test", "explorer:test", "explorer:test"])
-def test_parse_record_filename_explorer_valid(filename):
+def test_parse_record_filename_explorer_valid(filename, monkeypatch):
+    monkeypatch.setattr("mcp_scan_server.record_file.Client", Mock())
     file = parse_record_file_name(filename)
     assert file.dataset_name == filename.split(":")[1]
     assert isinstance(file, ExplorerRecordFile)
@@ -111,8 +112,8 @@ def _setup_test_session_and_mock(monkeypatch, mock_trace_id="test_trace_id"):
     mock_client = Mock()
     mock_client.create_request_and_push_trace.return_value = Mock(id=[mock_trace_id])
 
-    # Patch the invariant SDK client
-    monkeypatch.setattr("mcp_scan_server.record_file.invariant_sdk_client", mock_client)
+    monkeypatch.setattr("invariant_sdk.client.Client", mock_client)
+    monkeypatch.setattr("mcp_scan_server.record_file.ExplorerRecordFile._check_is_key_set", Mock())
 
     # Create the trace client mapping
     trace_client_mapping = TraceClientMapping()
@@ -130,7 +131,9 @@ async def test_push_session_to_record_file_explorer_first_time_calls_create_requ
     mock_trace_id = "test_trace_id"
 
     # Push the session to the record file
-    trace_id = await push_session_to_record_file(session, ExplorerRecordFile("test"), "client_name", session_store)
+    trace_id = await push_session_to_record_file(
+        session, ExplorerRecordFile("test", mock_client), "client_name", session_store
+    )
 
     # Check that the trace id is set
     assert trace_id == mock_trace_id
@@ -158,7 +161,7 @@ async def test_push_session_to_record_file_explorer_second_time_calls_append_mes
     message = {"role": "assistant", "content": "response"}
 
     # First push to set up the trace ID
-    await push_session_to_record_file(session, ExplorerRecordFile("test"), "client_name", session_store)
+    await push_session_to_record_file(session, ExplorerRecordFile("test", mock_client), "client_name", session_store)
 
     # Add a new message to the session
     session.nodes.append(
@@ -171,7 +174,9 @@ async def test_push_session_to_record_file_explorer_second_time_calls_append_mes
         )
     )
     # Second push should append
-    trace_id = await push_session_to_record_file(session, ExplorerRecordFile("test"), "client_name", session_store)
+    trace_id = await push_session_to_record_file(
+        session, ExplorerRecordFile("test", mock_client), "client_name", session_store
+    )
 
     # Check that we got the same trace ID back
     assert trace_id == mock_trace_id
@@ -195,9 +200,8 @@ def _setup_test_session_and_local_file(tmp_path):
 
     # Create the trace client mapping
     trace_client_mapping = TraceClientMapping()
-    print(tmp_path)
 
-    record_file = parse_record_file_name("local:test")
+    record_file = parse_record_file_name("local:test", base_path=str(tmp_path))
     assert isinstance(record_file, LocalRecordFile), "Should have LocalRecordFile"
 
     return trace_client_mapping, record_file
@@ -264,7 +268,7 @@ async def test_push_session_to_record_file_local_second_time_appends_to_file(tmp
     # Check that the file contains both messages
     expected_path = record_file.get_session_file_path("client_name")
     with open(expected_path) as f:
-        lines = f.readlines()
+        lines = [line.strip() for line in f.readlines() if line.strip()]  # Filter out empty lines
         assert len(lines) == 2
-        assert json.loads(lines[0].strip()) == {"role": "user", "content": "test"}
-        assert json.loads(lines[1].strip()) == message
+        assert json.loads(lines[0]) == {"role": "user", "content": "test"}
+        assert json.loads(lines[1]) == message
