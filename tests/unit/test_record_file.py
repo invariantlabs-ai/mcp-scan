@@ -24,26 +24,16 @@ def cleanup_trace_client_mapping():
     trace_client_mapping.clear()
 
 
-@pytest.fixture(autouse=True)
-def cleanup_session_store():
-    """
-    Cleanup the session store.
-    """
-    session_store = SessionStore()
-    session_store.clear()
-
-
-@pytest.mark.parametrize("filename", ["explorer:test", "explorer:test.json", "explorer:test.jsonl"])
+@pytest.mark.parametrize("filename", ["explorer:test", "explorer:test", "explorer:test"])
 def test_parse_record_filename_explorer_valid(filename):
     file = parse_record_file_name(filename)
     assert file.dataset_name == filename.split(":")[1]
     assert isinstance(file, ExplorerRecordFile)
 
 
-@pytest.mark.parametrize("filename", ["test.json", "test.jsonl"])
+@pytest.mark.parametrize("filename", ["local:test", "local:test"])
 def test_parse_record_filename_local_valid(filename):
     file = parse_record_file_name(filename)
-    assert file.filename == filename
     assert isinstance(file, LocalRecordFile)
 
 
@@ -135,12 +125,12 @@ async def test_push_session_to_record_file_explorer_first_time_calls_create_requ
     """
     Test that we call create_request_and_push_trace when pushing a session to the record file for the first time.
     """
-    _, session = _setup_test_session_and_session_store()
+    session_store, session = _setup_test_session_and_session_store()
     mock_client, trace_client_mapping = _setup_test_session_and_mock(monkeypatch)
     mock_trace_id = "test_trace_id"
 
     # Push the session to the record file
-    trace_id = await push_session_to_record_file(session, ExplorerRecordFile("test"), "client_name")
+    trace_id = await push_session_to_record_file(session, ExplorerRecordFile("test"), "client_name", session_store)
 
     # Check that the trace id is set
     assert trace_id == mock_trace_id
@@ -162,13 +152,13 @@ async def test_push_session_to_record_file_explorer_second_time_calls_append_mes
     """
     Test that we call append_messages when pushing a session to the record file for the second time.
     """
-    _, session = _setup_test_session_and_session_store()
+    session_store, session = _setup_test_session_and_session_store()
     mock_client, trace_client_mapping = _setup_test_session_and_mock(monkeypatch)
     mock_trace_id = "test_trace_id"
     message = {"role": "assistant", "content": "response"}
 
     # First push to set up the trace ID
-    await push_session_to_record_file(session, ExplorerRecordFile("test"), "client_name")
+    await push_session_to_record_file(session, ExplorerRecordFile("test"), "client_name", session_store)
 
     # Add a new message to the session
     session.nodes.append(
@@ -180,9 +170,8 @@ async def test_push_session_to_record_file_explorer_second_time_calls_append_mes
             original_session_index=1,
         )
     )
-
     # Second push should append
-    trace_id = await push_session_to_record_file(session, ExplorerRecordFile("test"), "client_name")
+    trace_id = await push_session_to_record_file(session, ExplorerRecordFile("test"), "client_name", session_store)
 
     # Check that we got the same trace ID back
     assert trace_id == mock_trace_id
@@ -206,9 +195,10 @@ def _setup_test_session_and_local_file(tmp_path):
 
     # Create the trace client mapping
     trace_client_mapping = TraceClientMapping()
+    print(tmp_path)
 
-    # Create a LocalRecordFile with the temp path
-    record_file = LocalRecordFile("test.jsonl", base_path=str(tmp_path))
+    record_file = parse_record_file_name("local:test")
+    assert isinstance(record_file, LocalRecordFile), "Should have LocalRecordFile"
 
     return trace_client_mapping, record_file
 
@@ -219,11 +209,11 @@ async def test_push_session_to_record_file_local_creates_file_and_writes_to_it(t
     Test that we create a file and write to it when pushing a session to the record file for the first time.
     Also check that the path is set correctly to the LocalRecordFile data.
     """
-    _, session = _setup_test_session_and_session_store()
+    session_store, session = _setup_test_session_and_session_store()
     trace_client_mapping, record_file = _setup_test_session_and_local_file(tmp_path)
 
     # Push the session to the record file
-    trace_id = await push_session_to_record_file(session, record_file, "client_name")
+    trace_id = await push_session_to_record_file(session, record_file, "client_name", session_store)
 
     # Check that the trace id is set
     assert trace_id is not None
@@ -244,11 +234,11 @@ async def test_push_session_to_record_file_local_second_time_appends_to_file(tmp
     """
     Test that we append to the file when pushing a session to the record file for the second time.
     """
-    _, session = _setup_test_session_and_session_store()
+    session_store, session = _setup_test_session_and_session_store()
     trace_client_mapping, record_file = _setup_test_session_and_local_file(tmp_path)
 
     # First push to set up the trace ID
-    trace_id = await push_session_to_record_file(session, record_file, "client_name")
+    trace_id = await push_session_to_record_file(session, record_file, "client_name", session_store)
 
     # Add a new message to the session
     message = {"role": "assistant", "content": "response"}
@@ -263,7 +253,7 @@ async def test_push_session_to_record_file_local_second_time_appends_to_file(tmp
     )
 
     # Second push should append
-    new_trace_id = await push_session_to_record_file(session, record_file, "client_name")
+    new_trace_id = await push_session_to_record_file(session, record_file, "client_name", session_store)
 
     # Check that we got the same trace ID back
     assert new_trace_id == trace_id

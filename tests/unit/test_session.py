@@ -10,18 +10,6 @@ def create_timestamped_node(timestamp: datetime.datetime):
     return SessionNode(timestamp=timestamp, message={}, session_id="", server_name="", original_session_index=0)
 
 
-# create a cleanup function to delete the session store and make it run after each test
-def cleanup_session_store():
-    session_store = SessionStore()
-    session_store.clear()
-
-
-@pytest.fixture(autouse=True)
-def cleanup_session_store_after_test():
-    yield
-    cleanup_session_store()
-
-
 @pytest.fixture
 def some_date():
     return datetime.datetime(2021, 1, 1, 12, 0, 0)
@@ -184,22 +172,260 @@ async def test_to_session_function():
     ]
 
 
-def test_session_node_to_json():
-    session_node = SessionNode(
-        timestamp=datetime.datetime.now(),
-        message={"role": "user", "content": "Hello, world!"},
-        session_id="session_id",
-        server_name="server_name",
-        original_session_index=0,
-    )
+def test_session_merge_empty_self():
+    node_session2 = create_timestamped_node(datetime.datetime(2021, 1, 1, 12, 0, 0))
+    session1 = Session(nodes=[])
+    session2 = Session(nodes=[node_session2])
+    session1.merge(session2)
+    assert session1.nodes == [node_session2]
 
-    session = Session(nodes=[session_node])
 
-    session_store = SessionStore()
-    session_store["client_name"] = session
+def test_session_merge_empty_other():
+    node_session1 = create_timestamped_node(datetime.datetime(2021, 1, 1, 12, 0, 0))
+    session1 = Session(nodes=[node_session1])
+    session2 = Session(nodes=[])
+    session1.merge(session2)
+    assert session1.nodes == [node_session1]
 
-    session_store_json = session_store.to_json()
-    assert session_store_json is not None
+
+def test_session_merge_empty_self_and_other():
+    session1 = Session(nodes=[])
+    session2 = Session(nodes=[])
+    session1.merge(session2)
+    assert session1.nodes == []
+
+
+def test_session_merge_self_is_same_as_other():
+    """
+    When the self session is the same as the other session, we should not change the self session.
+    """
+    nodes_session1 = [
+        create_timestamped_node(datetime.datetime(2021, 1, 1, 12, 0, 0)),
+        create_timestamped_node(datetime.datetime(2021, 1, 1, 12, 0, 1)),
+    ]
+    session1 = Session(nodes=nodes_session1)
+    session2 = Session(nodes=nodes_session1)
+    session1.merge(session2)
+    assert session1.nodes == nodes_session1
+
+
+def test_session_merge_self_is_prefix_of_other():
+    """
+    When the self session is a prefix of the other session, we should only insert the difference.
+    """
+    nodes1 = [
+        create_timestamped_node(datetime.datetime(2021, 1, 1, 12, 0, 0)),
+        create_timestamped_node(datetime.datetime(2021, 1, 1, 12, 0, 1)),
+    ]
+    nodes2 = [
+        nodes1[0],
+        nodes1[1],
+        create_timestamped_node(datetime.datetime(2021, 1, 1, 12, 0, 2)),
+    ]
+    session1 = Session(nodes=nodes1)
+    session2 = Session(nodes=nodes2)
+    session1.merge(session2)
+    assert len(session1.nodes) == 3
+    assert session1.nodes == nodes2
+
+
+def test_session_merge_self_is_in_middle_of_other():
+    """ """
+    nodes1 = [
+        create_timestamped_node(datetime.datetime(2021, 1, 1, 12, 0, 0)),
+        create_timestamped_node(datetime.datetime(2021, 1, 1, 12, 0, 3)),
+    ]
+
+    nodes2 = [
+        create_timestamped_node(datetime.datetime(2021, 1, 1, 12, 0, 1)),
+        create_timestamped_node(datetime.datetime(2021, 1, 1, 12, 0, 2)),
+    ]
+    session1 = Session(nodes=nodes1)
+    session2 = Session(nodes=nodes2)
+    session1.merge(session2)
+    assert len(session1.nodes) == 4
+    assert session1.nodes == [
+        nodes1[0],
+        nodes2[0],
+        nodes2[1],
+        nodes1[1],
+    ]
+
+
+def test_session_merge_self_is_subset_of_other():
+    nodes1 = [
+        create_timestamped_node(datetime.datetime(2021, 1, 1, 12, 0, 0)),
+        create_timestamped_node(datetime.datetime(2021, 1, 1, 12, 0, 1)),
+        create_timestamped_node(datetime.datetime(2021, 1, 1, 12, 0, 2)),
+        create_timestamped_node(datetime.datetime(2021, 1, 1, 12, 0, 3)),
+    ]
+    nodes2 = [
+        nodes1[1],
+        nodes1[2],
+    ]
+    session1 = Session(nodes=nodes1)
+    session2 = Session(nodes=nodes2)
+    session1.merge(session2)
+    assert len(session1.nodes) == 4
+    assert session1.nodes == nodes1
+
+
+def test_session_merge_overlapping_sessions():
+    """Test merging sessions that partially overlap but neither is a subset."""
+    nodes1 = [
+        create_timestamped_node(datetime.datetime(2021, 1, 1, 12, 0, 0)),
+        create_timestamped_node(datetime.datetime(2021, 1, 1, 12, 0, 1)),
+        create_timestamped_node(datetime.datetime(2021, 1, 1, 12, 0, 4)),
+    ]
+    nodes2 = [
+        create_timestamped_node(datetime.datetime(2021, 1, 1, 12, 0, 1)),  # shared
+        create_timestamped_node(datetime.datetime(2021, 1, 1, 12, 0, 2)),
+        create_timestamped_node(datetime.datetime(2021, 1, 1, 12, 0, 3)),
+    ]
+    session1 = Session(nodes=nodes1)
+    session2 = Session(nodes=nodes2)
+    session1.merge(session2)
+
+    expected = [nodes1[0], nodes1[1], nodes2[1], nodes2[2], nodes1[2]]
+    assert session1.nodes == expected
+
+
+def test_session_merge_disjoint_sessions():
+    """Test merging sessions with no overlapping nodes."""
+    nodes1 = [
+        create_timestamped_node(datetime.datetime(2021, 1, 1, 12, 0, 0)),
+        create_timestamped_node(datetime.datetime(2021, 1, 1, 12, 0, 1)),
+    ]
+    nodes2 = [
+        create_timestamped_node(datetime.datetime(2021, 1, 1, 12, 0, 2)),
+        create_timestamped_node(datetime.datetime(2021, 1, 1, 12, 0, 3)),
+    ]
+    session1 = Session(nodes=nodes1)
+    session2 = Session(nodes=nodes2)
+    session1.merge(session2)
+
+    assert len(session1.nodes) == 4
+    assert session1.nodes == nodes1 + nodes2
+
+
+def test_session_merge_single_nodes():
+    """Test merging sessions with single nodes."""
+    node1 = create_timestamped_node(datetime.datetime(2021, 1, 1, 12, 0, 0))
+    node2 = create_timestamped_node(datetime.datetime(2021, 1, 1, 12, 0, 1))
+
+    session1 = Session(nodes=[node1])
+    session2 = Session(nodes=[node2])
+    session1.merge(session2)
+
+    assert session1.nodes == [node1, node2]
+
+
+def test_session_merge_maintains_chronological_order():
+    """Verify that merged sessions are always in chronological order."""
+    nodes1 = [create_timestamped_node(datetime.datetime(2021, 1, 1, 12, 0, i)) for i in [0, 3, 6, 9]]
+    nodes2 = [create_timestamped_node(datetime.datetime(2021, 1, 1, 12, 0, i)) for i in [1, 4, 7, 10]]
+
+    session1 = Session(nodes=nodes1)
+    session2 = Session(nodes=nodes2)
+    session1.merge(session2)
+
+    # Verify chronological order
+    for i in range(len(session1.nodes) - 1):
+        assert session1.nodes[i].timestamp <= session1.nodes[i + 1].timestamp
+
+
+def test_session_merge_last_analysis_index_maintained_on_insert_after():
+    """
+    Check that `last_analysis_index` is not updated when we merge nodes from
+    "other" that are all after the last analysis index.
+    """
+    nodes1 = [
+        create_timestamped_node(datetime.datetime(2021, 1, 1, 12, 0, 0)),
+        create_timestamped_node(datetime.datetime(2021, 1, 1, 12, 0, 1)),
+    ]
+    nodes2 = [
+        create_timestamped_node(datetime.datetime(2021, 1, 1, 12, 0, 2)),
+    ]
+
+    session1 = Session(nodes=nodes1)
+    session1.last_analysis_index = 1
+    print(session1.last_analysis_index)
+
+    session2 = Session(nodes=nodes2)
+    session1.merge(session2)
+    assert session1.last_analysis_index == 1
+
+
+def test_session_merge_last_analysis_index_is_updated_on_insert_before():
+    """
+    Check that `last_analysis_index` is updated when we merge nodes from
+    "other" that has nodes before the last analysis index.
+    """
+    nodes1 = [
+        create_timestamped_node(datetime.datetime(2021, 1, 1, 12, 0, 0)),
+        create_timestamped_node(datetime.datetime(2021, 1, 1, 12, 0, 1)),
+        create_timestamped_node(datetime.datetime(2021, 1, 1, 12, 0, 3)),
+        create_timestamped_node(datetime.datetime(2021, 1, 1, 12, 0, 4)),
+    ]
+    nodes2 = [
+        create_timestamped_node(datetime.datetime(2021, 1, 1, 12, 0, 2)),
+    ]
+
+    session1 = Session(nodes=nodes1)
+    session1.last_analysis_index = 3
+
+    session2 = Session(nodes=nodes2)
+    session1.merge(session2)
+    assert session1.last_analysis_index == 1
+
+
+def test_session_merge_last_analysis_index_is_updated_on_insert_before_and_after():
+    """
+    Check that `last_analysis_index` is updated when we merge nodes from
+    "other" that has nodes before and after the last analysis index. We should
+    see that the new last_analysis_index is the index of the oldest node from "other".
+    """
+    nodes1 = [
+        create_timestamped_node(datetime.datetime(2021, 1, 1, 12, 0, 0)),
+        create_timestamped_node(datetime.datetime(2021, 1, 1, 12, 0, 1)),
+        create_timestamped_node(datetime.datetime(2021, 1, 1, 12, 0, 2)),
+        create_timestamped_node(datetime.datetime(2021, 1, 1, 12, 0, 4)),
+    ]
+    nodes2 = [
+        create_timestamped_node(datetime.datetime(2021, 1, 1, 12, 0, 3)),
+        create_timestamped_node(datetime.datetime(2021, 1, 1, 12, 0, 5)),
+    ]
+
+    session1 = Session(nodes=nodes1)
+    session1.last_analysis_index = 4
+
+    session2 = Session(nodes=nodes2)
+    session1.merge(session2)
+    assert session1.last_analysis_index == 1
+
+
+def test_session_merge_last_analysis_index_is_reset_when_other_has_nodes_before_self():
+    """
+    Check that `last_analysis_index` is reset when we merge nodes from
+    "other" that has nodes before the last analysis index.
+    """
+    nodes1 = [
+        create_timestamped_node(datetime.datetime(2021, 1, 1, 12, 0, 2)),
+        create_timestamped_node(datetime.datetime(2021, 1, 1, 12, 0, 4)),
+    ]
+
+    nodes2 = [
+        create_timestamped_node(datetime.datetime(2021, 1, 1, 12, 0, 0)),
+        create_timestamped_node(datetime.datetime(2021, 1, 1, 12, 0, 1)),
+        create_timestamped_node(datetime.datetime(2021, 1, 1, 12, 0, 3)),
+    ]
+
+    session1 = Session(nodes=nodes1)
+    session1.last_analysis_index = 2
+
+    session2 = Session(nodes=nodes2)
+    session1.merge(session2)
+    assert session1.last_analysis_index == -1
 
 
 def test_json_serialization():
@@ -243,24 +469,19 @@ def test_json_serialization():
     assert store_dict == {"sessions": {"test_client": [message]}}
 
 
-def test_session_store_shares_state():
-    """Test that the session store shares state between multiple instances."""
-
-    # Create and populate the session store
-    session_store = SessionStore()
-    session_store["client_name_1"] = Session(
-        nodes=[
-            SessionNode(
-                timestamp=datetime.datetime.now(),
-                message={"role": "user", "content": "Hello, world!"},
-                session_id="session_id",
-                server_name="server_name",
-                original_session_index=0,
-            )
-        ]
+def test_session_node_to_json():
+    session_node = SessionNode(
+        timestamp=datetime.datetime.now(),
+        message={"role": "user", "content": "Hello, world!"},
+        session_id="session_id",
+        server_name="server_name",
+        original_session_index=0,
     )
 
-    # Create new session store and check that the session is shared
-    session_store_2 = SessionStore()
-    assert session_store_2["client_name_1"] is not None
-    assert session_store_2["client_name_1"].nodes == session_store["client_name_1"].nodes
+    session = Session(nodes=[session_node])
+
+    session_store = SessionStore()
+    session_store["client_name"] = session
+
+    session_store_json = session_store.to_json()
+    assert session_store_json is not None

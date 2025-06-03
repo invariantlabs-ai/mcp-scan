@@ -70,8 +70,6 @@ invariant_sdk_client = Client() if os.environ.get("INVARIANT_API_KEY") else None
 
 # Initialize the trace client mapping and session store
 trace_client_mapping = TraceClientMapping()
-session_store = SessionStore()
-record_post_fix = generate_record_file_postfix()
 
 
 @dataclass(frozen=True)
@@ -102,19 +100,27 @@ class ExplorerRecordFile(RecordFile):
 class LocalRecordFile(RecordFile):
     """Record file for local files."""
 
-    filename: str
-    base_path: str = os.path.expanduser("~/.mcp-scan/sessions")
-    postfix: str = ""
+    directory_name: str
+    base_path: str = os.path.expanduser("~/.mcp-scan/sessions/")
+    postfix: str = str(uuid.uuid4())[:8]
 
     def startup_message(self) -> str:
         """Return a message to be printed on startup."""
-        return self.__message_styling_wrapper__(f"local file: '{os.path.join(self.base_path, self.filename)}'")
+        return self.__message_styling_wrapper__(f"local directory: '{self.get_directory()}'")
+
+    def get_directory(self) -> str:
+        """Get the directory for the record file."""
+        return os.path.join(self.base_path, self.directory_name)
+
+    def get_filepath(self, client_name: str | None) -> str:
+        """Get the path to the session file for a given client."""
+        client_name = client_name or "unknown"
+        return os.path.join(self.get_directory(), f"{client_name}-{self.postfix}.jsonl")
 
     def get_session_file_path(self, client_name: str | None) -> str:
         """Get the path to the session file for a given client."""
-        # Use client name as the filename, with .jsonl extension
         client_name = client_name or "unknown"
-        return os.path.join(self.base_path, f"{client_name}-{self.postfix}.jsonl")
+        return self.get_filepath(client_name)
 
 
 def parse_record_file_name(record_file: str | None) -> RecordFile | None:
@@ -127,11 +133,18 @@ def parse_record_file_name(record_file: str | None) -> RecordFile | None:
         dataset_name = record_file.split(":")[1]
         return ExplorerRecordFile(dataset_name)
 
-    # Check that it ends with .json or .jsonl
-    if not record_file.endswith(".json") and not record_file.endswith(".jsonl"):
-        raise ValueError(f"Record file must end with .json or .jsonl: {record_file}")
+    # Check if it has the form local:{directory_name}
+    elif record_file.startswith("local:"):
+        directory_name = record_file.split(":")[1]
+        file_object = LocalRecordFile(directory_name)
+        os.makedirs(file_object.get_directory(), exist_ok=True)
+        return file_object
 
-    return LocalRecordFile(record_file, postfix=record_post_fix)
+    # Otherwise, unknown record file type
+    else:
+        raise ValueError(
+            f"Invalid record file name: {record_file}. Must be of the form explorer:{{dataset_name}} or local:{{directory_name}}"
+        )
 
 
 async def _push_session_to_explorer(
@@ -184,7 +197,7 @@ async def _push_session_to_local_file(
     session_file_path = record_file.get_session_file_path(client_name)
 
     # Write each message as a JSONL line
-    with open(session_file_path, "a") as f:
+    with open(session_file_path, "w") as f:
         for message in session_data:
             f.write(json.dumps(message) + "\n")
 
@@ -241,7 +254,9 @@ async def _append_messages_to_local_file(
             f.write(json.dumps(message) + "\n")
 
 
-async def push_session_to_record_file(session: Session, record_file: RecordFile, client_name: str) -> str | None:
+async def push_session_to_record_file(
+    session: Session, record_file: RecordFile, client_name: str, session_store: SessionStore
+) -> str | None:
     """
     Push a session to a record file.
 
@@ -261,7 +276,7 @@ async def push_session_to_record_file(session: Session, record_file: RecordFile,
 
     # If we have already pushed for this client, append to the record file
     if trace_id := trace_client_mapping.get_trace_id(client_name):
-        await append_messages_to_record_file(trace_id, record_file)
+        await append_messages_to_record_file(trace_id, record_file, session_store=session_store)
         return trace_id
 
     # Otherwise, push to the record file
@@ -279,14 +294,18 @@ async def push_session_to_record_file(session: Session, record_file: RecordFile,
 
 
 async def append_messages_to_record_file(
-    trace_id: str, record_file: RecordFile, annotations: dict[str, Any] | None = None
+    trace_id: str,
+    record_file: RecordFile,
+    session_store: SessionStore,
+    annotations: dict[str, Any] | None = None,
 ) -> None:
     """
     Append messages to the record file.
     """
     client_name = trace_client_mapping.get_client_name(trace_id)
     if client_name is None:
-        raise ValueError(f"Trace id {trace_id} not found in trace client mapping")
+        rich.print(f"[bold red]Trace id {trace_id} not found in trace client mapping. Cancelling append. [/bold red]")
+        return
 
     session = session_store[client_name]
     index = session.last_pushed_index

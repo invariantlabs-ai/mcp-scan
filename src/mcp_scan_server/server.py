@@ -13,6 +13,7 @@ from .routes.policies import router as policies_router  # type: ignore
 from .routes.push import router as push_router
 from .routes.trace import router as dataset_trace_router
 from .routes.user import router as user_router
+from .session_store import setup_session_store
 
 
 class MCPScanServer:
@@ -73,6 +74,9 @@ class MCPScanServer:
 
         # setup activity logger
         setup_activity_logger(self.app, pretty=self.pretty)
+
+        # setup session store
+        setup_session_store(self.app)
 
         from .routes.policies import load_guardrails_config_file
 
