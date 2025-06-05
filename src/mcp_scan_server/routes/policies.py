@@ -17,7 +17,7 @@ from invariant.analyzer.runtime.runtime_errors import (
 from pydantic import ValidationError
 
 from mcp_scan_server.activity_logger import ActivityLogger, get_activity_logger
-from mcp_scan_server.session_store import SessionStore, to_session
+from mcp_scan_server.session_store import SessionStore, get_session_store, to_session
 
 from ..models import (
     DEFAULT_GUARDRAIL_CONFIG,
@@ -30,7 +30,6 @@ from ..models import (
 from ..parse_config import parse_config
 
 router = APIRouter()
-session_store = SessionStore()
 
 
 async def load_guardrails_config_file(config_file_path: str) -> GuardrailConfigFile:
@@ -172,7 +171,7 @@ def to_json_serializable_dict(obj):
 
 
 async def get_messages_from_session(
-    check_request: BatchCheckRequest, client_name: str, server_name: str, session_id: str
+    check_request: BatchCheckRequest, client_name: str, server_name: str, session_id: str, session_store: SessionStore
 ) -> list[Event]:
     """Get the messages from the session store."""
     try:
@@ -195,6 +194,7 @@ async def batch_check_policies(
     check_request: BatchCheckRequest,
     request: fastapi.Request,
     activity_logger: ActivityLogger = Depends(get_activity_logger),
+    session_store: SessionStore = Depends(get_session_store),
 ):
     """Check a policy using the invariant analyzer."""
     metadata = check_request.parameters.get("metadata", {})
@@ -203,7 +203,7 @@ async def batch_check_policies(
     mcp_server = metadata.get("server", "Unknown Server")
     session_id = metadata.get("session_id", "<no session id>")
 
-    messages = await get_messages_from_session(check_request, mcp_client, mcp_server, session_id)
+    messages = await get_messages_from_session(check_request, mcp_client, mcp_server, session_id, session_store)
     last_analysis_index = session_store[mcp_client].last_analysis_index
 
     results = await asyncio.gather(
