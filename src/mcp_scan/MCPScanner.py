@@ -199,18 +199,17 @@ class MCPScanner:
     async def check_cross_references(self, path_result: ScanPathResult) -> CrossRefResult:
         logger.info("Checking cross references for path: %s", path_result.path)
         cross_ref_result = CrossRefResult(found=False)
-        if sum(len(server.entities) for server in path_result.servers) < 2:
-            logger.debug("Not enough entities to check cross references")
-            return cross_ref_result
-        if len(path_result.servers) < 2:
-            logger.debug("Not enough servers to check cross references")
-            return cross_ref_result
         for server in path_result.servers:
             other_servers = [s for s in path_result.servers if s != server]
             other_server_names = [s.name for s in other_servers]
             other_entity_names = [e.name for s in other_servers for e in s.entities]
             flagged_names = set(map(str.lower, other_server_names + other_entity_names))
             logger.debug("Found %d potential cross-reference names", len(flagged_names))
+
+            if len(flagged_names) < 1:
+                logger.debug("No flagged names found, skipping cross-reference check")
+                continue
+
             for entity in server.entities:
                 tokens = (entity.description or "").lower().split()
                 for token in tokens:
