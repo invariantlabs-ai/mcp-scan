@@ -192,38 +192,8 @@ class MCPScanner:
             path_result.servers[i] = await self.scan_server(server, inspect_only)
         logger.debug("Verifying server path: %s", path)
         path_result = await verify_scan_path(path_result, base_url=self.base_url, run_locally=self.local_only)
-        path_result.cross_ref_result = await self.check_cross_references(path_result)
         await self.emit("path_scanned", path_result)
         return path_result
-
-    async def check_cross_references(self, path_result: ScanPathResult) -> CrossRefResult:
-        logger.info("Checking cross references for path: %s", path_result.path)
-        cross_ref_result = CrossRefResult(found=False)
-        for server in path_result.servers:
-            other_servers = [s for s in path_result.servers if s != server]
-            other_server_names = [s.name for s in other_servers]
-            other_entity_names = [e.name for s in other_servers for e in s.entities]
-            flagged_names = set(map(str.lower, other_server_names + other_entity_names))
-            logger.debug("Found %d potential cross-reference names", len(flagged_names))
-
-            if len(flagged_names) < 1:
-                logger.debug("No flagged names found, skipping cross-reference check")
-                continue
-
-            for entity in server.entities:
-                tokens = (entity.description or "").lower().split()
-                for token in tokens:
-                    best_distance = calculate_distance(reference=token, responses=list(flagged_names))[0]
-                    if ((best_distance[1] <= 2) and (len(token) >= 5)) or (token in flagged_names):
-                        logger.warning("Cross-reference found: %s with token %s", entity.name, token)
-                        cross_ref_result.found = True
-                        cross_ref_result.sources.append(f"{entity.name}:{token}")
-
-        if cross_ref_result.found:
-            logger.info("Cross references detected with %d sources", len(cross_ref_result.sources))
-        else:
-            logger.debug("No cross references found")
-        return cross_ref_result
 
     async def scan(self) -> list[ScanPathResult]:
         logger.info("Starting scan of %d paths", len(self.paths))
