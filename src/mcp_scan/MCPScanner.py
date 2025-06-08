@@ -11,7 +11,8 @@ from .mcp_client import check_server_with_timeout, scan_mcp_config_file
 from .StorageFile import StorageFile
 from .utils import calculate_distance
 from .verify_api import verify_scan_path
-from .logger import EnhancedLogger  # ← 추가된 import
+from .logger import EnhancedLogger
+from .cache import SimpleCache  # ← 캐시 import 추가
 
 # Set up logger for this module
 logger = logging.getLogger(__name__)
@@ -59,6 +60,7 @@ class MCPScanner:
         server_timeout: int = 10,
         suppress_mcpserver_io: bool = True,
         local_only: bool = False,
+        use_cache: bool = True,  # ← 캐시 사용 옵션 추가
         **kwargs: Any,
     ):
         logger.info("Initializing MCPScanner")
@@ -74,11 +76,19 @@ class MCPScanner:
         self.context_manager = None
         self.local_only = local_only
         
-        # ← 여기에 EnhancedLogger 추가
+        # Enhanced Logger 추가
         self.enhanced_logger = EnhancedLogger()
         
+        # ← 캐시 시스템 추가
+        self.cache = SimpleCache() if use_cache else None
+        if use_cache:
+            self.enhanced_logger.info("💾 캐시 시스템 활성화")
+        else:
+            self.enhanced_logger.info("🚫 캐시 시스템 비활성화")
+        
         logger.debug(
-            "MCPScanner initialized with timeout: %d, checks_per_server: %d", server_timeout, checks_per_server
+            "MCPScanner initialized with timeout: %d, checks_per_server: %d, use_cache: %s", 
+            server_timeout, checks_per_server, use_cache
         )
 
     def __enter__(self):
@@ -112,6 +122,44 @@ class MCPScanner:
             logger.exception(error_msg)
             raise RuntimeError(error_msg)
 
+    # ← 새로운 메서드: 캐시된 설정 파일 스캔
+    async def scan_config_file_with_cache(self, file_path: str) -> ScanPathResult:
+        """설정 파일 스캔 (캐시 적용)"""
+        # 캐시 확인
+        if self.cache:
+            cached_result = self.cache.get(file_path)
+            if cached_result:
+                self.enhanced_logger.success(f"💾 캐시에서 결과 로드: {file_path}")
+                # 캐시된 데이터를 ScanPathResult 객체로 변환
+                try:
+                    return ScanPathResult.model_validate(cached_result)
+                except Exception as e:
+                    self.enhanced_logger.warning(f"캐시 데이터 파싱 실패, 새로 스캔: {e}")
+                    # 캐시 데이터가 손상된 경우 삭제
+                    try:
+                        cache_key = self.cache._get_cache_key(file_path)
+                        cache_file = self.cache.cache_dir / f"{cache_key}.json"
+                        if cache_file.exists():
+                            cache_file.unlink()
+                    except Exception:
+                        pass
+
+        # 새로 스캔 수행
+        self.enhanced_logger.info(f"🔍 스캔 시작: {file_path}")
+        result = await self.get_servers_from_path(file_path)
+        
+        # 캐시에 저장 (에러가 없는 경우에만)
+        if self.cache and result and not result.error:
+            try:
+                # ScanPathResult를 딕셔너리로 변환하여 저장
+                cache_data = result.model_dump()
+                if self.cache.set(file_path, cache_data):
+                    self.enhanced_logger.info("💾 스캔 결과를 캐시에 저장했습니다.")
+            except Exception as e:
+                self.enhanced_logger.warning(f"캐시 저장 실패: {e}")
+        
+        return result
+
     async def get_servers_from_path(self, path: str) -> ScanPathResult:
         logger.info("Getting servers from path: %s", path)
         result = ScanPathResult(path=path)
@@ -124,13 +172,11 @@ class MCPScanner:
         except FileNotFoundError as e:
             error_msg = "file does not exist"
             logger.exception("%s: %s", error_msg, path)
-            # ← Enhanced Logger로 사용자 친화적 에러 표시
             self.enhanced_logger.error(f"설정 파일을 찾을 수 없습니다: {path}")
             result.error = ScanError(message=error_msg, exception=e)
         except Exception as e:
             error_msg = "could not parse file"
             logger.exception("%s: %s", error_msg, path)
-            # ← Enhanced Logger로 사용자 친화적 에러 표시
             self.enhanced_logger.error(f"설정 파일 파싱 실패: {path}")
             result.error = ScanError(message=error_msg, exception=e)
         return result
@@ -145,7 +191,6 @@ class MCPScanner:
             result.result[i].changed = c
             if c:
                 logger.info("Entity %s in server %s has changed", entity.name, server.name)
-                # ← Enhanced Logger로 변경 사항 표시
                 self.enhanced_logger.warning(f"서버 '{server.name}'의 엔티티 '{entity.name}'가 변경되었습니다")
                 result.result[i].messages.extend(messages)
         return result
@@ -172,7 +217,6 @@ class MCPScanner:
         logger.info("Scanning server: %s, inspect_only: %s", server.name, inspect_only)
         result = server.model_copy(deep=True)
         try:
-            # ← Enhanced Logger로 스캔 시작 표시
             self.enhanced_logger.info(f"🔍 서버 스캔 중: {server.name}")
             
             result.signature = await check_server_with_timeout(
@@ -186,7 +230,6 @@ class MCPScanner:
                 len(result.signature.tools),
             )
 
-            # ← Enhanced Logger로 스캔 성공 표시
             self.enhanced_logger.success(f"서버 '{server.name}' 스캔 완료")
 
             if not inspect_only:
@@ -198,7 +241,6 @@ class MCPScanner:
         except Exception as e:
             error_msg = "could not start server"
             logger.exception("%s: %s", error_msg, server.name)
-            # ← Enhanced Logger로 서버 시작 실패 표시
             self.enhanced_logger.error(f"서버 '{server.name}' 시작 실패: {str(e)}")
             result.error = ScanError(message=error_msg, exception=e)
             
@@ -208,12 +250,21 @@ class MCPScanner:
     async def scan_path(self, path: str, inspect_only: bool = False) -> ScanPathResult:
         logger.info("Scanning path: %s, inspect_only: %s", path, inspect_only)
         
-        # ← Enhanced Logger로 경로 스캔 시작 표시
         self.enhanced_logger.info(f"📁 경로 스캔 시작: {path}")
         
-        path_result = await self.get_servers_from_path(path)
+        # ← 캐시 적용된 설정 파일 스캔 사용
+        if not inspect_only:
+            # 일반 스캔에서는 캐시 사용
+            path_result = await self.scan_config_file_with_cache(path)
+        else:
+            # inspect 모드에서는 캐시 사용하지 않음 (항상 최신 정보 필요)
+            path_result = await self.get_servers_from_path(path)
         
-        # ← 진행률 바 시작 (서버가 있는 경우에만)
+        # 서버 설정 로딩에 실패한 경우 조기 리턴
+        if path_result.error:
+            return path_result
+        
+        # 진행률 바 시작 (서버가 있는 경우에만)
         task_id = None
         if path_result.servers:
             total_servers = len(path_result.servers)
@@ -226,7 +277,7 @@ class MCPScanner:
             for i, server in enumerate(path_result.servers):
                 logger.debug("Scanning server %d/%d: %s", i + 1, len(path_result.servers), server.name)
                 
-                # ← 진행률 업데이트
+                # 진행률 업데이트
                 if task_id is not None:
                     self.enhanced_logger.update_progress(
                         task_id, 
@@ -235,23 +286,23 @@ class MCPScanner:
                 
                 path_result.servers[i] = await self.scan_server(server, inspect_only)
                 
-                # ← 진행률 한 단계 전진
+                # 진행률 한 단계 전진
                 if task_id is not None:
                     self.enhanced_logger.update_progress(task_id)
                     
         finally:
-            # ← 진행률 바 종료
+            # 진행률 바 종료
             if task_id is not None:
                 self.enhanced_logger.finish_progress()
         
-        logger.debug("Verifying server path: %s", path)
-        # ← Enhanced Logger로 검증 단계 표시
-        self.enhanced_logger.info("🔍 서버 검증 중...")
+        # inspect 모드가 아닌 경우에만 검증 수행
+        if not inspect_only:
+            logger.debug("Verifying server path: %s", path)
+            self.enhanced_logger.info("🔍 서버 검증 중...")
+            
+            path_result = await verify_scan_path(path_result, base_url=self.base_url, run_locally=self.local_only)
+            path_result.cross_ref_result = await self.check_cross_references(path_result)
         
-        path_result = await verify_scan_path(path_result, base_url=self.base_url, run_locally=self.local_only)
-        path_result.cross_ref_result = await self.check_cross_references(path_result)
-        
-        # ← Enhanced Logger로 경로 스캔 완료 표시
         self.enhanced_logger.success(f"경로 '{path}' 스캔 완료")
         
         await self.emit("path_scanned", path_result)
@@ -260,7 +311,6 @@ class MCPScanner:
     async def check_cross_references(self, path_result: ScanPathResult) -> CrossRefResult:
         logger.info("Checking cross references for path: %s", path_result.path)
         
-        # ← Enhanced Logger로 교차 참조 검사 표시
         self.enhanced_logger.info("🔗 교차 참조 검사 중...")
         
         cross_ref_result = CrossRefResult(found=False)
@@ -281,18 +331,15 @@ class MCPScanner:
                     best_distance = calculate_distance(reference=token, responses=list(flagged_names))[0]
                     if ((best_distance[1] <= 2) and (len(token) >= 5)) or (token in flagged_names):
                         logger.warning("Cross-reference found: %s with token %s", entity.name, token)
-                        # ← Enhanced Logger로 교차 참조 발견 표시
                         self.enhanced_logger.warning(f"교차 참조 발견: {entity.name} - {token}")
                         cross_ref_result.found = True
                         cross_ref_result.sources.append(f"{entity.name}:{token}")
 
         if cross_ref_result.found:
             logger.info("Cross references detected with %d sources", len(cross_ref_result.sources))
-            # ← Enhanced Logger로 교차 참조 결과 표시
             self.enhanced_logger.warning(f"⚠️ 교차 참조 {len(cross_ref_result.sources)}개 발견됨")
         else:
             logger.debug("No cross references found")
-            # ← Enhanced Logger로 교차 참조 없음 표시
             self.enhanced_logger.success("교차 참조 문제 없음")
             
         return cross_ref_result
@@ -300,8 +347,12 @@ class MCPScanner:
     async def scan(self) -> list[ScanPathResult]:
         logger.info("Starting scan of %d paths", len(self.paths))
         
-        # ← Enhanced Logger로 전체 스캔 시작 표시
         self.enhanced_logger.info(f"🚀 MCP 보안 스캔 시작 (총 {len(self.paths)}개 경로)")
+        
+        # ← 캐시 통계 출력
+        if self.cache:
+            stats = self.cache.get_cache_stats()
+            self.enhanced_logger.info(f"📊 캐시 상태: 유효 캐시 {stats['유효한 캐시']}개, 총 캐시 {stats['총 캐시 파일']}개")
         
         if self.context_manager is not None:
             self.context_manager.disable()
@@ -310,7 +361,6 @@ class MCPScanner:
         for i in range(self.checks_per_server):
             logger.debug("Scan iteration %d/%d", i + 1, self.checks_per_server)
             
-            # ← Enhanced Logger로 반복 스캔 표시
             if self.checks_per_server > 1:
                 self.enhanced_logger.info(f"스캔 반복 {i + 1}/{self.checks_per_server}")
             
@@ -325,26 +375,35 @@ class MCPScanner:
         self.storage_file.save()
         logger.info("Scan completed successfully")
         
-        # ← Enhanced Logger로 전체 스캔 완료 및 요약 표시
+        # 전체 스캔 완료 및 요약 표시
         total_servers = sum(len(path.servers) for path in result_awaited)
         successful_servers = sum(
             len([s for s in path.servers if s.error is None]) 
             for path in result_awaited
         )
         
-        self.enhanced_logger.print_summary("🎉 스캔 완료", {
+        # ← 캐시 성능 통계 추가
+        cache_info = {}
+        if self.cache:
+            stats = self.cache.get_cache_stats()
+            cache_info["캐시 적중"] = f"{stats['유효한 캐시']}개"
+            cache_info["총 캐시"] = f"{stats['총 캐시 파일']}개"
+        
+        summary_data = {
             "총 경로 수": len(self.paths),
             "총 서버 수": total_servers,
             "스캔 성공": successful_servers,
-            "성공률": f"{(successful_servers/total_servers)*100:.1f}%" if total_servers > 0 else "0%"
-        })
+            "성공률": f"{(successful_servers/total_servers)*100:.1f}%" if total_servers > 0 else "0%",
+            **cache_info
+        }
+        
+        self.enhanced_logger.print_summary("🎉 스캔 완료", summary_data)
         
         return result_awaited
 
     async def inspect(self) -> list[ScanPathResult]:
         logger.info("Starting inspection of %d paths", len(self.paths))
         
-        # ← Enhanced Logger로 검사 모드 시작 표시
         self.enhanced_logger.info(f"🔍 MCP 서버 검사 시작 (총 {len(self.paths)}개 경로)")
         
         result = [self.scan_path(path, inspect_only=True) for path in self.paths]
@@ -354,7 +413,6 @@ class MCPScanner:
         self.storage_file.save()
         logger.info("Inspection completed successfully")
         
-        # ← Enhanced Logger로 검사 완료 표시
         self.enhanced_logger.success("🎉 검사 완료")
         
         return result_awaited

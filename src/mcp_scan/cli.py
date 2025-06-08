@@ -17,6 +17,10 @@ from .paths import WELL_KNOWN_MCP_PATHS, client_shorthands_to_paths
 from .printer import print_scan_result
 from .StorageFile import StorageFile
 from .version import version_info
+# ← 캐시 관련 import 추가
+from .cache import SimpleCache
+from rich.console import Console
+from rich.table import Table
 
 # Configure logging to suppress all output by default
 logging.getLogger().setLevel(logging.CRITICAL + 1)  # Higher than any standard level
@@ -101,6 +105,27 @@ def add_common_arguments(parser):
     )
 
 
+# ← 새로운 함수: 캐시 관련 인수 추가
+def add_cache_arguments(parser):
+    """Add cache-related arguments."""
+    cache_group = parser.add_argument_group("Cache Options")
+    cache_group.add_argument(
+        "--no-cache",
+        action="store_true",
+        help="캐시를 사용하지 않고 새로 스캔",
+    )
+    cache_group.add_argument(
+        "--clear-cache",
+        action="store_true",
+        help="만료된 캐시 파일들을 정리",
+    )
+    cache_group.add_argument(
+        "--cache-stats",
+        action="store_true",
+        help="캐시 사용 통계 출력",
+    )
+
+
 def add_server_arguments(parser):
     """Add arguments related to MCP server connections."""
     server_group = parser.add_argument_group("MCP Server Options")
@@ -131,6 +156,18 @@ def add_server_arguments(parser):
         default=None,
         help="Install extras for the Invariant Gateway - use 'all' or a space-separated list of extras",
         metavar="EXTRA",
+    )
+
+
+# ← 새로운 함수: 리포트 관련 인수 추가
+def add_report_arguments(parser):
+    """Add report generation arguments."""
+    report_group = parser.add_argument_group("Report Options")
+    report_group.add_argument(
+        "--report",
+        type=str,
+        metavar="FILE",
+        help="HTML 리포트 파일 생성 경로 (예: report.html)",
     )
 
 
@@ -193,6 +230,33 @@ def add_uninstall_arguments(parser):
     )
 
 
+# ← 새로운 함수: 캐시 관련 명령어 처리
+def handle_cache_commands(args):
+    """Handle cache-related commands."""
+    console = Console()
+    
+    if args.cache_stats:
+        cache = SimpleCache()
+        stats = cache.get_cache_stats()
+        
+        table = Table(title="📊 캐시 통계")
+        table.add_column("항목", style="cyan")
+        table.add_column("값", style="white")
+        
+        for key, value in stats.items():
+            table.add_row(key, str(value))
+        console.print(table)
+        return True
+    
+    if args.clear_cache:
+        cache = SimpleCache()
+        cleared = cache.clear()
+        console.print(f"🗑️ {cleared}개의 만료된 캐시 파일을 정리했습니다.", style="green")
+        return True
+    
+    return False
+
+
 def check_install_args(args):
     if args.command == "install" and not args.local_only and not args.api_key:
         # prompt for api key
@@ -226,6 +290,10 @@ def main():
             f"  {program_name} --verbose           # Enable detailed logging output\n"
             f"  {program_name} --print-errors      # Show error details and tracebacks\n"
             f"  {program_name} --json              # Output results in JSON format\n"
+            f"  {program_name} --cache-stats       # Show cache usage statistics\n"
+            f"  {program_name} --clear-cache       # Clear expired cache files\n"
+            f"  {program_name} scan --no-cache     # Scan without using cache\n"
+            f"  {program_name} scan --report report.html # Generate HTML report\n"
         ),
     )
 
@@ -255,6 +323,8 @@ def main():
     )
     add_common_arguments(scan_parser)
     add_server_arguments(scan_parser)
+    add_cache_arguments(scan_parser)  # ← 캐시 인수 추가
+    add_report_arguments(scan_parser)  # ← 리포트 인수 추가
     scan_parser.add_argument(
         "--checks-per-server",
         type=int,
@@ -277,6 +347,7 @@ def main():
     )
     add_common_arguments(inspect_parser)
     add_server_arguments(inspect_parser)
+    add_cache_arguments(inspect_parser)  # ← 캐시 인수 추가 (inspect에도)
     inspect_parser.add_argument(
         "files",
         type=str,
@@ -375,12 +446,28 @@ def main():
     add_server_arguments(proxy_parser)
     add_install_arguments(proxy_parser)
 
+    # ← 전역 캐시 명령어들 추가 (메인 파서에)
+    parser.add_argument(
+        "--cache-stats",
+        action="store_true",
+        help="캐시 사용 통계 출력",
+    )
+    parser.add_argument(
+        "--clear-cache",
+        action="store_true",
+        help="만료된 캐시 파일들을 정리",
+    )
+
     # Parse arguments (default to 'scan' if no command provided)
     args = parser.parse_args(["scan"] if len(sys.argv) == 1 else None)
 
     # postprocess the files argument (if shorthands are used)
     if hasattr(args, "files") and args.files is None:
         args.files = client_shorthands_to_paths(args.files)
+
+    # ← 전역 캐시 명령어 처리 (다른 명령어보다 먼저)
+    if handle_cache_commands(args):
+        sys.exit(0)
 
     # Display version banner
     if not (hasattr(args, "json") and args.json):
@@ -493,7 +580,13 @@ def main():
 
 
 async def run_scan_inspect(mode="scan", args=None):
-    async with MCPScanner(**vars(args)) as scanner:
+    # ← MCPScanner에 캐시 옵션 전달
+    scanner_kwargs = vars(args).copy()
+    scanner_kwargs['use_cache'] = not getattr(args, 'no_cache', False)
+    scanner_kwargs['generate_report'] = bool(getattr(args, 'report', None))
+    scanner_kwargs['report_path'] = getattr(args, 'report', None)
+    
+    async with MCPScanner(**scanner_kwargs) as scanner:
         # scanner.hook('path_scanned', print_path_scanned)
         if mode == "scan":
             result = await scanner.scan()

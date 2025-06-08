@@ -53,3 +53,46 @@ class SimpleCache:
             except OSError:
                 pass
             return None
+    def set(self, file_path: str, result: Dict[str, Any]) -> bool:
+        """결과를 캐시에 저장"""
+        cache_key = self._get_cache_key(file_path)
+        cache_file = self.cache_dir / f"{cache_key}.json"
+        
+        cached_data = {
+            'timestamp': time.time(),
+            'file_path': file_path,
+            'cache_key': cache_key,
+            'result': result
+        }
+        
+        try:
+            with open(cache_file, 'w', encoding='utf-8') as f:
+                json.dump(cached_data, f, ensure_ascii=False, indent=2)
+            return True
+        except OSError as e:
+            print(f"⚠️ 캐시 저장 실패: {e}")
+            return False
+    
+    def clear(self) -> int:
+        """캐시 정리 (만료된 캐시 삭제)"""
+        cleared_count = 0
+        for cache_file in self.cache_dir.glob("*.json"):
+            if not self._is_cache_valid(cache_file):
+                try:
+                    cache_file.unlink()
+                    cleared_count += 1
+                except OSError:
+                    pass
+        return cleared_count
+    
+    def get_cache_stats(self) -> Dict[str, Any]:
+        """캐시 통계 정보"""
+        total_files = len(list(self.cache_dir.glob("*.json")))
+        valid_files = len([f for f in self.cache_dir.glob("*.json") if self._is_cache_valid(f)])
+        
+        return {
+            "총 캐시 파일": total_files,
+            "유효한 캐시": valid_files,
+            "만료된 캐시": total_files - valid_files,
+            "캐시 디렉토리": str(self.cache_dir)
+        }
