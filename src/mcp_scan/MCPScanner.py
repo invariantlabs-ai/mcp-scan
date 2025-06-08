@@ -3,7 +3,7 @@ import logging
 import os
 from collections import defaultdict
 from collections.abc import Callable
-from typing import Any
+from typing import Any, List, Dict
 
 from mcp_scan.models import CrossRefResult, ScanError, ScanPathResult, ServerScanResult
 
@@ -12,7 +12,8 @@ from .StorageFile import StorageFile
 from .utils import calculate_distance
 from .verify_api import verify_scan_path
 from .logger import EnhancedLogger
-from .cache import SimpleCache  # ← 캐시 import 추가
+from .cache import SimpleCache
+from .report_generator import ReportGenerator  # ← 리포트 생성기 추가
 
 # Set up logger for this module
 logger = logging.getLogger(__name__)
@@ -60,7 +61,9 @@ class MCPScanner:
         server_timeout: int = 10,
         suppress_mcpserver_io: bool = True,
         local_only: bool = False,
-        use_cache: bool = True,  # ← 캐시 사용 옵션 추가
+        use_cache: bool = True,
+        generate_report: bool = False,  # ← 리포트 생성 옵션
+        report_path: str = None,        # ← 리포트 파일 경로
         **kwargs: Any,
     ):
         logger.info("Initializing MCPScanner")
@@ -79,16 +82,23 @@ class MCPScanner:
         # Enhanced Logger 추가
         self.enhanced_logger = EnhancedLogger()
         
-        # ← 캐시 시스템 추가
+        # 캐시 시스템 추가
         self.cache = SimpleCache() if use_cache else None
         if use_cache:
             self.enhanced_logger.info("💾 캐시 시스템 활성화")
         else:
             self.enhanced_logger.info("🚫 캐시 시스템 비활성화")
         
+        # ← 리포트 생성기 시스템 추가
+        self.report_generator = ReportGenerator() if generate_report else None
+        self.report_path = report_path
+        
+        if generate_report:
+            self.enhanced_logger.info("📋 HTML 리포트 생성 활성화")
+        
         logger.debug(
-            "MCPScanner initialized with timeout: %d, checks_per_server: %d, use_cache: %s", 
-            server_timeout, checks_per_server, use_cache
+            "MCPScanner initialized with timeout: %d, checks_per_server: %d, use_cache: %s, generate_report: %s", 
+            server_timeout, checks_per_server, use_cache, generate_report
         )
 
     def __enter__(self):
@@ -122,7 +132,7 @@ class MCPScanner:
             logger.exception(error_msg)
             raise RuntimeError(error_msg)
 
-    # ← 새로운 메서드: 캐시된 설정 파일 스캔
+    # 캐시된 설정 파일 스캔
     async def scan_config_file_with_cache(self, file_path: str) -> ScanPathResult:
         """설정 파일 스캔 (캐시 적용)"""
         # 캐시 확인
@@ -213,6 +223,56 @@ class MCPScanner:
         if self.context_manager is not None:
             await self.context_manager.emit(signal, data)
 
+    # ← 새로운 메서드: 스캔 결과에서 이슈 추출
+    def _extract_issues_from_result(self, result: ServerScanResult) -> List[Dict[str, Any]]:
+        """스캔 결과에서 이슈 정보 추출하여 리포트용 데이터로 변환"""
+        issues = []
+        
+        # 검증 실패한 엔티티들을 이슈로 추가
+        for entity_result in result.result:
+            if entity_result and not entity_result.verified:
+                severity = 'high' if 'critical' in (entity_result.entity.description or '').lower() else 'medium'
+                issues.append({
+                    'severity': severity,
+                    'description': f"Entity '{entity_result.entity.name}' verification failed",
+                    'entity_name': entity_result.entity.name,
+                    'entity_type': entity_result.entity.type,
+                    'category': 'verification_failure'
+                })
+        
+        # 변경된 엔티티들을 이슈로 추가
+        for entity_result in result.result:
+            if entity_result and entity_result.changed:
+                issues.append({
+                    'severity': 'medium',
+                    'description': f"Entity '{entity_result.entity.name}' has been modified since last scan",
+                    'entity_name': entity_result.entity.name,
+                    'entity_type': entity_result.entity.type,
+                    'category': 'entity_changed'
+                })
+        
+        # 화이트리스트에 없는 엔티티들을 낮은 우선순위 이슈로 추가
+        for entity_result in result.result:
+            if entity_result and not entity_result.whitelisted:
+                issues.append({
+                    'severity': 'low',
+                    'description': f"Entity '{entity_result.entity.name}' is not in whitelist",
+                    'entity_name': entity_result.entity.name,
+                    'entity_type': entity_result.entity.type,
+                    'category': 'not_whitelisted'
+                })
+        
+        # 서버 시작 실패를 높은 우선순위 이슈로 추가
+        if result.error:
+            issues.append({
+                'severity': 'high',
+                'description': f"Server scan failed: {result.error.message}",
+                'error_type': type(result.error.exception).__name__ if result.error.exception else 'Unknown',
+                'category': 'server_error'
+            })
+        
+        return issues
+
     async def scan_server(self, server: ServerScanResult, inspect_only: bool = False) -> ServerScanResult:
         logger.info("Scanning server: %s, inspect_only: %s", server.name, inspect_only)
         result = server.model_copy(deep=True)
@@ -243,6 +303,29 @@ class MCPScanner:
             logger.exception("%s: %s", error_msg, server.name)
             self.enhanced_logger.error(f"서버 '{server.name}' 시작 실패: {str(e)}")
             result.error = ScanError(message=error_msg, exception=e)
+        
+        # ← 리포트 생성기에 서버 스캔 결과 추가
+        if self.report_generator and not inspect_only:
+            # ServerScanResult를 리포트용 딕셔너리로 변환
+            result_dict = {
+                'issues': self._extract_issues_from_result(result),
+                'status': 'completed' if not result.error else 'error',
+                'server_info': {
+                    'name': result.name,
+                    'timeout': self.server_timeout,
+                    'total_entities': len(result.entities) if result.signature else 0,
+                    'tools_count': len(result.signature.tools) if result.signature else 0,
+                    'prompts_count': len(result.signature.prompts) if result.signature else 0,
+                    'resources_count': len(result.signature.resources) if result.signature else 0
+                },
+                'scan_metadata': {
+                    'timestamp': logger.handlers[0].format(logger.makeRecord(
+                        logger.name, logging.INFO, __file__, 0, '', (), None
+                    )) if logger.handlers else None,
+                    'inspect_only': inspect_only
+                }
+            }
+            self.report_generator.add_scan_result(server.name or 'unknown', result_dict)
             
         await self.emit("server_scanned", result)
         return result
@@ -252,7 +335,7 @@ class MCPScanner:
         
         self.enhanced_logger.info(f"📁 경로 스캔 시작: {path}")
         
-        # ← 캐시 적용된 설정 파일 스캔 사용
+        # 캐시 적용된 설정 파일 스캔 사용
         if not inspect_only:
             # 일반 스캔에서는 캐시 사용
             path_result = await self.scan_config_file_with_cache(path)
@@ -302,6 +385,27 @@ class MCPScanner:
             
             path_result = await verify_scan_path(path_result, base_url=self.base_url, run_locally=self.local_only)
             path_result.cross_ref_result = await self.check_cross_references(path_result)
+            
+            # ← 교차 참조 결과를 리포트에 추가
+            if self.report_generator and path_result.cross_ref_result and path_result.cross_ref_result.found:
+                for server in path_result.servers:
+                    # 교차 참조 이슈를 해당 서버에 추가
+                    cross_ref_dict = {
+                        'issues': [{
+                            'severity': 'high',
+                            'description': 'Cross-reference security issue detected',
+                            'details': path_result.cross_ref_result.sources,
+                            'category': 'cross_reference'
+                        }],
+                        'status': 'warning',
+                        'server_info': {'name': server.name}
+                    }
+                    # 이미 추가된 서버 결과를 업데이트
+                    if hasattr(self.report_generator, 'scan_results'):
+                        for result in self.report_generator.scan_results:
+                            if result['server_name'] == server.name:
+                                result['result']['issues'].extend(cross_ref_dict['issues'])
+                                break
         
         self.enhanced_logger.success(f"경로 '{path}' 스캔 완료")
         
@@ -349,7 +453,7 @@ class MCPScanner:
         
         self.enhanced_logger.info(f"🚀 MCP 보안 스캔 시작 (총 {len(self.paths)}개 경로)")
         
-        # ← 캐시 통계 출력
+        # 캐시 통계 출력
         if self.cache:
             stats = self.cache.get_cache_stats()
             self.enhanced_logger.info(f"📊 캐시 상태: 유효 캐시 {stats['유효한 캐시']}개, 총 캐시 {stats['총 캐시 파일']}개")
@@ -375,6 +479,36 @@ class MCPScanner:
         self.storage_file.save()
         logger.info("Scan completed successfully")
         
+        # ← HTML 리포트 생성 로직
+        if self.report_generator:
+            try:
+                self.enhanced_logger.info("📋 HTML 리포트 생성 중...")
+                report_file = self.report_generator.generate_html_report(self.report_path)
+                self.enhanced_logger.success(f"📋 HTML 리포트가 생성되었습니다: {report_file}")
+                
+                # 리포트 요약 출력
+                summary = self.report_generator.generate_summary()
+                self.enhanced_logger.print_summary("📊 리포트 요약", {
+                    "총 서버": summary['server_stats']['total_servers'],
+                    "성공률": summary['server_stats']['success_rate'], 
+                    "총 이슈": summary['issue_stats']['total_issues'],
+                    "높은 위험도": summary['issue_stats']['high_risk'],
+                    "중간 위험도": summary['issue_stats']['medium_risk'],
+                    "낮은 위험도": summary['issue_stats']['low_risk'],
+                    "스캔 시간": summary['timing']['duration'],
+                    "리포트 파일": report_file
+                })
+                
+                # 권장사항 개수 출력
+                recommendations = self.report_generator.generate_recommendations(summary)
+                critical_recs = len([r for r in recommendations if r['priority'] == 'critical'])
+                if critical_recs > 0:
+                    self.enhanced_logger.error(f"🚨 긴급 조치 필요: {critical_recs}개의 중요 권장사항이 있습니다!")
+                
+            except Exception as e:
+                self.enhanced_logger.error(f"리포트 생성 실패: {e}")
+                logger.exception("Report generation failed")
+        
         # 전체 스캔 완료 및 요약 표시
         total_servers = sum(len(path.servers) for path in result_awaited)
         successful_servers = sum(
@@ -382,7 +516,7 @@ class MCPScanner:
             for path in result_awaited
         )
         
-        # ← 캐시 성능 통계 추가
+        # 캐시 성능 통계 추가
         cache_info = {}
         if self.cache:
             stats = self.cache.get_cache_stats()
@@ -406,6 +540,7 @@ class MCPScanner:
         
         self.enhanced_logger.info(f"🔍 MCP 서버 검사 시작 (총 {len(self.paths)}개 경로)")
         
+        # inspect 모드에서는 리포트 생성하지 않음
         result = [self.scan_path(path, inspect_only=True) for path in self.paths]
         result_awaited = await asyncio.gather(*result)
         
