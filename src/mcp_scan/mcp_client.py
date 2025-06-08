@@ -4,6 +4,8 @@ import os
 import subprocess
 from typing import AsyncContextManager  # noqa: UP035
 
+from mcp_scan.validator import ConfigValidator
+
 import pyjson5
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.sse import sse_client
@@ -147,4 +149,17 @@ async def scan_mcp_config_file(path: str) -> MCPConfig:
         return result
     except Exception:
         logger.exception("Error processing config file")
+        raise
+
+async def scan_mcp_config_file(file_path: str):
+    """설정 파일 스캔 (검증 추가)"""
+    try:
+        # 새로운 검증 로직 추가
+        config = ConfigValidator.validate_complete(file_path)
+        print(f"✅ 설정 파일 검증 완료: {file_path}")
+        
+        # 기존 스캔 로직 계속...
+        
+    except (FileNotFoundError, ValueError) as e:
+        print(f"🚫 설정 파일 검증 실패: {e}")
         raise
