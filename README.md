@@ -10,6 +10,7 @@
 - pyjson5 >= 1.0.1
 - rich >= 13.0.0
 - pydantic >= 2.0.0
+- Docker >= 24.0.0
 
 ## How to install & Run
 

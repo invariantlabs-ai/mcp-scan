@@ -47,3 +47,7 @@ npm/package.json
 *.log
 cache/
 reports/
+
+# Docker image files
+*.tar
+final_2023040040_v1.tar
