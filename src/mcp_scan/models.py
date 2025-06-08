@@ -2,6 +2,7 @@ from datetime import datetime
 from hashlib import md5
 from itertools import chain
 from typing import Any, Literal, TypeAlias
+import os
 
 from mcp.types import InitializeResult, Prompt, Resource, Tool
 from pydantic import BaseModel, ConfigDict, Field, RootModel, field_serializer, field_validator
@@ -236,3 +237,42 @@ def entity_to_tool(
         )
     else:
         raise ValueError(f"Unknown entity type: {type(entity)}")
+
+
+class SimpleMCPConfig(MCPConfig):
+    """Simple MCP 설정 파일 모델"""
+    model_config = ConfigDict()
+    mcpServers: dict[str, StdioServer]  # SSE 서버는 지원하지 않음
+
+    def get_servers(self) -> dict[str, SSEServer | StdioServer]:
+        return self.mcpServers
+
+    def set_servers(self, servers: dict[str, SSEServer | StdioServer]) -> None:
+        # SSE 서버가 포함되어 있으면 ValueError 발생
+        for server_name, server in servers.items():
+            if isinstance(server, SSEServer):
+                raise ValueError(f"SimpleMCPConfig는 SSE 서버를 지원하지 않습니다: {server_name}")
+        self.mcpServers = servers
+
+
+async def scan_mcp_config_file(path: str) -> MCPConfig:
+    logger.info("Scanning MCP config file: %s", path)
+    path = os.path.expanduser(path)
+    logger.debug("Expanded path: %s", path)
+
+    def parse_and_validate(config: dict) -> MCPConfig:
+        logger.debug("Parsing and validating config")
+        models: list[type[MCPConfig]] = [
+            SimpleMCPConfig,  # 새로운 모델을 첫 번째로 시도
+            ClaudeConfigFile,  # used by most clients
+            VSCodeConfigFile,  # used by vscode settings.json
+            VSCodeMCPConfig,  # used by vscode mcp.json
+        ]
+        for model in models:
+            try:
+                logger.debug("Trying to validate with model: %s", model.__name__)
+                return model.model_validate(config)
+            except Exception:
+                logger.debug("Validation with %s failed", model.__name__)
+        error_msg = "Could not parse config file as any of " + str([model.__name__ for model in models])
+        raise Exception(error_msg)

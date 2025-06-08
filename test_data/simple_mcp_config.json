@@ -1,0 +1,16 @@
+{
+    "mcpServers": {
+        "echo-server": {
+            "type": "stdio",
+            "command": "python3",
+            "args": ["/root/Project/test_data/mcp_server.py"],
+            "env": {}
+        },
+        "file-server": {
+            "type": "stdio",
+            "command": "python3",
+            "args": ["/root/Project/test_data/mcp_server.py"],
+            "env": {}
+        }
+    }
+} 

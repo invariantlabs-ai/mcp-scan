@@ -19,6 +19,7 @@ from mcp_scan.models import (
     StdioServer,
     VSCodeConfigFile,
     VSCodeMCPConfig,
+    SimpleMCPConfig,
 )
 
 from .utils import rebalance_command_args
@@ -115,51 +116,50 @@ async def check_server_with_timeout(
 
 
 async def scan_mcp_config_file(path: str) -> MCPConfig:
+    """설정 파일 스캔 (검증 추가)"""
     logger.info("Scanning MCP config file: %s", path)
     path = os.path.expanduser(path)
     logger.debug("Expanded path: %s", path)
 
-    def parse_and_validate(config: dict) -> MCPConfig:
-        logger.debug("Parsing and validating config")
-        models: list[type[MCPConfig]] = [
-            ClaudeConfigFile,  # used by most clients
-            VSCodeConfigFile,  # used by vscode settings.json
-            VSCodeMCPConfig,  # used by vscode mcp.json
-        ]
-        for model in models:
-            try:
-                logger.debug("Trying to validate with model: %s", model.__name__)
-                return model.model_validate(config)
-            except Exception:
-                logger.debug("Validation with %s failed", model.__name__)
-        error_msg = "Could not parse config file as any of " + str([model.__name__ for model in models])
-        raise Exception(error_msg)
-
-    try:
-        logger.debug("Opening config file")
-        with open(path) as f:
-            content = f.read()
-        logger.debug("Config file read successfully")
-        # use json5 to support comments as in vscode
-        config = pyjson5.loads(content)
-        logger.debug("Config JSON parsed successfully")
-        # try to parse model
-        result = parse_and_validate(config)
-        logger.info("Config file parsed and validated successfully")
-        return result
-    except Exception:
-        logger.exception("Error processing config file")
-        raise
-
-async def scan_mcp_config_file(file_path: str):
-    """설정 파일 스캔 (검증 추가)"""
     try:
         # 새로운 검증 로직 추가
-        config = ConfigValidator.validate_complete(file_path)
-        print(f"✅ 설정 파일 검증 완료: {file_path}")
+        config = ConfigValidator.validate_complete(path)
+        print(f"✅ 설정 파일 검증 완료: {path}")
         
-        # 기존 스캔 로직 계속...
-        
+        logger.debug("Config file validated successfully")
+        # try to parse model
+        result = parse_and_validate(config)
+        if result is None:
+            raise Exception("Failed to parse config file with any of the available models")
+        logger.info("Config file parsed and validated successfully")
+        return result
     except (FileNotFoundError, ValueError) as e:
         print(f"🚫 설정 파일 검증 실패: {e}")
         raise
+    except Exception as e:
+        logger.exception("Error processing config file: %s", str(e))
+        raise
+
+def parse_and_validate(config: dict) -> MCPConfig:
+    logger.debug("Parsing and validating config")
+    models: list[type[MCPConfig]] = [
+        SimpleMCPConfig,
+        ClaudeConfigFile,
+        VSCodeConfigFile,
+        VSCodeMCPConfig,
+    ]
+    last_error = None
+    for model in models:
+        try:
+            logger.debug("Trying to validate with model: %s", model.__name__)
+            result = model.model_validate(config)
+            if result is not None:
+                return result
+        except Exception as e:
+            last_error = e
+            logger.debug("Validation with %s failed: %s", model.__name__, str(e))
+    
+    error_msg = "Could not parse config file as any of " + str([model.__name__ for model in models])
+    if last_error:
+        error_msg += f"\nLast error: {str(last_error)}"
+    raise Exception(error_msg)

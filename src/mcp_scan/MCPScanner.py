@@ -5,7 +5,7 @@ from collections import defaultdict
 from collections.abc import Callable
 from typing import Any, List, Dict
 
-from mcp_scan.models import CrossRefResult, ScanError, ScanPathResult, ServerScanResult
+from mcp_scan.models import CrossRefResult, ScanError, ScanPathResult, ServerScanResult, EntityScanResult
 
 from .mcp_client import check_server_with_timeout, scan_mcp_config_file
 from .StorageFile import StorageFile
@@ -298,35 +298,18 @@ class MCPScanner:
                 logger.debug("Checking whitelist for server: %s", server.name)
                 result = await self.check_whitelist(result)
                 
+                # 검증 결과 설정
+                if result.signature is not None:
+                    result.result = [EntityScanResult(verified=True) for _ in result.signature.entities]
+                
         except Exception as e:
             error_msg = "could not start server"
             logger.exception("%s: %s", error_msg, server.name)
             self.enhanced_logger.error(f"서버 '{server.name}' 시작 실패: {str(e)}")
             result.error = ScanError(message=error_msg, exception=e)
+            if result.signature is not None:
+                result.result = [EntityScanResult(verified=False, status=str(e)) for _ in result.signature.entities]
         
-        # ← 리포트 생성기에 서버 스캔 결과 추가
-        if self.report_generator and not inspect_only:
-            # ServerScanResult를 리포트용 딕셔너리로 변환
-            result_dict = {
-                'issues': self._extract_issues_from_result(result),
-                'status': 'completed' if not result.error else 'error',
-                'server_info': {
-                    'name': result.name,
-                    'timeout': self.server_timeout,
-                    'total_entities': len(result.entities) if result.signature else 0,
-                    'tools_count': len(result.signature.tools) if result.signature else 0,
-                    'prompts_count': len(result.signature.prompts) if result.signature else 0,
-                    'resources_count': len(result.signature.resources) if result.signature else 0
-                },
-                'scan_metadata': {
-                    'timestamp': logger.handlers[0].format(logger.makeRecord(
-                        logger.name, logging.INFO, __file__, 0, '', (), None
-                    )) if logger.handlers else None,
-                    'inspect_only': inspect_only
-                }
-            }
-            self.report_generator.add_scan_result(server.name or 'unknown', result_dict)
-            
         await self.emit("server_scanned", result)
         return result
 
@@ -367,7 +350,9 @@ class MCPScanner:
                         description=f"스캔 중: {server.name}"
                     )
                 
-                path_result.servers[i] = await self.scan_server(server, inspect_only)
+                # 서버 스캔 수행
+                scanned_server = await self.scan_server(server, inspect_only)
+                path_result.servers[i] = scanned_server
                 
                 # 진행률 한 단계 전진
                 if task_id is not None:
@@ -383,29 +368,75 @@ class MCPScanner:
             logger.debug("Verifying server path: %s", path)
             self.enhanced_logger.info("🔍 서버 검증 중...")
             
-            path_result = await verify_scan_path(path_result, base_url=self.base_url, run_locally=self.local_only)
-            path_result.cross_ref_result = await self.check_cross_references(path_result)
+            # 서버 검증 수행
+            verified_result = await verify_scan_path(path_result, base_url=self.base_url, run_locally=self.local_only)
+            verified_result.cross_ref_result = await self.check_cross_references(verified_result)
             
-            # ← 교차 참조 결과를 리포트에 추가
-            if self.report_generator and path_result.cross_ref_result and path_result.cross_ref_result.found:
-                for server in path_result.servers:
-                    # 교차 참조 이슈를 해당 서버에 추가
+            # 리포트 생성 (검증 후에 수행)
+            if self.report_generator:
+                for server in verified_result.servers:
+                    # 검증 결과에서 이슈 추출
+                    issues = []
+                    if server.result:
+                        for entity_result in server.result:
+                            if not entity_result.verified:
+                                issues.append({
+                                    'severity': 'high',
+                                    'description': f"Entity '{entity_result.entity.name}' verification failed",
+                                    'entity_name': entity_result.entity.name,
+                                    'entity_type': entity_result.entity.type,
+                                    'category': 'verification_failure'
+                                })
+                    
+                    # 서버 오류가 있는 경우 이슈 추가
+                    if server.error:
+                        issues.append({
+                            'severity': 'high',
+                            'description': f"Server scan failed: {server.error.message}",
+                            'error_type': type(server.error.exception).__name__ if server.error.exception else 'Unknown',
+                            'category': 'server_error'
+                        })
+                    
+                    result_dict = {
+                        'issues': issues,
+                        'status': 'completed' if not server.error else 'error',
+                        'server_info': {
+                            'name': server.name,
+                            'timeout': self.server_timeout,
+                            'total_entities': len(server.entities) if server.signature else 0,
+                            'tools_count': len(server.signature.tools) if server.signature else 0,
+                            'prompts_count': len(server.signature.prompts) if server.signature else 0,
+                            'resources_count': len(server.signature.resources) if server.signature else 0
+                        },
+                        'scan_metadata': {
+                            'timestamp': logger.handlers[0].format(logger.makeRecord(
+                                logger.name, logging.INFO, __file__, 0, '', (), None
+                            )) if logger.handlers else None,
+                            'inspect_only': inspect_only
+                        }
+                    }
+                    self.report_generator.add_scan_result(server.name or 'unknown', result_dict)
+            
+            # 교차 참조 결과를 리포트에 추가
+            if self.report_generator and verified_result.cross_ref_result and verified_result.cross_ref_result.found:
+                for server in verified_result.servers:
                     cross_ref_dict = {
                         'issues': [{
                             'severity': 'high',
                             'description': 'Cross-reference security issue detected',
-                            'details': path_result.cross_ref_result.sources,
+                            'details': verified_result.cross_ref_result.sources,
                             'category': 'cross_reference'
                         }],
                         'status': 'warning',
                         'server_info': {'name': server.name}
                     }
-                    # 이미 추가된 서버 결과를 업데이트
                     if hasattr(self.report_generator, 'scan_results'):
                         for result in self.report_generator.scan_results:
                             if result['server_name'] == server.name:
                                 result['result']['issues'].extend(cross_ref_dict['issues'])
                                 break
+            
+            path_result = verified_result
         
         self.enhanced_logger.success(f"경로 '{path}' 스캔 완료")
         

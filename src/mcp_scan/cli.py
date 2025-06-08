@@ -3,6 +3,8 @@ import asyncio
 import json
 import logging
 import sys
+from pathlib import Path
+import os
 
 import psutil
 import rich
@@ -278,6 +280,10 @@ def install_extras(args):
 
 
 def main():
+    # Debugging prints
+    print(f"DEBUG: Current working directory: {os.getcwd()}")
+    print(f"DEBUG: sys.argv: {sys.argv}")
+
     # Create the main parser for global arguments and common settings
     parser = create_enhanced_parser()
 
@@ -453,6 +459,35 @@ def main():
     else:
         # If a subcommand is provided (e.g., 'scan', 'inspect'), parse as normal.
         args = parser.parse_args()
+
+    # Determine the project root dynamically
+    # Assuming cli.py is at mcp-scan/src/mcp_scan/cli.py
+    current_script_dir = Path(__file__).resolve().parent
+    project_root_path = current_script_dir.parent.parent.parent # Corrected to go up to mcp-scan/
+
+    # Resolve relative paths to absolute paths for 'files' argument relative to project root
+    if hasattr(args, "files") and args.files:
+        resolved_files = []
+        for file_path in args.files:
+            p = Path(file_path).expanduser() # Handle '~'
+            
+            if p.is_absolute():
+                resolved_files.append(str(p))
+            else:
+                # Special handling for paths that start with the project root name itself, and are relative.
+                # This covers cases where user types `mcp-scan/test_data/file.json` from outside project root.
+                # Or `mcp-scan/mcp-scan/test_data/file.json` if CWD is something else.
+                if p.parts and p.parts[0] == project_root_path.name:
+                    # If the path already includes the project_root_path name, strip it to avoid duplication.
+                    # e.g., if project_root_path.name is 'mcp-scan' and file_path is 'mcp-scan/test_data/file.json'
+                    # then relative_to_project_root becomes 'test_data/file.json'
+                    relative_to_project_root = Path(*p.parts[1:])
+                else:
+                    # For standard relative paths (e.g., 'test_data/file.json' when CWD is mcp-scan)
+                    relative_to_project_root = p
+                
+                resolved_files.append(str((project_root_path / relative_to_project_root).resolve()))
+        args.files = resolved_files
 
     # Handle global commands that might exit the program early
     if args.examples:
