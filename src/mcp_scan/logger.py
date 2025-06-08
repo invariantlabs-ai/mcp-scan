@@ -44,3 +44,42 @@ class EnhancedLogger:
     def error(self, message: str):
         """에러 메시지"""
         self.console.print(f"❌ {message}", style="bold red")
+    
+    def start_progress(self, description: str, total: int) -> int:
+        """진행률 바 시작"""
+        self.progress = Progress(
+            SpinnerColumn(),
+            TextColumn("[bold blue]{task.description}"),
+            BarColumn(complete_style="green", finished_style="green"),
+            TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+            console=self.console
+        )
+        self.progress.start()
+        return self.progress.add_task(description, total=total)
+    
+    def update_progress(self, task_id: int, advance: int = 1, description: str = None):
+        """진행률 업데이트"""
+        if self.progress:
+            kwargs = {"advance": advance}
+            if description:
+                kwargs["description"] = description
+            self.progress.update(task_id, **kwargs)
+    
+    def finish_progress(self):
+        """진행률 바 종료"""
+        if self.progress:
+            self.progress.stop()
+            self.progress = None
+    
+    def print_summary(self, title: str, stats: dict):
+        """요약 정보 출력"""
+        from rich.table import Table
+        
+        table = Table(title=f"📊 {title}")
+        table.add_column("항목", style="cyan")
+        table.add_column("값", style="white")
+        
+        for key, value in stats.items():
+            table.add_row(key, str(value))
+        
+        self.console.print(table)
