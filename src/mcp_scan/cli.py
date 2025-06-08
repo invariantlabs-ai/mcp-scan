@@ -23,6 +23,7 @@ from rich.console import Console
 from rich.table import Table
 from .help_formatter import HelpFormatter
 from .error_handler import ErrorHandler
+from .report_generator import ReportGenerator
 
 
 # Configure logging to suppress all output by default
@@ -277,40 +278,10 @@ def install_extras(args):
 
 
 def main():
-    # Create main parser with description
-    program_name = get_invoking_name()
+    # Create the main parser for global arguments and common settings
     parser = create_enhanced_parser()
-    args = parser.parse_args()
-    # 전역 명령어 처리
-    if args.examples:
-        HelpFormatter.show_examples()
-        return 0
-    
-    if args.troubleshooting:
-        HelpFormatter.show_troubleshooting()
-        return 0
-    parser = argparse.ArgumentParser(
-        prog=program_name,
-        description="MCP-scan: Security scanner for Model Context Protocol servers and tools",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=(
-            "Examples:\n"
-            f"  {program_name}                     # Scan all known MCP configs\n"
-            f"  {program_name} ~/custom/config.json # Scan a specific config file\n"
-            f"  {program_name} inspect             # Just inspect tools without verification\n"
-            f"  {program_name} whitelist           # View whitelisted tools\n"
-            f'  {program_name} whitelist tool "add" "a1b2c3..." # Whitelist the \'add\' tool\n'
-            f"  {program_name} --verbose           # Enable detailed logging output\n"
-            f"  {program_name} --print-errors      # Show error details and tracebacks\n"
-            f"  {program_name} --json              # Output results in JSON format\n"
-            f"  {program_name} --cache-stats       # Show cache usage statistics\n"
-            f"  {program_name} --clear-cache       # Clear expired cache files\n"
-            f"  {program_name} scan --no-cache     # Scan without using cache\n"
-            f"  {program_name} scan --report report.html # Generate HTML report\n"
-        ),
-    )
 
-    # Create subparsers for commands
+    # Create subparsers for commands (using the same parser object)
     subparsers = parser.add_subparsers(
         dest="command",
         title="Commands",
@@ -459,7 +430,7 @@ def main():
     add_server_arguments(proxy_parser)
     add_install_arguments(proxy_parser)
 
-    # ← 전역 캐시 명령어들 추가 (메인 파서에)
+    # Add global cache arguments to the main parser
     parser.add_argument(
         "--cache-stats",
         action="store_true",
@@ -471,18 +442,32 @@ def main():
         help="만료된 캐시 파일들을 정리",
     )
 
-    # Parse arguments (default to 'scan' if no command provided)
-    args = parser.parse_args(["scan"] if len(sys.argv) == 1 else None)
+    # Parse arguments (default to 'scan' if no command provided or if only global flags are given)
+    # This must be the *only* parse_args call.
+    # Check if a subcommand was provided by looking at sys.argv[1]
+    if len(sys.argv) == 1 or (len(sys.argv) > 1 and sys.argv[1] not in subparsers.choices):
+        # If no command is provided (sys.argv is just script name) or
+        # if the first arg is not a recognized subcommand (e.g., it's a global flag like --verbose)
+        # then default to 'scan' and re-parse with 'scan' prepended.
+        args = parser.parse_args(["scan"] + sys.argv[1:])
+    else:
+        # If a subcommand is provided (e.g., 'scan', 'inspect'), parse as normal.
+        args = parser.parse_args()
 
-    # postprocess the files argument (if shorthands are used)
-    if hasattr(args, "files") and args.files is None:
-        args.files = client_shorthands_to_paths(args.files)
+    # Handle global commands that might exit the program early
+    if args.examples:
+        HelpFormatter.show_examples()
+        sys.exit(0)
+    
+    if args.troubleshooting:
+        HelpFormatter.show_troubleshooting()
+        sys.exit(0)
 
-    # ← 전역 캐시 명령어 처리 (다른 명령어보다 먼저)
+    # Handle global cache commands (these also might exit)
     if handle_cache_commands(args):
         sys.exit(0)
 
-    # Display version banner
+    # Display version banner (only if not JSON output)
     if not (hasattr(args, "json") and args.json):
         rich.print(f"[bold blue]Invariant MCP-scan v{version_info}[/bold blue]\n")
 
@@ -557,20 +542,6 @@ def main():
     elif args.command == "uninstall":
         asyncio.run(uninstall())
         sys.exit(0)
-    elif args.command == "whitelist":
-        if args.reset:
-            MCPScanner(**vars(args)).reset_whitelist()
-            sys.exit(0)
-        elif all(x is None for x in [args.name, args.hash]):  # no args
-            MCPScanner(**vars(args)).print_whitelist()
-            sys.exit(0)
-        elif all(x is not None for x in [args.name, args.hash]):
-            MCPScanner(**vars(args)).whitelist(args.name, args.hash, args.local_only)
-            MCPScanner(**vars(args)).print_whitelist()
-            sys.exit(0)
-        else:
-            rich.print("[bold red]Please provide a name and hash.[/bold red]")
-            sys.exit(1)
     elif args.command == "scan" or args.command is None:  # default to scan
         asyncio.run(run_scan_inspect(args=args))
         sys.exit(0)
@@ -610,6 +581,8 @@ async def run_scan_inspect(mode="scan", args=None):
         print(json.dumps(result, indent=2))
     else:
         print_scan_result(result)
+
+
 # add_arguments 함수 수정
 def create_enhanced_parser():
     """향상된 인수 파서 생성"""
@@ -640,7 +613,6 @@ def create_enhanced_parser():
     parser.add_argument('--troubleshooting', action='store_true', help='문제 해결 가이드 출력')
     
     return parser
-
 
 
 if __name__ == "__main__":

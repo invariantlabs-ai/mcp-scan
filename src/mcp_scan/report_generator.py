@@ -4,7 +4,6 @@ import hashlib
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Any
-from jinja2 import Template
 
 class ReportGenerator:
     """스캔 결과 리포트 생성기"""
@@ -216,6 +215,143 @@ class ReportGenerator:
         
         return recommendations
 
+    def _generate_summary_stats_html(self, summary: Dict[str, Any]) -> str:
+        """요약 통계 섹션의 HTML을 생성합니다."""
+        total_issues_risk_class = 'risk-medium' if summary['issue_stats']['total_issues'] > 0 else 'risk-success'
+
+        html_output = f"""
+<div class="section">
+    <div class="stats-grid">
+        <div class="stat-card risk-success">
+            <h3>총 서버 수</h3>
+            <span class="number">{summary['server_stats']['total_servers']}</span>
+            <div class="description">스캔 대상 서버</div>
+        </div>
+        <div class="stat-card risk-success">
+            <h3>스캔 성공률</h3>
+            <span class="number">{summary['server_stats']['success_rate']}</span>
+            <div class="description">전체 대비 성공률</div>
+        </div>
+        <div class="stat-card {total_issues_risk_class}">
+            <h3>총 발견 이슈</h3>
+            <span class="number">{summary['issue_stats']['total_issues']}</span>
+            <div class="description">보안 문제 및 권장사항</div>
+        </div>
+        <div class="stat-card risk-success">
+            <h3>스캔 소요시간</h3>
+            <span class="number">{summary['timing']['duration']}</span>
+            <div class="description">전체 스캔 시간</div>
+        </div>
+    </div>
+"""
+
+        if summary['issue_stats']['total_issues'] > 0:
+            html_output += f"""
+    <div class="stats-grid">
+        <div class="stat-card risk-high">
+            <h3>높은 위험도</h3>
+            <span class="number">{summary['issue_stats']['high_risk']}</span>
+            <div class="description">{summary['issue_stats']['risk_distribution']['high_percentage']}</div>
+        </div>
+        <div class="stat-card risk-medium">
+            <h3>보통 위험도</h3>
+            <span class="number">{summary['issue_stats']['medium_risk']}</span>
+            <div class="description">{summary['issue_stats']['risk_distribution']['medium_percentage']}</div>
+        </div>
+        <div class="stat-card risk-low">
+            <h3>낮은 위험도</h3>
+            <span class="number">{summary['issue_stats']['low_risk']}</span>
+            <div class="description">{summary['issue_stats']['risk_distribution']['low_percentage']}</div>
+        </div>
+    </div>
+"""
+
+        html_output += "</div>"
+        return html_output
+
+    def _generate_recommendations_list_html(self, recommendations: List[Dict[str, str]]) -> str:
+        """권장사항 목록의 HTML을 생성합니다."""
+        recommendations_html = ""
+        for rec in recommendations:
+            actions_list_html = ""
+            if rec.get('actions'):
+                for action in rec['actions']:
+                    actions_list_html += f"<li>{action}</li>"
+                actions_list_html = f"<ul class='actions-list'>{actions_list_html}</ul>"
+            
+            recommendations_html += f"""
+<div class='recommendation priority-{rec['priority']}'>
+    <div class='recommendation-header'>
+        <div class='icon'>{rec['icon']}</div>
+        <div class='recommendation-content'>
+            <h4>{rec['title']}</h4>
+            <p>{rec['description']}</p>
+            {actions_list_html}
+        </div>
+    </div>
+</div>
+"""
+        return f"""
+<div class="section">
+    <h2 class="section-title">📋 보안 권장사항</h2>
+    <div class="recommendations">
+        {recommendations_html}
+    </div>
+</div>
+"""
+
+    def _generate_servers_list_html(self, scan_results: List[Dict[str, Any]]) -> str:
+        """서버별 결과 목록의 HTML을 생성합니다."""
+        servers_html = ""
+        for result in scan_results:
+            status_text = {
+                'success': '정상',
+                'warning': '경고',
+                'error': '오류'
+            }.get(result['status'], '')
+            
+            risk_level_text = {
+                'high': '높음',
+                'medium': '보통',
+                'low': '낮음',
+                'none': '없음'
+            }.get(result['risk_level'], '')
+
+            servers_html += f"""
+<div class='server-item status-{result['status']}'>
+    <div class='server-header'>
+        <div class='server-name'>{result['server_name']}</div>
+        <span class='status-badge status-{result['status']}'>
+            {status_text}
+        </span>
+    </div>
+    <div class='server-details'>
+        <div class='detail-item'>
+            <div class='detail-label'>스캔 시간</div>
+            <div class='detail-value'>{result['timestamp'].split('T')[1].split('.')[0]}</div>
+        </div>
+        <div class='detail-item'>
+            <div class='detail-label'>발견된 이슈</div>
+            <div class='detail-value'>{result['issues_count']}개</div>
+        </div>
+        <div class='detail-item'>
+            <div class='detail-label'>위험도</div>
+            <div class='detail-value'>
+                {risk_level_text}
+            </div>
+        </div>
+    </div>
+</div>
+"""
+        return f"""
+<div class="section">
+    <h2 class="section-title">📊 서버별 스캔 결과</h2>
+    <div class="servers-grid">
+        {servers_html}
+    </div>
+</div>
+"""
+
     def generate_html_report(self, output_path: str = None) -> str:
         """HTML 리포트 생성"""
         if output_path is None:
@@ -225,15 +361,24 @@ class ReportGenerator:
         summary = self.generate_summary()
         recommendations = self.generate_recommendations(summary)
         
+        # 각 섹션의 HTML 생성
+        summary_stats_html = self._generate_summary_stats_html(summary)
+        recommendations_list_html = self._generate_recommendations_list_html(recommendations)
+        servers_list_html = self._generate_servers_list_html(self.scan_results)
+        
+        # 메인 HTML 템플릿 로드
         html_template = self._get_html_template()
         
-        template = Template(html_template)
-        html_content = template.render(
-            summary=summary,
-            recommendations=recommendations,
-            scan_results=self.scan_results,
-            generated_at=datetime.now().strftime("%Y년 %m월 %d일 %H:%M:%S"),
-            report_title="MCP-Scan 보안 분석 리포트"
+        # 플레이스홀더 채우기
+        html_content = html_template.format(
+            REPORT_TITLE=summary['scan_metadata']['generated_by'] + " 보안 분석 리포트",
+            GENERATED_AT=datetime.now().strftime("%Y년 %m월 %d일 %H:%M:%S"),
+            SCAN_ID=summary['scan_metadata']['scan_id'],
+            SUMMARY_STATS_HTML=summary_stats_html,
+            RECOMMENDATIONS_HTML=recommendations_list_html,
+            SERVERS_HTML=servers_list_html,
+            VERSION=summary['scan_metadata']['version'],
+            GENERATED_BY=summary['scan_metadata']['generated_by']
         )
         
         output_file = Path(output_path)
@@ -245,31 +390,31 @@ class ReportGenerator:
         return str(output_file.absolute())
     
     def _get_html_template(self) -> str:
-        """현대적인 HTML 템플릿 반환"""
+        """HTML 템플릿을 반환합니다. 동적인 내용은 플레이스홀더로 표시됩니다."""
         return '''
 <!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ report_title }}</title>
+    <title>{REPORT_TITLE}</title>
     <style>
-        * { 
+        * {{ 
             margin: 0; 
             padding: 0; 
             box-sizing: border-box; 
-        }
+        }}
         
-        body {
+        body {{
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Malgun Gothic', sans-serif;
             line-height: 1.6;
             color: #2d3748;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             padding: 20px;
-        }
+        }}
         
-        .container {
+        .container {{
             max-width: 1400px;
             margin: 0 auto;
             background: white;
@@ -277,23 +422,23 @@ class ReportGenerator:
             box-shadow: 0 25px 50px rgba(0,0,0,0.15);
             overflow: hidden;
             animation: slideUp 0.6s ease-out;
-        }
+        }}
         
-        @keyframes slideUp {
-            from { opacity: 0; transform: translateY(30px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
+        @keyframes slideUp {{
+            from {{ opacity: 0; transform: translateY(30px); }}
+            to {{ opacity: 1; transform: translateY(0); }}
+        }}
         
-        .header {
+        .header {{
             background: linear-gradient(135deg, #667eea, #764ba2);
             color: white;
             padding: 50px;
             text-align: center;
             position: relative;
             overflow: hidden;
-        }
+        }}
         
-        .header::before {
+        .header::before {{
             content: '';
             position: absolute;
             top: -50%;
@@ -302,47 +447,47 @@ class ReportGenerator:
             height: 200%;
             background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
             animation: pulse 4s ease-in-out infinite;
-        }
+        }}
         
-        @keyframes pulse {
-            0%, 100% { transform: scale(1); opacity: 0.5; }
-            50% { transform: scale(1.1); opacity: 0.8; }
-        }
+        @keyframes pulse {{
+            0%, 100% {{ transform: scale(1); opacity: 0.5; }}
+            50% {{ transform: scale(1.1); opacity: 0.8; }}
+        }}
         
-        .header h1 {
+        .header h1 {{
             font-size: 3em;
             margin-bottom: 15px;
             font-weight: 300;
             position: relative;
             z-index: 1;
-        }
+        }}
         
-        .header .subtitle {
+        .header .subtitle {{
             opacity: 0.9;
             font-size: 1.2em;
             position: relative;
             z-index: 1;
-        }
+        }}
         
-        .header .scan-id {
+        .header .scan-id {{
             margin-top: 10px;
             font-size: 0.9em;
             opacity: 0.7;
             font-family: 'Courier New', monospace;
-        }
+        }}
         
-        .content {
+        .content {{
             padding: 50px;
-        }
+        }}
         
-        .stats-grid {
+        .stats-grid {{
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
             gap: 25px;
             margin-bottom: 50px;
-        }
+        }}
         
-        .stat-card {
+        .stat-card {{
             background: linear-gradient(145deg, #f7fafc, #edf2f7);
             padding: 35px;
             border-radius: 20px;
@@ -351,9 +496,9 @@ class ReportGenerator:
             transition: all 0.3s ease;
             position: relative;
             overflow: hidden;
-        }
+        }}
         
-        .stat-card::before {
+        .stat-card::before {{
             content: '';
             position: absolute;
             top: 0;
@@ -361,54 +506,54 @@ class ReportGenerator:
             right: 0;
             height: 4px;
             background: var(--accent-color, #667eea);
-        }
+        }}
         
-        .stat-card:hover {
+        .stat-card:hover {{
             transform: translateY(-8px);
             box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-        }
+        }}
         
-        .stat-card h3 {
+        .stat-card h3 {{
             color: #4a5568;
             font-size: 0.95em;
             text-transform: uppercase;
             letter-spacing: 1px;
             margin-bottom: 15px;
             font-weight: 600;
-        }
+        }}
         
-        .stat-card .number {
+        .stat-card .number {{
             font-size: 3em;
             font-weight: 800;
             color: #2d3748;
             margin-bottom: 8px;
             display: block;
-        }
+        }}
         
-        .stat-card .description {
+        .stat-card .description {{
             color: #718096;
             font-size: 0.9em;
-        }
+        }}
         
-        .risk-high { --accent-color: #e53e3e; color: #e53e3e !important; }
-        .risk-medium { --accent-color: #dd6b20; color: #dd6b20 !important; }
-        .risk-low { --accent-color: #38a169; color: #38a169 !important; }
-        .risk-success { --accent-color: #00b4d8; color: #00b4d8 !important; }
+        .risk-high {{ --accent-color: #e53e3e; color: #e53e3e !important; }}
+        .risk-medium {{ --accent-color: #dd6b20; color: #dd6b20 !important; }}
+        .risk-low {{ --accent-color: #38a169; color: #38a169 !important; }}
+        .risk-success {{ --accent-color: #00b4d8; color: #00b4d8 !important; }}
         
-        .section {
+        .section {{
             margin-bottom: 50px;
-        }
+        }}
         
-        .section-title {
+        .section-title {{
             font-size: 2.2em;
             color: #2d3748;
             margin-bottom: 30px;
             padding-bottom: 15px;
             border-bottom: 3px solid #e2e8f0;
             position: relative;
-        }
+        }}
         
-        .section-title::after {
+        .section-title::after {{
             content: '';
             position: absolute;
             bottom: -3px;
@@ -416,346 +561,243 @@ class ReportGenerator:
             width: 60px;
             height: 3px;
             background: #667eea;
-        }
+        }}
         
-        .recommendations {
+        .recommendations {{
             display: grid;
             gap: 20px;
-        }
+        }}
         
-        .recommendation {
+        .recommendation {{
             background: white;
             padding: 30px;
             border-radius: 15px;
             border-left: 5px solid var(--rec-color);
             box-shadow: 0 4px 15px rgba(0,0,0,0.08);
             transition: all 0.3s ease;
-        }
+        }}
         
-        .recommendation:hover {
+        .recommendation:hover {{
             transform: translateX(5px);
             box-shadow: 0 8px 25px rgba(0,0,0,0.12);
-        }
+        }}
         
-        .recommendation.priority-critical { --rec-color: #e53e3e; background: #fed7d7; }
-        .recommendation.priority-high { --rec-color: #dd6b20; background: #feebc8; }
-        .recommendation.priority-medium { --rec-color: #3182ce; background: #bee3f8; }
-        .recommendation.priority-low, .recommendation.priority-info { --rec-color: #38a169; background: #c6f6d5; }
+        .recommendation.priority-critical {{ --rec-color: #e53e3e; background: #fed7d7; }}
+        .recommendation.priority-high {{ --rec-color: #dd6b20; background: #feebc8; }}
+        .recommendation.priority-medium {{ --rec-color: #3182ce; background: #bee3f8; }}
+        .recommendation.priority-low, .recommendation.priority-info {{ --rec-color: #38a169; background: #c6f6d5; }}
         
-        .recommendation-header {
+        .recommendation-header {{
             display: flex;
             align-items: flex-start;
             gap: 20px;
             margin-bottom: 20px;
-        }
+        }}
         
-        .recommendation .icon {
+        .recommendation .icon {{
             font-size: 2em;
             min-width: 50px;
             text-align: center;
-        }
+        }}
         
-        .recommendation-content h4 {
+        .recommendation-content h4 {{
             color: #2d3748;
             margin-bottom: 10px;
             font-size: 1.3em;
             font-weight: 600;
-        }
+        }}
         
-        .recommendation-content p {
+        .recommendation-content p {{
             color: #4a5568;
             margin-bottom: 15px;
-        }
+        }}
         
-        .actions-list {
+        .actions-list {{
             list-style: none;
-        }
+        }}
         
-        .actions-list li {
+        .actions-list li {{
             padding: 8px 0;
             color: #2d3748;
             position: relative;
             padding-left: 25px;
-        }
+        }}
         
-        .actions-list li::before {
+        .actions-list li::before {{
             content: '▶';
             position: absolute;
             left: 0;
             color: var(--rec-color);
             font-size: 0.8em;
-        }
+        }}
         
-        .servers-grid {
+        .servers-grid {{
             display: grid;
             gap: 20px;
-        }
+        }}
         
-        .server-item {
+        .server-item {{
             background: white;
             padding: 25px;
             border-radius: 15px;
             border-left: 5px solid var(--server-color);
             box-shadow: 0 4px 15px rgba(0,0,0,0.08);
             transition: all 0.3s ease;
-        }
+        }}
         
-        .server-item:hover {
+        .server-item:hover {{
             transform: translateY(-3px);
             box-shadow: 0 8px 25px rgba(0,0,0,0.12);
-        }
+        }}
         
-        .server-item.status-success { --server-color: #38a169; }
-        .server-item.status-warning { --server-color: #dd6b20; }
-        .server-item.status-error { --server-color: #e53e3e; }
+        .server-item.status-success {{ --server-color: #38a169; }}
+        .server-item.status-warning {{ --server-color: #dd6b20; }}
+        .server-item.status-error {{ --server-color: #e53e3e; }}
         
-        .server-header {
+        .server-header {{
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 15px;
             flex-wrap: wrap;
             gap: 10px;
-        }
+        }}
         
-        .server-name {
+        .server-name {{
             font-weight: 700;
             color: #2d3748;
             font-size: 1.2em;
-        }
+        }}
         
-        .status-badge {
+        .status-badge {{
             padding: 6px 16px;
             border-radius: 25px;
             font-size: 0.85em;
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.5px;
-        }
+        }}
         
-        .status-success {
+        .status-success {{
             background: #c6f6d5;
             color: #22543d;
-        }
+        }}
         
-        .status-warning {
+        .status-warning {{
             background: #feebc8;
             color: #744210;
-        }
+        }}
         
-        .status-error {
+        .status-error {{
             background: #fed7d7;
             color: #742a2a;
-        }
+        }}
         
-        .server-details {
+        .server-details {{
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 15px;
             margin-top: 15px;
-        }
+        }}
         
-        .detail-item {
+        .detail-item {{
             display: flex;
             flex-direction: column;
-        }
+        }}
         
-        .detail-label {
+        .detail-label {{
             font-size: 0.85em;
             color: #718096;
             text-transform: uppercase;
             letter-spacing: 0.5px;
             margin-bottom: 5px;
-        }
+        }}
         
-        .detail-value {
+        .detail-value {{
             font-weight: 600;
             color: #2d3748;
-        }
+        }}
         
-        .footer {
+        .footer {{
             background: #f7fafc;
             padding: 40px;
             text-align: center;
             color: #718096;
             border-top: 1px solid #e2e8f0;
-        }
+        }}
         
-        .footer-content {
+        .footer-content {{
             display: flex;
             justify-content: space-between;
             align-items: center;
             flex-wrap: wrap;
             gap: 20px;
-        }
+        }}
         
-        .footer-logo {
+        .footer-logo {{
             font-weight: 700;
             color: #4a5568;
-        }
+        }}
         
-        .footer-info {
+        .footer-info {{
             font-size: 0.9em;
-        }
+        }}
         
-        @media (max-width: 768px) {
-            .container { margin: 10px; }
-            .content, .header { padding: 30px 20px; }
-            .stats-grid { grid-template-columns: 1fr; }
-            .server-header { flex-direction: column; align-items: flex-start; }
-            .footer-content { flex-direction: column; text-align: center; }
-        }
+        @media (max-width: 768px) {{
+            .container {{ margin: 10px; }}
+            .content, .header {{ padding: 30px 20px; }}
+            .stats-grid {{ grid-template-columns: 1fr; }}
+            .server-header {{ flex-direction: column; align-items: flex-start; }}
+            .footer-content {{ flex-direction: column; text-align: center; }}
+        }}
         
-        .progress-ring {
+        .progress-ring {{
             width: 120px;
             height: 120px;
             margin: 0 auto 20px;
-        }
+        }}
         
-        .progress-ring circle {
+        .progress-ring circle {{
             fill: none;
             stroke-width: 8;
-        }
+        }}
         
-        .progress-ring .bg {
+        .progress-ring .bg {{
             stroke: #e2e8f0;
-        }
+        }}
         
-        .progress-ring .progress {
+        .progress-ring .progress {{
             stroke: var(--accent-color, #667eea);
             stroke-linecap: round;
             transition: stroke-dasharray 0.5s ease;
-        }
+        }}
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>🔍 {{ report_title }}</h1>
-            <div class="subtitle">{{ generated_at }} 생성</div>
-            <div class="scan-id">스캔 ID: {{ summary.scan_metadata.scan_id }}</div>
+            <h1>🔍 {REPORT_TITLE}</h1>
+            <div class="subtitle">{GENERATED_AT} 생성</div>
+            <div class="scan-id">스캔 ID: {SCAN_ID}</div>
         </div>
         
         <div class="content">
             <!-- 요약 통계 -->
-            <div class="section">
-                <div class="stats-grid">
-                    <div class="stat-card risk-success">
-                        <h3>총 서버 수</h3>
-                        <span class="number">{{ summary.server_stats.total_servers }}</span>
-                        <div class="description">스캔 대상 서버</div>
-                    </div>
-                    <div class="stat-card risk-success">
-                        <h3>스캔 성공률</h3>
-                        <span class="number">{{ summary.server_stats.success_rate }}</span>
-                        <div class="description">전체 대비 성공률</div>
-                    </div>
-                    <div class="stat-card {% if summary.issue_stats.total_issues > 0 %}risk-medium{% else %}risk-success{% endif %}">
-                        <h3>총 발견 이슈</h3>
-                        <span class="number">{{ summary.issue_stats.total_issues }}</span>
-                        <div class="description">보안 문제 및 권장사항</div>
-                    </div>
-                    <div class="stat-card risk-success">
-                        <h3>스캔 소요시간</h3>
-                        <span class="number">{{ summary.timing.duration }}</span>
-                        <div class="description">전체 스캔 시간</div>
-                    </div>
-                </div>
-                
-                <!-- 위험도별 통계 -->
-                {% if summary.issue_stats.total_issues > 0 %}
-                <div class="stats-grid">
-                    <div class="stat-card risk-high">
-                        <h3>높은 위험도</h3>
-                        <span class="number">{{ summary.issue_stats.high_risk }}</span>
-                        <div class="description">{{ summary.issue_stats.risk_distribution.high_percentage }}</div>
-                    </div>
-                    <div class="stat-card risk-medium">
-                        <h3>보통 위험도</h3>
-                        <span class="number">{{ summary.issue_stats.medium_risk }}</span>
-                        <div class="description">{{ summary.issue_stats.risk_distribution.medium_percentage }}</div>
-                    </div>
-                    <div class="stat-card risk-low">
-                        <h3>낮은 위험도</h3>
-                        <span class="number">{{ summary.issue_stats.low_risk }}</span>
-                        <div class="description">{{ summary.issue_stats.risk_distribution.low_percentage }}</div>
-                    </div>
-                </div>
-                {% endif %}
-            </div>
+            {SUMMARY_STATS_HTML}
             
             <!-- 권장사항 -->
-            <div class="section">
-                <h2 class="section-title">📋 보안 권장사항</h2>
-                <div class="recommendations">
-                    {% for rec in recommendations %}
-                    <div class="recommendation priority-{{ rec.priority }}">
-                        <div class="recommendation-header">
-                            <div class="icon">{{ rec.icon }}</div>
-                            <div class="recommendation-content">
-                                <h4>{{ rec.title }}</h4>
-                                <p>{{ rec.description }}</p>
-                                {% if rec.actions %}
-                                <ul class="actions-list">
-                                    {% for action in rec.actions %}
-                                    <li>{{ action }}</li>
-                                    {% endfor %}
-                                </ul>
-                                {% endif %}
-                            </div>
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
+            {RECOMMENDATIONS_HTML}
             
             <!-- 서버별 결과 -->
-            <div class="section">
-                <h2 class="section-title">📊 서버별 스캔 결과</h2>
-                <div class="servers-grid">
-                    {% for result in scan_results %}
-                    <div class="server-item status-{{ result.status }}">
-                        <div class="server-header">
-                            <div class="server-name">{{ result.server_name }}</div>
-                            <span class="status-badge status-{{ result.status }}">
-                                {% if result.status == 'success' %}정상
-                                {% elif result.status == 'warning' %}경고
-                                {% elif result.status == 'error' %}오류
-                                {% endif %}
-                            </span>
-                        </div>
-                        <div class="server-details">
-                            <div class="detail-item">
-                                <div class="detail-label">스캔 시간</div>
-                                <div class="detail-value">{{ result.timestamp.split('T')[1].split('.')[0] }}</div>
-                            </div>
-                            <div class="detail-item">
-                                <div class="detail-label">발견된 이슈</div>
-                                <div class="detail-value">{{ result.issues_count }}개</div>
-                            </div>
-                            <div class="detail-item">
-                                <div class="detail-label">위험도</div>
-                                <div class="detail-value">
-                                    {% if result.risk_level == 'high' %}높음
-                                    {% elif result.risk_level == 'medium' %}보통
-                                    {% elif result.risk_level == 'low' %}낮음
-                                    {% else %}없음
-                                    {% endif %}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
+            {SERVERS_HTML}
         </div>
         
         <div class="footer">
             <div class="footer-content">
-                <div class="footer-logo">MCP-Scan Enhanced v{{ summary.scan_metadata.version }}</div>
+                <div class="footer-logo">MCP-Scan Enhanced v{VERSION}</div>
                 <div class="footer-info">
-                    생성자: {{ summary.scan_metadata.generated_by }} | 
-                    스캔 ID: {{ summary.scan_metadata.scan_id }}
+                    생성자: {GENERATED_BY} | 
+                    스캔 ID: {SCAN_ID}
                 </div>
             </div>
         </div>
