@@ -21,6 +21,9 @@ from .version import version_info
 from .cache import SimpleCache
 from rich.console import Console
 from rich.table import Table
+from .help_formatter import HelpFormatter
+from .error_handler import ErrorHandler
+
 
 # Configure logging to suppress all output by default
 logging.getLogger().setLevel(logging.CRITICAL + 1)  # Higher than any standard level
@@ -276,6 +279,16 @@ def install_extras(args):
 def main():
     # Create main parser with description
     program_name = get_invoking_name()
+    parser = create_enhanced_parser()
+    args = parser.parse_args()
+    # 전역 명령어 처리
+    if args.examples:
+        HelpFormatter.show_examples()
+        return 0
+    
+    if args.troubleshooting:
+        HelpFormatter.show_troubleshooting()
+        return 0
     parser = argparse.ArgumentParser(
         prog=program_name,
         description="MCP-scan: Security scanner for Model Context Protocol servers and tools",
@@ -597,6 +610,37 @@ async def run_scan_inspect(mode="scan", args=None):
         print(json.dumps(result, indent=2))
     else:
         print_scan_result(result)
+# add_arguments 함수 수정
+def create_enhanced_parser():
+    """향상된 인수 파서 생성"""
+    program_name = get_invoking_name()
+    parser = argparse.ArgumentParser(
+        prog=program_name,
+        description="🔍 MCP-Scan: Model Context Protocol 보안 스캐너",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=f"""
+[bold green]일반적인 사용 예시:[/bold green]
+  {program_name} scan                     # 기본 스캔
+  {program_name} scan --verbose --report  # 상세 로그 + HTML 리포트
+  {program_name} --examples              # 더 많은 예시 보기
+
+[bold yellow]문제 해결:[/bold yellow]
+  설정 파일을 찾을 수 없는 경우:
+    → 파일 경로를 확인하거나 절대 경로를 사용하세요
+  
+  스캔이 느린 경우:
+    → 캐시가 활성화되어 있는지 확인하세요 (기본값)
+    
+[bold blue]더 많은 정보:[/bold blue] https://github.com/CoCo-1223/mcp-scan
+        """
+    )
+    
+    # 전역 옵션 추가
+    parser.add_argument('--examples', action='store_true', help='상세한 사용 예시 출력')
+    parser.add_argument('--troubleshooting', action='store_true', help='문제 해결 가이드 출력')
+    
+    return parser
+
 
 
 if __name__ == "__main__":
