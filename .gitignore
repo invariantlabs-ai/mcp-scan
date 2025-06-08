@@ -41,3 +41,9 @@ src/mcp_scan/todo.md
 
 *.env
 npm/package.json
+
+.pytest_cache/
+.coverage
+*.log
+cache/
+reports/
