@@ -205,7 +205,7 @@ class ServerScanResult(BaseModel):
         Create a copy of the ServerScanResult instance. This is not the same as `model_copy(deep=True)`, because it does not
         clone the error. This is crucial to avoid issues with serialization of exceptions.
         """
-        output = self.model_copy(deep=True, exclude={"error"})
+        output = self.model_copy(deep=True, update={"error": None})
         output.error = self.error.clone() if self.error else None
         return output
 
@@ -226,7 +226,7 @@ class ScanPathResult(BaseModel):
         Create a copy of the ScanPathResult instance. This is not the same as `model_copy(deep=True)`, because it does not
         clone the error. This is crucial to avoid issues with serialization of exceptions.
         """
-        output = self.model_copy(deep=True, exclude={"error"})
+        output = self.model_copy(deep=True, update={"error": None})
         output.error = self.error.clone() if self.error else None
         return output
 
