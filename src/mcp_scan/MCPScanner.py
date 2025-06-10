@@ -128,29 +128,33 @@ class MCPScanner:
 
     async def check_server_changed(self, server: ServerScanResult) -> ServerScanResult:
         logger.debug("Checking for changes in server: %s", server.name)
-        result = server.model_copy(deep=True)
+        output_server = server.clone()
+        if output_server.result is None:
+            raise ValueError("Server result is None, cannot check for changes")
         for i, (entity, entity_result) in enumerate(server.entities_with_result):
             if entity_result is None:
                 continue
             c, messages = self.storage_file.check_and_update(server.name or "", entity, entity_result.verified)
-            result.result[i].changed = c
+            output_server.result[i].changed = c
             if c:
                 logger.info("Entity %s in server %s has changed", entity.name, server.name)
-                result.result[i].messages.extend(messages)
-        return result
+                output_server.result[i].messages.extend(messages)
+        return output_server
 
     async def check_whitelist(self, server: ServerScanResult) -> ServerScanResult:
         logger.debug("Checking whitelist for server: %s", server.name)
-        result = server.model_copy()
+        output_server = server.clone()
+        if output_server.result is None:
+            raise ValueError("Server result is None, cannot check for changes")
         for i, (entity, entity_result) in enumerate(server.entities_with_result):
             if entity_result is None:
                 continue
             if self.storage_file.is_whitelisted(entity):
                 logger.debug("Entity %s is whitelisted", entity.name)
-                result.result[i].whitelisted = True
+                output_server.result[i].whitelisted = True
             else:
-                result.result[i].whitelisted = False
-        return result
+                output_server.result[i].whitelisted = False
+        return output_server
 
     async def emit(self, signal: str, data: Any):
         logger.debug("Emitting signal: %s", signal)
@@ -159,7 +163,7 @@ class MCPScanner:
 
     async def scan_server(self, server: ServerScanResult, inspect_only: bool = False) -> ServerScanResult:
         logger.info("Scanning server: %s, inspect_only: %s", server.name, inspect_only)
-        result = server.model_copy(deep=True)
+        result = server.clone()
         try:
             result.signature = await check_server_with_timeout(
                 server.server, self.server_timeout, self.suppress_mcpserver_io

@@ -19,7 +19,7 @@ POLICY_PATH = "src/mcp_scan/policy.gr"
 
 
 async def verify_scan_path_public_api(scan_path: ScanPathResult, base_url: str) -> ScanPathResult:
-    output_path = scan_path.model_copy(deep=True)
+    output_path = scan_path.clone()
     url = base_url[:-1] if base_url.endswith("/") else base_url
     url = url + "/api/v1/public/mcp-scan"
     headers = {"Content-Type": "application/json"}
@@ -64,7 +64,7 @@ def get_policy() -> str:
 
 
 async def verify_scan_path_locally(scan_path: ScanPathResult) -> ScanPathResult:
-    output_path = scan_path.model_copy(deep=True)
+    output_path = scan_path.clone()
     tools_to_scan: list[Tool] = []
     for server in scan_path.servers:
         # None server signature are servers which are not reachable.
