@@ -1,36 +1,10 @@
-import builtins
 import textwrap
 
 import rich
 from rich.text import Text
-from rich.traceback import Traceback as rTraceback
 from rich.tree import Tree
 
-from .models import Entity, EntityScanResult, ScanError, ScanPathResult, entity_type_to_str, hash_entity
-
-
-def format_exception(e: Exception | None) -> tuple[str, rTraceback | None]:
-    if e is None:
-        return "", None
-    name = builtins.type(e).__name__
-    message = str(e).strip()
-    cause = getattr(e, "__cause__", None)
-    context = getattr(e, "__context__", None)
-    parts = [f"{name}: {message}"]
-    if cause is not None:
-        parts.append(f"Caused by: {format_exception(cause)[0]}")
-    if context is not None:
-        parts.append(f"Context: {format_exception(context)[0]}")
-    text = "\n".join(parts)
-    tb = rTraceback.from_exception(builtins.type(e), e, getattr(e, "__traceback__", None))
-    return text, tb
-
-
-def format_error(e: ScanError) -> tuple[str, rTraceback | None]:
-    status, traceback = format_exception(e.exception)
-    if e.message:
-        status = e.message
-    return status, traceback
+from .models import Entity, EntityScanResult, ScanPathResult, entity_type_to_str, hash_entity
 
 
 def format_path_line(path: str, status: str | None, operation: str = "Scanning") -> Text:
@@ -110,11 +84,10 @@ def format_entity_line(entity: Entity, result: EntityScanResult | None = None) -
 
 def print_scan_path_result(result: ScanPathResult, print_errors: bool = False) -> None:
     if result.error is not None:
-        err_status, traceback = format_error(result.error)
-        rich.print(format_path_line(result.path, err_status))
-        if print_errors and traceback is not None:
+        rich.print(format_path_line(result.path, result.error.status))
+        if print_errors and result.error.traceback is not None:
             console = rich.console.Console()
-            console.print(traceback)
+            console.print(result.error.traceback)
         return
 
     message = f"found {len(result.servers)} server{'' if len(result.servers) == 1 else 's'}"
@@ -123,10 +96,9 @@ def print_scan_path_result(result: ScanPathResult, print_errors: bool = False) -
     server_tracebacks = []
     for server in result.servers:
         if server.error is not None:
-            err_status, traceback = format_error(server.error)
-            server_print = path_print_tree.add(format_servers_line(server.name or "", err_status))
-            if traceback is not None:
-                server_tracebacks.append((server, traceback))
+            server_print = path_print_tree.add(format_servers_line(server.name or "", server.error.status))
+            if server.error.traceback is not None:
+                server_tracebacks.append((server, server.error.traceback))
         else:
             server_print = path_print_tree.add(format_servers_line(server.name or ""))
             for entity, entity_result in server.entities_with_result:

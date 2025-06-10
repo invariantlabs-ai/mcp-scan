@@ -119,11 +119,11 @@ class MCPScanner:
         except FileNotFoundError as e:
             error_msg = "file does not exist"
             logger.exception("%s: %s", error_msg, path)
-            result.error = ScanError(message=error_msg, exception=e)
+            result.error = ScanError.from_exception(message=error_msg, e=e)
         except Exception as e:
             error_msg = "could not parse file"
             logger.exception("%s: %s", error_msg, path)
-            result.error = ScanError(message=error_msg, exception=e)
+            result.error = ScanError.from_exception(message=error_msg, e=e)
         return result
 
     async def check_server_changed(self, server: ServerScanResult) -> ServerScanResult:
@@ -180,7 +180,7 @@ class MCPScanner:
         except Exception as e:
             error_msg = "could not start server"
             logger.exception("%s: %s", error_msg, server.name)
-            result.error = ScanError(message=error_msg, exception=e)
+            result.error = ScanError.from_exception(message=error_msg, e=e)
         await self.emit("server_scanned", result)
         return result
 

@@ -1,10 +1,12 @@
+import builtins
 from datetime import datetime
 from hashlib import md5
 from itertools import chain
 from typing import Any, Literal, TypeAlias
 
 from mcp.types import InitializeResult, Prompt, Resource, Tool
-from pydantic import BaseModel, ConfigDict, Field, RootModel, field_serializer, field_validator
+from pydantic import BaseModel, ConfigDict, Field, RootModel, field_validator
+from rich.traceback import Traceback as rTraceback
 
 Entity: TypeAlias = Prompt | Resource | Tool
 Metadata: TypeAlias = InitializeResult
@@ -119,15 +121,29 @@ class VSCodeConfigFile(MCPConfig):
 class ScanError(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
     message: str | None = None
-    exception: Exception | None = None
+    status: str
+    traceback: rTraceback | None
 
-    @field_serializer("exception")
-    def serialize_exception(self, exception: Exception | None, _info) -> str | None:
-        return str(exception) if exception else None
+    @classmethod
+    def from_exception(cls, e: Exception | None, message: str | None) -> "ScanError":
+        if e is None:
+            return ScanError(status="", traceback=None, message=message)
+        name = builtins.type(e).__name__
+        message = str(e).strip()
+        cause = getattr(e, "__cause__", None)
+        context = getattr(e, "__context__", None)
+        parts = [f"{name}: {message}"]
+        if cause is not None:
+            parts.append(f"Caused by: {ScanError.from_exception(cause, message=message).status}")
+        if context is not None:
+            parts.append(f"Context: {ScanError.from_exception(context, message=message).traceback}")
+        text = "\n".join(parts)
+        tb = rTraceback.from_exception(builtins.type(e), e, getattr(e, "__traceback__", None))
+        return ScanError(status=text, traceback=tb, message=message)
 
     @property
     def text(self) -> str:
-        return self.message or (str(self.exception) or "")
+        return self.message or self.status
 
 
 class EntityScanResult(BaseModel):
