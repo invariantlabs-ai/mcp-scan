@@ -17,6 +17,7 @@ from mcp.types import (
 from pytest_lazy_fixtures import lf
 
 from mcp_scan.mcp_client import check_server, check_server_with_timeout, scan_mcp_config_file
+from mcp_scan.MCPScanner import MCPScanner
 from mcp_scan.models import StdioServer
 
 
@@ -137,3 +138,11 @@ async def test_weather_server():
             assert len(signature.prompts) == 0
             assert len(signature.resources) == 0
             assert {t.name for t in signature.tools} == {"weather"}
+
+
+@pytest.mark.asyncio
+async def test_brocken_server():
+    scanner = MCPScanner(
+        files=["tests/mcp_servers/configs_files/broken_config.json"],
+    )
+    await scanner.scan()
