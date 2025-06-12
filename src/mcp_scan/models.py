@@ -129,6 +129,16 @@ class ScanError(BaseModel):
     def text(self) -> str:
         return self.message or (str(self.exception) or "")
 
+    def clone(self) -> "ScanError":
+        """
+        Create a copy of the ScanError instance. This is not the same as `model_copy(deep=True)`, because it does not
+        clone the exception. This is crucial to avoid issues with serialization of exceptions.
+        """
+        return ScanError(
+            message=self.message,
+            exception=self.exception,
+        )
+
 
 class EntityScanResult(BaseModel):
     model_config = ConfigDict()
@@ -190,6 +200,15 @@ class ServerScanResult(BaseModel):
         else:
             return [(entity, None) for entity in self.entities]
 
+    def clone(self) -> "ServerScanResult":
+        """
+        Create a copy of the ServerScanResult instance. This is not the same as `model_copy(deep=True)`, because it does not
+        clone the error. This is crucial to avoid issues with serialization of exceptions.
+        """
+        output = self.model_copy(deep=True, update={"error": None})
+        output.error = self.error.clone() if self.error else None
+        return output
+
 
 class ScanPathResult(BaseModel):
     model_config = ConfigDict()
@@ -201,6 +220,15 @@ class ScanPathResult(BaseModel):
     @property
     def entities(self) -> list[Entity]:
         return list(chain.from_iterable(server.entities for server in self.servers))
+
+    def clone(self) -> "ScanPathResult":
+        """
+        Create a copy of the ScanPathResult instance. This is not the same as `model_copy(deep=True)`, because it does not
+        clone the error. This is crucial to avoid issues with serialization of exceptions.
+        """
+        output = self.model_copy(deep=True, update={"error": None})
+        output.error = self.error.clone() if self.error else None
+        return output
 
 
 def entity_to_tool(
