@@ -7,10 +7,11 @@ import sys
 import psutil
 import rich
 from invariant.__main__ import add_extra
-from mcp_scan_server.server import MCPScanServer
 from rich.logging import RichHandler
 
 from mcp_scan.gateway import MCPGatewayConfig, MCPGatewayInstaller
+from mcp_scan.upload import upload
+from mcp_scan_server.server import MCPScanServer
 
 from .MCPScanner import MCPScanner
 from .paths import WELL_KNOWN_MCP_PATHS, client_shorthands_to_paths
@@ -268,6 +269,11 @@ def main():
         action="store_true",
         help="Only run verification locally. Does not run all checks, results will be less accurate.",
     )
+    scan_parser.add_argument(
+        "--control-server",
+        default=False,
+        help="Upload the scan results to the provided control server URL (default: Do not upload)",
+    )
 
     # INSPECT command
     inspect_parser = subparsers.add_parser(
@@ -499,9 +505,15 @@ async def run_scan_inspect(mode="scan", args=None):
             result = await scanner.scan()
         elif mode == "inspect":
             result = await scanner.inspect()
+
+    # upload scan result to control server if specified
+    if args.control_server:
+        await upload(result, args.control_server)
+
     if args.json:
         result = {r.path: r.model_dump() for r in result}
         print(json.dumps(result, indent=2))
+        print(args)
     else:
         print_scan_result(result)
 
