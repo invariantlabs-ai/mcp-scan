@@ -2,12 +2,14 @@ import asyncio
 import logging
 import os
 import subprocess
+from contextlib import asynccontextmanager
 from typing import AsyncContextManager  # noqa: UP035
 
 import pyjson5
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.sse import sse_client
 from mcp.client.stdio import stdio_client
+from mcp.client.streamable_http import streamablehttp_client
 
 from mcp_scan.models import (
     ClaudeConfigFile,
@@ -15,6 +17,7 @@ from mcp_scan.models import (
     ServerSignature,
     SSEServer,
     StdioServer,
+    StreamableHTTPServer,
     VSCodeConfigFile,
     VSCodeMCPConfig,
 )
@@ -25,8 +28,14 @@ from .utils import rebalance_command_args
 logger = logging.getLogger(__name__)
 
 
+@asynccontextmanager
+async def streamablehttp_client_without_session(*args, **kwargs):
+    async with streamablehttp_client(*args, **kwargs) as (read, write, session_id):
+        yield read, write
+
+
 def get_client(
-    server_config: SSEServer | StdioServer, timeout: int | None = None, verbose: bool = False
+    server_config: SSEServer | StdioServer | StreamableHTTPServer, timeout: int | None = None, verbose: bool = False
 ) -> AsyncContextManager:
     if isinstance(server_config, SSEServer):
         logger.debug("Creating SSE client with URL: %s", server_config.url)
@@ -35,6 +44,15 @@ def get_client(
             headers=server_config.headers,
             # env=server_config.env, #Not supported by MCP yet, but present in vscode
             timeout=timeout,
+        )
+    elif isinstance(server_config, StreamableHTTPServer):
+        logger.debug(
+            "Creating Streamable HTTP client with URL: %s with headers %s", server_config.url, server_config.headers
+        )
+
+        return streamablehttp_client_without_session(
+            url=server_config.url,
+            headers=server_config.headers,
         )
     else:
         logger.debug("Creating stdio client")
@@ -50,7 +68,7 @@ def get_client(
 
 
 async def check_server(
-    server_config: SSEServer | StdioServer, timeout: int, suppress_mcpserver_io: bool
+    server_config: SSEServer | StdioServer | StreamableHTTPServer, timeout: int, suppress_mcpserver_io: bool
 ) -> ServerSignature:
     logger.info("Checking server with config: %s, timeout: %s", server_config, timeout)
 
@@ -64,7 +82,8 @@ async def check_server(
                 prompts: list = []
                 resources: list = []
                 tools: list = []
-                if not isinstance(server_config, SSEServer) or meta.capabilities.prompts:
+                logger.debug(f"Server capabilities: {meta.capabilities}")
+                if isinstance(server_config, StdioServer) or meta.capabilities.prompts:
                     logger.debug("Fetching prompts")
                     try:
                         prompts = (await session.list_prompts()).prompts
@@ -72,14 +91,14 @@ async def check_server(
                     except Exception:
                         logger.exception("Failed to list prompts")
 
-                if not isinstance(server_config, SSEServer) or meta.capabilities.resources:
+                if isinstance(server_config, StdioServer) or meta.capabilities.resources:
                     logger.debug("Fetching resources")
                     try:
                         resources = (await session.list_resources()).resources
                         logger.debug("Found %d resources", len(resources))
                     except Exception:
                         logger.exception("Failed to list resources")
-                if not isinstance(server_config, SSEServer) or meta.capabilities.tools:
+                if isinstance(server_config, StdioServer) or meta.capabilities.tools:
                     logger.debug("Fetching tools")
                     try:
                         tools = (await session.list_tools()).tools
@@ -98,7 +117,7 @@ async def check_server(
 
 
 async def check_server_with_timeout(
-    server_config: SSEServer | StdioServer,
+    server_config: SSEServer | StdioServer | StreamableHTTPServer,
     timeout: int,
     suppress_mcpserver_io: bool,
 ) -> ServerSignature:
