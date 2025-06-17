@@ -10,13 +10,15 @@ from mcp_scan.paths import get_client_from_path
 logger = logging.getLogger(__name__)
 
 
-async def upload(results: list[ScanPathResult], control_server: str) -> None:
+async def upload(results: list[ScanPathResult], control_server: str, org_name: str, push_key: str) -> None:
     """
     Upload the scan results to the control server.
 
     Args:
         results: List of scan path results to upload
         control_server: Base URL of the control server
+        org_name: Organization name for the upload
+        push_key: Push key for authentication
     """
     if not results:
         logger.info("No scan results to upload")
@@ -46,6 +48,8 @@ async def upload(results: list[ScanPathResult], control_server: str) -> None:
                 **(result.model_dump()),
                 "username": username,
                 "client": get_client_from_path(result.path) or "result.path",
+                "org_name": org_name,
+                "push_key": push_key,
             }
 
             # print(payload)
