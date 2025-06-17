@@ -88,6 +88,35 @@ def vscode_config_file(vscode_config):
 
 
 @pytest.fixture
+def multiple_transport_config():
+    """Sample settings.json with multiple MCP servers, one stdio, one sse and one streamable_http."""
+    return """{
+    "mcp": {
+        "servers": {
+            "http_server": {
+                "type": "http",
+                "url": "http://localhost:8124/mcp"
+            },
+            "sse_server": {
+                "type": "sse",
+                "url": "http://localhost:8123/sse"
+            }
+        }
+    }
+}
+
+"""
+
+
+@pytest.fixture
+def multiple_transport_config_file(multiple_transport_config):
+    with TempFile(mode="w") as temp_file:
+        temp_file.write(multiple_transport_config)
+        temp_file.flush()
+        yield temp_file.name
+
+
+@pytest.fixture
 def toy_server_add():
     """Example toy server from the mcp docs."""
     return """

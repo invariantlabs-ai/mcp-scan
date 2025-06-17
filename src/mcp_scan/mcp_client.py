@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def streamablehttp_client_without_session(*args, **kwargs):
-    async with streamablehttp_client(*args, **kwargs) as (read, write, session_id):
+    async with streamablehttp_client(*args, **kwargs) as (read, write, _):
         yield read, write
 
 

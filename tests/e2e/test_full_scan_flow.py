@@ -13,7 +13,13 @@ class TestFullScanFlow:
     """Test cases for end-to-end scanning workflows."""
 
     @pytest.mark.parametrize(
-        "sample_config_file", [lf("claudestyle_config_file"), lf("vscode_mcp_config_file"), lf("vscode_config_file")]
+        "sample_config_file",
+        [
+            lf("claudestyle_config_file"),
+            lf("vscode_mcp_config_file"),
+            lf("vscode_config_file"),
+            lf("multiple_transport_config_file"),
+        ],
     )
     def test_basic(self, sample_config_file):
         """Test a basic complete scan workflow from CLI to results. This does not mean that the results are correct or the servers can be run."""
