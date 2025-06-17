@@ -133,10 +133,10 @@ class MCPScanner:
             if entity_result is None:
                 continue
             c, messages = self.storage_file.check_and_update(server.name or "", entity, entity_result.verified)
-            output_server.result[i].changed = c
+            output_server.result[i].changed = c  # type: ignore
             if c:
                 logger.info("Entity %s in server %s has changed", entity.name, server.name)
-                output_server.result[i].messages.extend(messages)
+                output_server.result[i].messages.extend(messages)  # type: ignore
         return output_server
 
     async def check_whitelist(self, server: ServerScanResult) -> ServerScanResult:
@@ -147,9 +147,9 @@ class MCPScanner:
                 continue
             if self.storage_file.is_whitelisted(entity):
                 logger.debug("Entity %s is whitelisted", entity.name)
-                output_server.result[i].whitelisted = True
+                output_server.result[i].whitelisted = True  # type: ignore
             else:
-                output_server.result[i].whitelisted = False
+                output_server.result[i].whitelisted = False  # type: ignore
         return output_server
 
     async def emit(self, signal: str, data: Any):
