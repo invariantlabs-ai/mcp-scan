@@ -274,6 +274,11 @@ def main():
         default=False,
         help="Upload the scan results to the provided control server URL (default: Do not upload)",
     )
+    scan_parser.add_argument(
+        "--push-key",
+        default=False,
+        help="When uploading the scan results to the provided control server URL, pass the push key (default: Do not upload)",
+    )
 
     # INSPECT command
     inspect_parser = subparsers.add_parser(
@@ -507,8 +512,8 @@ async def run_scan_inspect(mode="scan", args=None):
             result = await scanner.inspect()
 
     # upload scan result to control server if specified
-    if args.control_server:
-        await upload(result, args.control_server)
+    if args.control_server and args.push_key:
+        await upload(result, args.control_server, args.push_key)
 
     if args.json:
         result = {r.path: r.model_dump() for r in result}

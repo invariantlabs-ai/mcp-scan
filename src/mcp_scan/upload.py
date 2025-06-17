@@ -10,13 +10,14 @@ from mcp_scan.paths import get_client_from_path
 logger = logging.getLogger(__name__)
 
 
-async def upload(results: list[ScanPathResult], control_server: str) -> None:
+async def upload(results: list[ScanPathResult], control_server: str, push_key: str) -> None:
     """
     Upload the scan results to the control server.
 
     Args:
         results: List of scan path results to upload
         control_server: Base URL of the control server
+        push_key: Push key for authentication
     """
     if not results:
         logger.info("No scan results to upload")
@@ -46,9 +47,8 @@ async def upload(results: list[ScanPathResult], control_server: str) -> None:
                 **(result.model_dump()),
                 "username": username,
                 "client": get_client_from_path(result.path) or "result.path",
+                "push_key": push_key,
             }
-
-            # print(payload)
 
             async with aiohttp.ClientSession() as session:
                 headers = {"Content-Type": "application/json", "User-Agent": "mcp-scan/1.0"}
