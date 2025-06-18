@@ -1,6 +1,7 @@
 """Global pytest fixtures for mcp-scan tests."""
 
 import subprocess
+import time
 
 import pytest
 
@@ -121,6 +122,7 @@ def sse_transport_config_file(sse_transport_config):
                 "8123",
             ],
         )
+        time.sleep(1)  # Wait for the server to start
         temp_file.write(sse_transport_config)
         temp_file.flush()
         yield temp_file.name
@@ -160,6 +162,7 @@ def streamable_http_transport_config_file(streamable_http_transport_config):
                 "8124",
             ],
         )
+        time.sleep(1)  # Wait for the server to start
         temp_file.write(streamable_http_transport_config)
         temp_file.flush()
         yield temp_file.name
