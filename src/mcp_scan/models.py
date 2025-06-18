@@ -139,12 +139,6 @@ class EntityScanResult(BaseModel):
     messages: list[str] = []
 
 
-class CrossRefResult(BaseModel):
-    model_config = ConfigDict()
-    found: bool | None = None
-    sources: list[str] = []
-
-
 class ServerSignature(BaseModel):
     metadata: Metadata
     prompts: list[Prompt] = Field(default_factory=list)
@@ -196,7 +190,6 @@ class ScanPathResult(BaseModel):
     path: str
     servers: list[ServerScanResult] = []
     error: ScanError | None = None
-    cross_ref_result: CrossRefResult | None = None
 
     @property
     def entities(self) -> list[Entity]:

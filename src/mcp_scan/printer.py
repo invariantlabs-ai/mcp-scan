@@ -134,14 +134,7 @@ def print_scan_path_result(result: ScanPathResult, print_errors: bool = False) -
 
     if len(result.servers) > 0:
         rich.print(path_print_tree)
-    if result.cross_ref_result is not None and result.cross_ref_result.found:
-        rich.print(
-            rich.text.Text.from_markup(
-                f"\n[bold yellow]:construction: Cross-Origin Violation: "
-                f"Descriptions of server {result.cross_ref_result.sources} explicitly mention "
-                f"tools or resources of other servers, or other servers.[/bold yellow]"
-            ),
-        )
+
     if print_errors and len(server_tracebacks) > 0:
         console = rich.console.Console()
         for server, traceback in server_tracebacks:

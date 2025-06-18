@@ -5,11 +5,10 @@ from collections import defaultdict
 from collections.abc import Callable
 from typing import Any
 
-from mcp_scan.models import CrossRefResult, ScanError, ScanPathResult, ServerScanResult
+from mcp_scan.models import ScanError, ScanPathResult, ServerScanResult
 
 from .mcp_client import check_server_with_timeout, scan_mcp_config_file
 from .StorageFile import StorageFile
-from .utils import calculate_distance
 from .verify_api import verify_scan_path
 
 # Set up logger for this module
