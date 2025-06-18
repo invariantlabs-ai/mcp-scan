@@ -110,7 +110,16 @@ def sse_transport_config():
 def sse_transport_config_file(sse_transport_config):
     with TempFile(mode="w") as temp_file:
         process = subprocess.Popen(
-            ["python", "tests/mcp_servers/multiple_transport_server.py", "--transport", "sse", "--port", "8123"],
+            [
+                "uv",
+                "run",
+                "python",
+                "tests/mcp_servers/multiple_transport_server.py",
+                "--transport",
+                "sse",
+                "--port",
+                "8123",
+            ],
         )
         temp_file.write(sse_transport_config)
         temp_file.flush()
@@ -141,6 +150,8 @@ def streamable_http_transport_config_file(streamable_http_transport_config):
     with TempFile(mode="w") as temp_file:
         process = subprocess.Popen(
             [
+                "uv",
+                "run",
                 "python",
                 "tests/mcp_servers/multiple_transport_server.py",
                 "--transport",
