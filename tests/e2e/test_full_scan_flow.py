@@ -62,8 +62,9 @@ class TestFullScanFlow:
         output = json.loads(result.stdout)
         assert len(output) == 1, "Output should contain exactly one entry for the config file"
         assert {tool["name"] for tool in output[sample_config_file]["servers"][0]["signature"]["tools"]} == {
-            "get_forecast",
-            "get_alerts",
+            "is_prime",
+            "gcd",
+            "lcm",
         }, "Tools in signature do not match expected values"
         print(output)
 

@@ -1,101 +1,42 @@
-"""Weather tools for MCP Streamable HTTP server using NWS API."""
+"""MCP Server that can be used either as sse or streamable_http."""
 
 import argparse
-from typing import Any
 
-import httpx
 import uvicorn
 from mcp.server.fastmcp import FastMCP
 
 # Initialize FastMCP server for Weather tools.
 # If json_response is set to True, the server will use JSON responses instead of SSE streams
 # If stateless_http is set to True, the server uses true stateless mode (new transport per request)
-mcp = FastMCP(name="weather", json_response=False, stateless_http=False)
-
-# Constants
-NWS_API_BASE = "https://api.weather.gov"
-USER_AGENT = "weather-app/1.0"
-
-
-async def make_nws_request(url: str) -> dict[str, Any] | None:
-    """Make a request to the NWS API with proper error handling."""
-    headers = {"User-Agent": USER_AGENT, "Accept": "application/geo+json"}
-    async with httpx.AsyncClient() as client:
-        try:
-            response = await client.get(url, headers=headers, timeout=30.0)
-            response.raise_for_status()
-            return response.json()
-        except Exception:
-            return None
-
-
-def format_alert(feature: dict) -> str:
-    """Format an alert feature into a readable string."""
-    props = feature["properties"]
-    return f"""
-Event: {props.get("event", "Unknown")}
-Area: {props.get("areaDesc", "Unknown")}
-Severity: {props.get("severity", "Unknown")}
-Description: {props.get("description", "No description available")}
-Instructions: {props.get("instruction", "No specific instructions provided")}
-"""
+mcp = FastMCP(name="prime_numbers", json_response=False, stateless_http=False)
 
 
 @mcp.tool()
-async def get_alerts(state: str) -> str:
-    """Get weather alerts for a US state.
+def is_prime(n: int) -> bool:
+    """Return True if n is a prime number, False otherwise.
 
     Args:
-        state: Two-letter US state code (e.g. CA, NY)
+        n: integer to check for primality
     """
-    url = f"{NWS_API_BASE}/alerts/active/area/{state}"
-    data = await make_nws_request(url)
-
-    if not data or "features" not in data:
-        return "Unable to fetch alerts or no alerts found."
-
-    if not data["features"]:
-        return "No active alerts for this state."
-
-    alerts = [format_alert(feature) for feature in data["features"]]
-    return "\n---\n".join(alerts)
+    if n < 2:
+        return False
+    return all(n % i != 0 for i in range(2, int(n**0.5) + 1))
 
 
 @mcp.tool()
-async def get_forecast(latitude: float, longitude: float) -> str:
-    """Get weather forecast for a location.
+def gcd(val1: int, val2: int) -> int:
+    """Calculate the greatest common divisor (GCD) of two integers."""
+    while val2:
+        val1, val2 = val2, val1 % val2
+    return abs(val1)
 
-    Args:
-        latitude: Latitude of the location
-        longitude: Longitude of the location
-    """
-    # First get the forecast grid endpoint
-    points_url = f"{NWS_API_BASE}/points/{latitude},{longitude}"
-    points_data = await make_nws_request(points_url)
 
-    if not points_data:
-        return "Unable to fetch forecast data for this location."
-
-    # Get the forecast URL from the points response
-    forecast_url = points_data["properties"]["forecast"]
-    forecast_data = await make_nws_request(forecast_url)
-
-    if not forecast_data:
-        return "Unable to fetch detailed forecast."
-
-    # Format the periods into a readable forecast
-    periods = forecast_data["properties"]["periods"]
-    forecasts = []
-    for period in periods[:5]:  # Only show next 5 periods
-        forecast = f"""
-{period["name"]}:
-Temperature: {period["temperature"]}°{period["temperatureUnit"]}
-Wind: {period["windSpeed"]} {period["windDirection"]}
-Forecast: {period["detailedForecast"]}
-"""
-        forecasts.append(forecast)
-
-    return "\n---\n".join(forecasts)
+@mcp.tool()
+def lcm(val1: int, val2: int) -> int:
+    """Calculate the least common multiple (LCM) of two integers."""
+    if val1 == 0 or val2 == 0:
+        return 0
+    return abs(val1 * val2) // gcd(val1, val2)
 
 
 if __name__ == "__main__":
