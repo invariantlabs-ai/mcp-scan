@@ -3,7 +3,7 @@ from hashlib import md5
 from itertools import chain
 from typing import Any, Literal, TypeAlias
 
-from mcp.types import InitializeResult, Prompt, Resource, Tool
+from mcp.types import InitializeResult, Prompt, Resource, Tool, ToolAnnotations
 from pydantic import BaseModel, ConfigDict, Field, RootModel, field_serializer, field_validator
 
 Entity: TypeAlias = Prompt | Resource | Tool
@@ -272,3 +272,19 @@ def entity_to_tool(
         )
     else:
         raise ValueError(f"Unknown entity type: {type(entity)}")
+
+
+class ScalarToolLabels(BaseModel):
+    is_public_sink: int | float
+    destructive: int | float
+    untrusted_output: int | float
+    private_data: int | float
+    prompt_injection: int | float
+
+
+class ErrorLabels(BaseModel):
+    error: str
+
+
+class ToolAnnotationsWithLabels(ToolAnnotations):
+    labels: ScalarToolLabels | ErrorLabels

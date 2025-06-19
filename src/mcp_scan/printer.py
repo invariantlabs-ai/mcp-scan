@@ -2,11 +2,22 @@ import builtins
 import textwrap
 
 import rich
+from mcp.types import Tool
 from rich.text import Text
 from rich.traceback import Traceback as rTraceback
 from rich.tree import Tree
 
-from .models import Entity, EntityScanResult, ScanError, ScanPathResult, entity_type_to_str, hash_entity
+from .models import (
+    Entity,
+    EntityScanResult,
+    ErrorLabels,
+    ScalarToolLabels,
+    ScanError,
+    ScanPathResult,
+    ToolAnnotationsWithLabels,
+    entity_type_to_str,
+    hash_entity,
+)
 
 
 def format_exception(e: Exception | None) -> tuple[str, rTraceback | None]:
@@ -51,6 +62,23 @@ def append_status(status: str, new_status: str) -> str:
     return f"{new_status}, {status}"
 
 
+def format_scalar_labels(labels: ScalarToolLabels) -> str:
+    """
+    Format scalar labels into a string.
+    """
+    label_parts = []
+    if labels.is_public_sink > 0:
+        label_parts.append(f"[gold1]Public sink: {str(labels.is_public_sink).rstrip('.0')}[/gold1]")
+    if labels.destructive > 0:
+        label_parts.append(f"[gold1]Destructive: {str(labels.destructive).rstrip('.0')}[/gold1]")
+    if labels.untrusted_output > 0:
+        label_parts.append(f"[gold1]Untrusted output: {str(labels.untrusted_output).rstrip('.0')}[/gold1]")
+    if labels.private_data > 0:
+        label_parts.append(f"[gold1]Private data: {str(labels.private_data).rstrip('.0')}[/gold1]")
+
+    return " | ".join(label_parts)
+
+
 def format_entity_line(entity: Entity, result: EntityScanResult | None = None) -> Text:
     # is_verified = verified.value
     # if is_verified is not None and changed.value is not None:
@@ -60,7 +88,7 @@ def format_entity_line(entity: Entity, result: EntityScanResult | None = None) -
     include_description = True
     if result is not None:
         is_verified = result.verified
-        status = result.status or ""
+        status = "| " + result.status if result.status else ""
         if result.changed is not None and result.changed:
             is_verified = False
             status = append_status(status, "[bold]changed since previous scan[/bold]")
@@ -82,7 +110,19 @@ def format_entity_line(entity: Entity, result: EntityScanResult | None = None) -
     type = entity_type_to_str(entity)
     type = type + " " * (len("resource") - len(type))
 
-    text = f"{type} {color}[bold]{name}[/bold] {icon} {status}"
+    # labels
+    labels = ""
+    if (
+        isinstance(entity, Tool)
+        and entity.annotations is not None
+        and isinstance(entity.annotations, ToolAnnotationsWithLabels)
+    ):
+        if isinstance(entity.annotations.labels, ScalarToolLabels):
+            labels = format_scalar_labels(entity.annotations.labels)
+        elif isinstance(entity.annotations.labels, ErrorLabels):
+            labels = f"[gray62]Error in labels computation: {entity.annotations.labels.error}[/gray62]"
+
+    text = f"{type} {color}[bold]{name}[/bold] {icon} {labels} {status}"
 
     if include_description:
         if hasattr(entity, "description") and entity.description is not None:
