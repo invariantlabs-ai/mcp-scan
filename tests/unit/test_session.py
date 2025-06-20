@@ -1,4 +1,5 @@
 import datetime
+import json
 
 import pytest
 
@@ -425,3 +426,62 @@ def test_session_merge_last_analysis_index_is_reset_when_other_has_nodes_before_
     session2 = Session(nodes=nodes2)
     session1.merge(session2)
     assert session1.last_analysis_index == -1
+
+
+def test_json_serialization():
+    """Test that the JSON serialization works correctly for all classes."""
+    timestamp = datetime.datetime(2024, 1, 1, 12, 0, 0)
+    message = {"role": "user", "content": "Hello, world!"}
+
+    # Create a session node
+    node = SessionNode(
+        timestamp=timestamp,
+        message=message,
+        session_id="test_session",
+        server_name="test_server",
+        original_session_index=0,
+    )
+
+    # Test SessionNode JSON serialization
+    node_dict = node.to_json()
+    assert node_dict == message
+
+    # Create a session with the node
+    session = Session(nodes=[node])
+
+    # Test Session JSON serialization
+    session_dict = session.to_json()
+    assert session_dict == [message]
+
+    # Create a session store with the session
+    store = SessionStore()
+    store["test_client"] = session
+
+    # Test SessionStore JSON serialization
+    store_json = store.to_json()
+    assert store_json == {"sessions": {"test_client": [message]}}
+
+    # Finally test that we can dump and load
+    store_json_str = json.dumps(store_json)
+    assert store_json_str is not None
+
+    store_dict = json.loads(store_json_str)
+    assert store_dict == {"sessions": {"test_client": [message]}}
+
+
+def test_session_node_to_json():
+    session_node = SessionNode(
+        timestamp=datetime.datetime.now(),
+        message={"role": "user", "content": "Hello, world!"},
+        session_id="session_id",
+        server_name="server_name",
+        original_session_index=0,
+    )
+
+    session = Session(nodes=[session_node])
+
+    session_store = SessionStore()
+    session_store["client_name"] = session
+
+    session_store_json = session_store.to_json()
+    assert session_store_json is not None
