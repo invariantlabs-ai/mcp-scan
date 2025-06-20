@@ -517,8 +517,8 @@ async def run_scan_inspect(mode="scan", args=None):
             result = await scanner.inspect()
 
     # upload scan result to control server if specified
-    if args.control_server and args.org_name and args.push_key:
-        await upload(result, args.control_server, args.org_name, args.push_key)
+    if args.control_server and args.push_key:
+        await upload(result, args.control_server, args.push_key)
 
     if args.json:
         result = {r.path: r.model_dump() for r in result}
