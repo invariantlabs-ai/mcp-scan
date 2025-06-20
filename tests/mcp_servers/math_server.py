@@ -34,5 +34,32 @@ def divide(a: int, b: int) -> int:
     return a // b
 
 
+@mcp.resource(uri="prime_numbers://{n}")
+def prime_numbers(n: int) -> str:
+    """Lists prime numbers smaller than or equal to n."""
+    if n < 2:
+        return "No prime numbers less than 2"
+
+    primes = []
+    for num in range(2, n + 1):
+        if all(num % i != 0 for i in range(2, int(num**0.5) + 1)):
+            primes.append(num)
+
+    return f"[{', '.join(map(str, primes))}]"
+
+
+@mcp.prompt()
+def math_prompt() -> str:
+    """Prompt for math operations."""
+    return """
+You can perform the following operations:
+1. Add two numbers: `add(3, 5)`
+2. Subtract two numbers: `subtract(10, 4)`
+3. Multiply two numbers: `multiply(2, 6)`
+4. Divide two numbers: `divide(8, 2)`
+You can also use the resource endpoint `prime_numbers://{n}` to get prime numbers up to n.
+"""
+
+
 if __name__ == "__main__":
     mcp.run()

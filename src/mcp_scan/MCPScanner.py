@@ -9,7 +9,7 @@ from mcp_scan.models import ScanError, ScanPathResult, ServerScanResult
 
 from .mcp_client import check_server_with_timeout, scan_mcp_config_file
 from .StorageFile import StorageFile
-from .verify_api import verify_scan_path
+from .verify_api import verify_scan_path_and_labels
 
 # Set up logger for this module
 logger = logging.getLogger(__name__)
@@ -190,7 +190,9 @@ class MCPScanner:
             logger.debug("Scanning server %d/%d: %s", i + 1, len(path_result.servers), server.name)
             path_result.servers[i] = await self.scan_server(server, inspect_only)
         logger.debug("Verifying server path: %s", path)
-        path_result = await verify_scan_path(path_result, base_url=self.base_url, run_locally=self.local_only)
+        path_result = await verify_scan_path_and_labels(
+            path_result, base_url=self.base_url, run_locally=self.local_only
+        )
         await self.emit("path_scanned", path_result)
         return path_result
 
