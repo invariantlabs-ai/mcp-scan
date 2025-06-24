@@ -12,6 +12,7 @@ from mcp.client.stdio import stdio_client
 from mcp.client.streamable_http import streamablehttp_client
 
 from mcp_scan.models import (
+    AmazonQDeveloperMCPConfigFile,
     ClaudeConfigFile,
     MCPConfig,
     ServerSignature,
@@ -142,6 +143,7 @@ async def scan_mcp_config_file(path: str) -> MCPConfig:
             ClaudeConfigFile,  # used by most clients
             VSCodeConfigFile,  # used by vscode settings.json
             VSCodeMCPConfig,  # used by vscode mcp.json
+            AmazonQDeveloperMCPConfigFile,  # used by amazon q developer
         ]
         for model in models:
             try:
