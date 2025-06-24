@@ -123,6 +123,17 @@ class VSCodeConfigFile(MCPConfig):
         self.mcp.servers = servers
 
 
+class AmazonQDeveloperMCPConfigFile(MCPConfig):
+    model_config = ConfigDict()
+    mcpServers: dict[str, SSEServer | StdioServer | StreamableHTTPServer]
+
+    def get_servers(self) -> dict[str, SSEServer | StdioServer | StreamableHTTPServer]:
+        return self.mcpServers
+
+    def set_servers(self, servers: dict[str, SSEServer | StdioServer | StreamableHTTPServer]) -> None:
+        self.mcpServers = servers
+
+
 class ScanError(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
     message: str | None = None
