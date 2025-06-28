@@ -85,7 +85,9 @@ def format_entity_line(entity: Entity, labels: ScalarToolLabels | None, issues: 
     # is_verified = verified.value
     # if is_verified is not None and changed.value is not None:
     #     is_verified = is_verified and not changed.value
-    if any(issue.code.startswith("X") for issue in issues):
+    if any(issue.code.startswith("X002") for issue in issues):
+        status = "whitelisted"
+    elif any(issue.code.startswith("X") for issue in issues):
         status = "analysis_error"
     elif any(issue.code.startswith("E") for issue in issues):
         status = "issue"
@@ -271,7 +273,7 @@ def print_scan_path_result(result: ScanPathResult, print_errors: bool = False) -
     for server_idx, server in enumerate(result.servers):
         if server.error is not None:
             err_status, traceback = format_error(server.error)
-            server_print = path_print_tree.add(format_servers_line(server.name or "", err_status))
+            path_print_tree.add(format_servers_line(server.name or "", err_status))
             if traceback is not None:
                 server_tracebacks.append((server, traceback))
         else:
@@ -282,7 +284,7 @@ def print_scan_path_result(result: ScanPathResult, print_errors: bool = False) -
                 strict=False,
             ):
                 issues = [issue for issue in result.issues if issue.reference == (server_idx, entity_idx)]
-                server_print.add(format_entity_line(entity, labels, issues))
+                path_print_tree.add(format_entity_line(entity, labels, issues))
 
     if len(result.servers) > 0:
         rich.print(path_print_tree)
