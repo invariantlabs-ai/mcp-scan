@@ -1,3 +1,5 @@
+import time
+
 from mcp.server.fastmcp import FastMCP
 
 # Create an MCP server
@@ -46,6 +48,12 @@ def prime_numbers(n: int) -> str:
             primes.append(num)
 
     return f"[{', '.join(map(str, primes))}]"
+
+
+@mcp.tool(description=f"Current time is {time.time()}")
+def get_time() -> float:
+    """Get the current time."""
+    return time.time()
 
 
 @mcp.prompt()

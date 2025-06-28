@@ -499,6 +499,8 @@ async def run_scan_inspect(mode="scan", args=None):
             result = await scanner.scan()
         elif mode == "inspect":
             result = await scanner.inspect()
+        else:
+            raise ValueError(f"Unknown mode: {mode}, expected 'scan' or 'inspect'")
     if args.json:
         result = {r.path: r.model_dump() for r in result}
         print(json.dumps(result, indent=2))

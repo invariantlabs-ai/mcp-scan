@@ -2,15 +2,13 @@ import builtins
 import textwrap
 
 import rich
-from mcp.types import Tool
 from rich.text import Text
 from rich.traceback import Traceback as rTraceback
 from rich.tree import Tree
 
 from .models import (
     Entity,
-    EntityScanResult,
-    ErrorLabels,
+    Issue,
     ScalarToolLabels,
     ScanError,
     ScanPathResult,
@@ -83,26 +81,36 @@ def format_scalar_labels(labels: ScalarToolLabels) -> str:
     return "[gray62]" + " | ".join(label_parts) + "[/gray62]"
 
 
-def format_entity_line(entity: Entity, result: EntityScanResult | None = None) -> Text:
+def format_entity_line(entity: Entity, labels: ScalarToolLabels | None, issues: list[Issue]) -> Text:
     # is_verified = verified.value
     # if is_verified is not None and changed.value is not None:
     #     is_verified = is_verified and not changed.value
-    is_verified = None
-    status = ""
-    include_description = True
-    if result is not None:
-        is_verified = result.verified
-        status = "| " + result.status if result.status else ""
-        if result.changed is not None and result.changed:
-            is_verified = False
-            status = append_status(status, "[bold]changed since previous scan[/bold]")
-        if not is_verified and result.whitelisted is not None and result.whitelisted:
-            status = append_status(status, "[bold]whitelisted[/bold]")
-            is_verified = True
-        include_description = not is_verified
+    if any(issue.code.startswith("X") for issue in issues):
+        status = "analysis_error"
+    elif any(issue.code.startswith("E") for issue in issues):
+        status = "issue"
+    elif any(issue.code.startswith("W") for issue in issues):
+        status = "warning"
+    else:
+        status = "successful"
 
-    color = {True: "[green]", False: "[red]", None: "[gray62]"}[is_verified]
-    icon = {True: ":white_heavy_check_mark:", False: ":cross_mark:", None: ""}[is_verified]
+    color_map = {
+        "successful": "[green]",
+        "issue": "[red]",
+        "analysis_error": "[gray62]",
+        "warning": "[yellow]",
+        "whitelisted": "[blue]",
+    }
+    color = color_map[status]
+    icon = {
+        "successful": ":white_heavy_check_mark:",
+        "issue": ":cross_mark:",
+        "analysis_error": "",
+        "warning": "⚠️ ",
+        "whitelisted": ":white_heavy_check_mark:",
+    }[status]
+
+    include_description = status not in ["whitelisted", "analysis_error", "successful"]
 
     # right-pad & truncate name
     name = entity.name
@@ -115,19 +123,33 @@ def format_entity_line(entity: Entity, result: EntityScanResult | None = None) -
     type = type + " " * (len("resource") - len(type))
 
     # labels
-    labels = ""
-    if (
-        isinstance(entity, Tool)
-        and entity.annotations is not None
-        and isinstance(entity.annotations, ToolAnnotationsWithLabels)
-        and is_verified is not False
-    ):
-        if isinstance(entity.annotations.labels, ScalarToolLabels):
-            labels = format_scalar_labels(entity.annotations.labels)
-        elif isinstance(entity.annotations.labels, ErrorLabels):
-            labels = f"[gray62]Error in labels computation: {entity.annotations.labels.error}[/gray62]"
+    labels_str = ""
+    if status not in ["issue", "analysis_error"]:
+        if labels is not None:
+            labels_str = format_scalar_labels(labels)
+        else:
+            labels_str = "[gray62]Error in labels computation[/gray62]"
 
-    text = f"{type} {color}[bold]{name}[/bold] {icon} {status} {labels}"
+    status_text = " ".join(
+        [
+            color_map["analysis_error"]
+            + rf"\[{issue.code}]: {issue.message}"
+            + color_map["analysis_error"].replace("[", "[/")
+            for issue in issues
+            if issue.code.startswith("X")
+        ]
+        + [
+            color_map["issue"] + rf"\[{issue.code}]: {issue.message}" + color_map["issue"].replace("[", "[/")
+            for issue in issues
+            if issue.code.startswith("E")
+        ]
+        + [
+            color_map["warning"] + rf"\[{issue.code}]: {issue.message}" + color_map["warning"].replace("[", "[/")
+            for issue in issues
+            if issue.code.startswith("W")
+        ]
+    )
+    text = f"{type} {color}[bold]{name}[/bold] {icon} {status_text} {labels_str}"
 
     if include_description:
         if hasattr(entity, "description") and entity.description is not None:
@@ -136,8 +158,8 @@ def format_entity_line(entity: Entity, result: EntityScanResult | None = None) -
             description = "<no description available>"
         text += f"\n[gray62][bold]Current description:[/bold]\n{description}[/gray62]"
 
-    messages = result.messages if result is not None else []
-    if not is_verified:
+    messages = []
+    if status not in ["successful", "analysis_error", "whitelisted"]:
         hash = hash_entity(entity)
         messages.append(
             f"[bold]You can whitelist this {entity_type_to_str(entity)} "
@@ -246,16 +268,21 @@ def print_scan_path_result(result: ScanPathResult, print_errors: bool = False) -
     rich.print(format_path_line(result.path, message))
     path_print_tree = Tree("│")
     server_tracebacks = []
-    for server in result.servers:
+    for server_idx, server in enumerate(result.servers):
         if server.error is not None:
             err_status, traceback = format_error(server.error)
             server_print = path_print_tree.add(format_servers_line(server.name or "", err_status))
             if traceback is not None:
                 server_tracebacks.append((server, traceback))
         else:
-            server_print = path_print_tree.add(format_servers_line(server.name or ""))
-            for entity, entity_result in server.entities_with_result:
-                server_print.add(format_entity_line(entity, entity_result))
+            server_labels = [None] * len(server.entities) if server.labels is None else server.labels
+            for (entity_idx, entity), labels in zip(
+                enumerate(server.entities),
+                server_labels,
+                strict=False,
+            ):
+                issues = [issue for issue in result.issues if issue.reference == (server_idx, entity_idx)]
+                server_print.add(format_entity_line(entity, labels, issues))
 
     if len(result.servers) > 0:
         rich.print(path_print_tree)
@@ -265,8 +292,8 @@ def print_scan_path_result(result: ScanPathResult, print_errors: bool = False) -
         toxic_flows_tree = Tree("● [bold][gold1]Toxic flows found:[/bold][/gold1]")
         for flow in toxic_flows:
             toxic_flows_tree.add(flow)
-        rich.print()
-        rich.print(toxic_flows_tree)
+        rich.print(flush=True)
+        rich.print(toxic_flows_tree, flush=True)
 
     if print_errors and len(server_tracebacks) > 0:
         console = rich.console.Console()

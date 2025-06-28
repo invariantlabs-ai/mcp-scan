@@ -5,7 +5,7 @@ from collections import defaultdict
 from collections.abc import Callable
 from typing import Any
 
-from mcp_scan.models import ScanError, ScanPathResult, ServerScanResult
+from mcp_scan.models import Issue, ScanError, ScanPathResult, ServerScanResult
 
 from .mcp_client import check_server_with_timeout, scan_mcp_config_file
 from .StorageFile import StorageFile
@@ -125,31 +125,38 @@ class MCPScanner:
             result.error = ScanError(message=error_msg, exception=e)
         return result
 
-    async def check_server_changed(self, server: ServerScanResult) -> ServerScanResult:
-        logger.debug("Checking for changes in server: %s %s", server.name, server.result)
-        output_server = server.clone()
-        for i, (entity, entity_result) in enumerate(server.entities_with_result):
-            if entity_result is None:
-                continue
-            c, messages = self.storage_file.check_and_update(server.name or "", entity, entity_result.verified)
-            output_server.result[i].changed = c  # type: ignore
-            if c:
-                logger.info("Entity %s in server %s has changed", entity.name, server.name)
-                output_server.result[i].messages.extend(messages)  # type: ignore
-        return output_server
+    def check_server_changed(self, path_result: ScanPathResult) -> list[Issue]:
+        logger.debug("Checking server changed: %s", path_result.path)
+        issues: list[Issue] = []
+        for server_idx, server in enumerate(path_result.servers):
+            logger.debug(
+                "Checking for changes in server %d/%d: %s", server_idx + 1, len(path_result.servers), server.name
+            )
+            for entity_idx, entity in enumerate(server.entities):
+                c, messages = self.storage_file.check_and_update(server.name or "", entity)
+                if c:
+                    logger.info("Entity %s in server %s has changed", entity.name, server.name)
+                    issues.append(
+                        Issue(
+                            code="W003",
+                            message="Entity has changed. " + ", ".join(messages),
+                            reference=(server_idx, entity_idx),
+                        )
+                    )
+        return issues
 
-    async def check_whitelist(self, server: ServerScanResult) -> ServerScanResult:
-        logger.debug("Checking whitelist for server: %s", server.name)
-        output_server = server.clone()
-        for i, (entity, entity_result) in enumerate(server.entities_with_result):
-            if entity_result is None:
-                continue
-            if self.storage_file.is_whitelisted(entity):
-                logger.debug("Entity %s is whitelisted", entity.name)
-                output_server.result[i].whitelisted = True  # type: ignore
-            else:
-                output_server.result[i].whitelisted = False  # type: ignore
-        return output_server
+    def check_whitelist(self, path_result: ScanPathResult) -> list[Issue]:
+        logger.debug("Checking whitelist for path: %s", path_result.path)
+        issues: list[Issue] = []
+        for server_idx, server in enumerate(path_result.servers):
+            for entity_idx, entity in enumerate(server.entities):
+                if self.storage_file.is_whitelisted(entity):
+                    issues.append(
+                        Issue(
+                            code="X002", message="This entity has been whitelisted", reference=(server_idx, entity_idx)
+                        )
+                    )
+        return issues
 
     async def emit(self, signal: str, data: Any):
         logger.debug("Emitting signal: %s", signal)
@@ -170,12 +177,6 @@ class MCPScanner:
                 len(result.signature.resources),
                 len(result.signature.tools),
             )
-
-            if not inspect_only:
-                logger.debug("Checking if server has changed: %s", server.name)
-                result = await self.check_server_changed(result)
-                logger.debug("Checking whitelist for server: %s", server.name)
-                result = await self.check_whitelist(result)
         except Exception as e:
             error_msg = "could not start server"
             logger.exception("%s: %s", error_msg, server.name)
@@ -189,7 +190,11 @@ class MCPScanner:
         for i, server in enumerate(path_result.servers):
             logger.debug("Scanning server %d/%d: %s", i + 1, len(path_result.servers), server.name)
             path_result.servers[i] = await self.scan_server(server, inspect_only)
-        logger.debug("Verifying server path: %s", path)
+        logger.debug(f"Check whitelisted {path}, {path is None}")
+        path_result.issues += self.check_whitelist(path_result)
+        logger.debug(f"Check changed: {path}, {path is None}")
+        path_result.issues += self.check_server_changed(path_result)
+        logger.debug(f"Verifying server path: {path}, {path is None}")
         path_result = await verify_scan_path_and_labels(
             path_result, base_url=self.base_url, run_locally=self.local_only
         )
