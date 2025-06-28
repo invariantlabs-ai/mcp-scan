@@ -6,7 +6,20 @@ from rich.text import Text
 from rich.traceback import Traceback as rTraceback
 from rich.tree import Tree
 
-from .models import Entity, EntityScanResult, ScanError, ScanPathResult, entity_type_to_str, hash_entity
+from .models import (
+    Entity,
+    Issue,
+    ScalarToolLabels,
+    ScanError,
+    ScanPathResult,
+    ServerScanResult,
+    ToolAnnotationsWithLabels,
+    entity_type_to_str,
+    hash_entity,
+)
+
+MAX_ENTITY_NAME_LENGTH = 25
+MAX_ENTITY_NAME_TOXIC_FLOW_LENGTH = 30
 
 
 def format_exception(e: Exception | None) -> tuple[str, rTraceback | None]:
@@ -51,38 +64,94 @@ def append_status(status: str, new_status: str) -> str:
     return f"{new_status}, {status}"
 
 
-def format_entity_line(entity: Entity, result: EntityScanResult | None = None) -> Text:
+def format_scalar_labels(labels: ScalarToolLabels) -> str:
+    """
+    Format scalar labels into a string.
+    """
+    label_parts = []
+    if labels.is_public_sink > 0:
+        label_parts.append("Public sink")
+    if labels.destructive > 0:
+        label_parts.append("Destructive")
+    if labels.untrusted_output > 0:
+        label_parts.append("Untrusted output")
+    if labels.private_data > 0:
+        label_parts.append("Private data")
+
+    return "[gray62]" + " | ".join(label_parts) + "[/gray62]"
+
+
+def format_entity_line(entity: Entity, labels: ScalarToolLabels | None, issues: list[Issue]) -> Text:
     # is_verified = verified.value
     # if is_verified is not None and changed.value is not None:
     #     is_verified = is_verified and not changed.value
-    is_verified = None
-    status = ""
-    include_description = True
-    if result is not None:
-        is_verified = result.verified
-        status = result.status or ""
-        if result.changed is not None and result.changed:
-            is_verified = False
-            status = append_status(status, "[bold]changed since previous scan[/bold]")
-        if not is_verified and result.whitelisted is not None and result.whitelisted:
-            status = append_status(status, "[bold]whitelisted[/bold]")
-            is_verified = True
-        include_description = not is_verified
+    if any(issue.code.startswith("X002") for issue in issues):
+        status = "whitelisted"
+    elif any(issue.code.startswith("X") for issue in issues):
+        status = "analysis_error"
+    elif any(issue.code.startswith("E") for issue in issues):
+        status = "issue"
+    elif any(issue.code.startswith("W") for issue in issues):
+        status = "warning"
+    else:
+        status = "successful"
 
-    color = {True: "[green]", False: "[red]", None: "[gray62]"}[is_verified]
-    icon = {True: ":white_heavy_check_mark:", False: ":cross_mark:", None: ""}[is_verified]
+    color_map = {
+        "successful": "[green]",
+        "issue": "[red]",
+        "analysis_error": "[gray62]",
+        "warning": "[yellow]",
+        "whitelisted": "[blue]",
+    }
+    color = color_map[status]
+    icon = {
+        "successful": ":white_heavy_check_mark:",
+        "issue": ":cross_mark:",
+        "analysis_error": "",
+        "warning": "⚠️ ",
+        "whitelisted": ":white_heavy_check_mark:",
+    }[status]
+
+    include_description = status not in ["whitelisted", "analysis_error", "successful"]
 
     # right-pad & truncate name
     name = entity.name
-    if len(name) > 25:
-        name = name[:22] + "..."
-    name = name + " " * (25 - len(name))
+    if len(name) > MAX_ENTITY_NAME_LENGTH:
+        name = name[: (MAX_ENTITY_NAME_LENGTH - 3)] + "..."
+    name = name + " " * (MAX_ENTITY_NAME_LENGTH - len(name))
 
     # right-pad type
     type = entity_type_to_str(entity)
     type = type + " " * (len("resource") - len(type))
 
-    text = f"{type} {color}[bold]{name}[/bold] {icon} {status}"
+    # labels
+    labels_str = ""
+    if status not in ["issue", "analysis_error"]:
+        if labels is not None:
+            labels_str = format_scalar_labels(labels)
+        else:
+            labels_str = "[gray62]Error in labels computation[/gray62]"
+
+    status_text = " ".join(
+        [
+            color_map["analysis_error"]
+            + rf"\[{issue.code}]: {issue.message}"
+            + color_map["analysis_error"].replace("[", "[/")
+            for issue in issues
+            if issue.code.startswith("X")
+        ]
+        + [
+            color_map["issue"] + rf"\[{issue.code}]: {issue.message}" + color_map["issue"].replace("[", "[/")
+            for issue in issues
+            if issue.code.startswith("E")
+        ]
+        + [
+            color_map["warning"] + rf"\[{issue.code}]: {issue.message}" + color_map["warning"].replace("[", "[/")
+            for issue in issues
+            if issue.code.startswith("W")
+        ]
+    )
+    text = f"{type} {color}[bold]{name}[/bold] {icon} {status_text} {labels_str}"
 
     if include_description:
         if hasattr(entity, "description") and entity.description is not None:
@@ -91,8 +160,8 @@ def format_entity_line(entity: Entity, result: EntityScanResult | None = None) -
             description = "<no description available>"
         text += f"\n[gray62][bold]Current description:[/bold]\n{description}[/gray62]"
 
-    messages = result.messages if result is not None else []
-    if not is_verified:
+    messages = []
+    if status not in ["successful", "analysis_error", "whitelisted"]:
         hash = hash_entity(entity)
         messages.append(
             f"[bold]You can whitelist this {entity_type_to_str(entity)} "
@@ -108,6 +177,86 @@ def format_entity_line(entity: Entity, result: EntityScanResult | None = None) -
     return formatted_text
 
 
+def format_tool_flow(tool_name: str, server_name: str, value: float) -> Text:
+    text = "{tool_name} {risk}"
+    tool_name = f"{server_name}/{tool_name}"
+    if len(tool_name) > MAX_ENTITY_NAME_TOXIC_FLOW_LENGTH:
+        tool_name = tool_name[: (MAX_ENTITY_NAME_TOXIC_FLOW_LENGTH - 3)] + "..."
+    tool_name = tool_name + " " * (MAX_ENTITY_NAME_TOXIC_FLOW_LENGTH - len(tool_name))
+
+    risk = "[gold1]Mild[/gold1]" if value <= 1.5 else "[red]High[/red]"
+    return Text.from_markup(text.format(tool_name=tool_name, risk=risk))
+
+
+def format_toxic_flows(servers: list[ServerScanResult]) -> list[Tree]:
+    """
+    Format toxic flows from the scan results into a tree structure.
+    """
+    untrusted_output_tools: list[tuple[str, str, float]] = []
+    destructive_tools: list[tuple[str, str, float]] = []
+    private_data_tools: list[tuple[str, str, float]] = []
+    is_public_sink_tools: list[tuple[str, str, float]] = []
+
+    for server in servers:
+        if server.signature is None:
+            continue
+        for tool in server.signature.tools:
+            if (
+                tool.annotations is not None
+                and isinstance(tool.annotations, ToolAnnotationsWithLabels)
+                and isinstance(tool.annotations.labels, ScalarToolLabels)
+            ):
+                if tool.annotations.labels.untrusted_output > 0:
+                    untrusted_output_tools.append(
+                        (tool.name, server.name or "", tool.annotations.labels.untrusted_output)
+                    )
+                if tool.annotations.labels.destructive > 0:
+                    destructive_tools.append((tool.name, server.name or "", tool.annotations.labels.destructive))
+                if tool.annotations.labels.private_data > 0:
+                    private_data_tools.append((tool.name, server.name or "", tool.annotations.labels.private_data))
+                if tool.annotations.labels.is_public_sink > 0:
+                    is_public_sink_tools.append((tool.name, server.name or "", tool.annotations.labels.is_public_sink))
+
+    untrusted_output_tools.sort(key=lambda x: x[2], reverse=True)
+    destructive_tools.sort(key=lambda x: x[2], reverse=True)
+    private_data_tools.sort(key=lambda x: x[2], reverse=True)
+    is_public_sink_tools.sort(key=lambda x: x[2], reverse=True)
+
+    toxic_flows: list[Tree] = []
+
+    # Flow 1: Untrusted output -> Private data -> Public sink
+    leak_data_flow = Tree("[bold]Leak data flow[/bold]")
+    untrusted_output_tree = Tree("[bold]Untrusted output[/bold]")
+    private_data_tree = Tree("[bold]Private data[/bold]")
+    public_sink_tree = Tree("[bold]Public sink[/bold]")
+    for tool_name, server_name, value in untrusted_output_tools:
+        untrusted_output_tree.add(format_tool_flow(tool_name, server_name, value))
+    for tool_name, server_name, value in private_data_tools:
+        private_data_tree.add(format_tool_flow(tool_name, server_name, value))
+    for tool_name, server_name, value in is_public_sink_tools:
+        public_sink_tree.add(format_tool_flow(tool_name, server_name, value))
+    if len(untrusted_output_tools) > 0 and len(private_data_tools) > 0 and len(is_public_sink_tools) > 0:
+        leak_data_flow.add(untrusted_output_tree)
+        leak_data_flow.add(private_data_tree)
+        leak_data_flow.add(public_sink_tree)
+        toxic_flows.append(leak_data_flow)
+
+    # Flow 2: Untrusted output -> Destructive
+    destructive_flow = Tree("[bold]Harm flow[/bold]")
+    untrusted_output_tree = Tree("[bold]Untrusted output[/bold]")
+    destructive_tree = Tree("[bold]Destructive[/bold]")
+    for tool_name, server_name, value in untrusted_output_tools:
+        untrusted_output_tree.add(format_tool_flow(tool_name, server_name, value))
+    for tool_name, server_name, value in destructive_tools:
+        destructive_tree.add(format_tool_flow(tool_name, server_name, value))
+    if len(untrusted_output_tools) > 0 and len(destructive_tools) > 0:
+        destructive_flow.add(untrusted_output_tree)
+        destructive_flow.add(destructive_tree)
+        toxic_flows.append(destructive_flow)
+
+    return toxic_flows
+
+
 def print_scan_path_result(result: ScanPathResult, print_errors: bool = False) -> None:
     if result.error is not None:
         err_status, traceback = format_error(result.error)
@@ -121,19 +270,32 @@ def print_scan_path_result(result: ScanPathResult, print_errors: bool = False) -
     rich.print(format_path_line(result.path, message))
     path_print_tree = Tree("│")
     server_tracebacks = []
-    for server in result.servers:
+    for server_idx, server in enumerate(result.servers):
         if server.error is not None:
             err_status, traceback = format_error(server.error)
-            server_print = path_print_tree.add(format_servers_line(server.name or "", err_status))
+            path_print_tree.add(format_servers_line(server.name or "", err_status))
             if traceback is not None:
                 server_tracebacks.append((server, traceback))
         else:
-            server_print = path_print_tree.add(format_servers_line(server.name or ""))
-            for entity, entity_result in server.entities_with_result:
-                server_print.add(format_entity_line(entity, entity_result))
+            server_labels = [None] * len(server.entities) if server.labels is None else server.labels
+            for (entity_idx, entity), labels in zip(
+                enumerate(server.entities),
+                server_labels,
+                strict=False,
+            ):
+                issues = [issue for issue in result.issues if issue.reference == (server_idx, entity_idx)]
+                path_print_tree.add(format_entity_line(entity, labels, issues))
 
     if len(result.servers) > 0:
         rich.print(path_print_tree)
+
+    toxic_flows = format_toxic_flows(result.servers)
+    if toxic_flows:
+        toxic_flows_tree = Tree("● [bold][gold1]Toxic flows found:[/bold][/gold1]")
+        for flow in toxic_flows:
+            toxic_flows_tree.add(flow)
+        rich.print(flush=True)
+        rich.print(toxic_flows_tree, flush=True)
 
     if print_errors and len(server_tracebacks) > 0:
         console = rich.console.Console()
