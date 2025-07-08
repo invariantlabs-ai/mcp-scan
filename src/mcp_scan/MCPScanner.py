@@ -5,7 +5,7 @@ from collections import defaultdict
 from collections.abc import Callable
 from typing import Any
 
-from mcp_scan.models import ScanError, ScanPathResult, ServerScanResult
+from mcp_scan.models import ScanError, ScanPathResult, ServerScanResult, StdioServer
 
 from .mcp_client import check_server_with_timeout, scan_mcp_config_file
 from .StorageFile import StorageFile
@@ -160,9 +160,22 @@ class MCPScanner:
         logger.info("Scanning server: %s, inspect_only: %s", server.name, inspect_only)
         result = server.clone()
         try:
-            result.signature = await check_server_with_timeout(
-                server.server, self.server_timeout, self.suppress_mcpserver_io
-            )
+            if isinstance(server.server, StdioServer) and server.server.command == 'docker':
+                logger.info("Docker command detected, applying special timeout handling")
+                timeout_task = asyncio.create_task(
+                    check_server_with_timeout(server.server, self.server_timeout, self.suppress_mcpserver_io)
+                )
+                try:
+                    result.signature = await asyncio.wait_for(timeout_task, self.server_timeout + 2)
+                except asyncio.TimeoutError:
+                    timeout_task.cancel()
+                    logger.error("Docker command timed out for server: %s", server.name)
+                    raise asyncio.TimeoutError(f"Docker command timed out after {self.server_timeout + 2} seconds")
+            else:
+                result.signature = await check_server_with_timeout(
+                    server.server, self.server_timeout, self.suppress_mcpserver_io
+                )
+                
             logger.debug(
                 "Server %s has %d prompts, %d resources, %d tools",
                 server.name,
