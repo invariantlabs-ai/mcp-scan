@@ -30,6 +30,17 @@ async def verify_scan_path_public_api(scan_path: ScanPathResult, base_url: str) 
             payload.root.append(server.signature)
     # Server signatures do not contain any information about the user setup. Only about the server itself.
     try:
+        # Check if there's data to send
+        if not payload.root:
+            # If no data, skip API call and return appropriate result
+            for server in output_path.servers:
+                if server.signature is None:
+                    continue
+                server.result = [
+                    EntityScanResult(status="no server signature data available") for _ in server.entities
+                ] if server.entities else []
+            return output_path
+            
         async with aiohttp.ClientSession() as session:
             async with session.post(url, headers=headers, data=payload.model_dump_json()) as response:
                 if response.status == 200:
@@ -52,7 +63,7 @@ async def verify_scan_path_public_api(scan_path: ScanPathResult, base_url: str) 
             if server.signature is not None:
                 server.result = [
                     EntityScanResult(status="could not reach verification server " + errstr) for _ in server.entities
-                ]
+                ] if server.entities else []
 
         return output_path
 
@@ -71,6 +82,17 @@ async def verify_scan_path_locally(scan_path: ScanPathResult) -> ScanPathResult:
         if server.signature is not None:
             for entity in server.entities:
                 tools_to_scan.append(entity_to_tool(entity))
+    
+    # If no tools to scan, return early with appropriate message
+    if not tools_to_scan:
+        for server in output_path.servers:
+            if server.signature is None:
+                continue
+            server.result = [
+                EntityScanResult(status="no tools available for scanning") for _ in server.entities
+            ] if server.entities else []
+        return output_path
+    
     messages = [{"tools": [tool.model_dump() for tool in tools_to_scan]}]
 
     policy = LocalPolicy.from_string(get_policy())
@@ -86,6 +108,9 @@ async def verify_scan_path_locally(scan_path: ScanPathResult) -> ScanPathResult:
 
     for server in output_path.servers:
         if server.signature is None:
+            continue
+        if not server.entities:
+            server.result = []
             continue
         server.result = results[: len(server.entities)]
         results = results[len(server.entities) :]

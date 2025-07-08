@@ -88,23 +88,35 @@ async def check_server(
                     try:
                         prompts = (await session.list_prompts()).prompts
                         logger.debug("Found %d prompts", len(prompts))
-                    except Exception:
-                        logger.exception("Failed to list prompts")
+                    except Exception as e:
+                        logger.debug("Failed to list prompts: %s", str(e))
+                        if "prompts not supported" in str(e) or "Method not found" in str(e):
+                            logger.debug("Server does not support prompts capability or method, skipping")
+                        else:
+                            logger.exception("Failed to list prompts")
 
                 if isinstance(server_config, StdioServer) or meta.capabilities.resources:
                     logger.debug("Fetching resources")
                     try:
                         resources = (await session.list_resources()).resources
                         logger.debug("Found %d resources", len(resources))
-                    except Exception:
-                        logger.exception("Failed to list resources")
+                    except Exception as e:
+                        logger.debug("Failed to list resources: %s", str(e))
+                        if "resources not supported" in str(e) or "Method not found" in str(e):
+                            logger.debug("Server does not support resources capability or method, skipping")
+                        else:
+                            logger.exception("Failed to list resources")
                 if isinstance(server_config, StdioServer) or meta.capabilities.tools:
                     logger.debug("Fetching tools")
                     try:
                         tools = (await session.list_tools()).tools
                         logger.debug("Found %d tools", len(tools))
-                    except Exception:
-                        logger.exception("Failed to list tools")
+                    except Exception as e:
+                        logger.debug("Failed to list tools: %s", str(e))
+                        if "tools not supported" in str(e) or "Method not found" in str(e):
+                            logger.debug("Server does not support tools capability or method, skipping")
+                        else:
+                            logger.exception("Failed to list tools")
                 logger.info("Server check completed successfully")
                 return ServerSignature(
                     metadata=meta,
