@@ -188,6 +188,15 @@ def format_tool_flow(tool_name: str, server_name: str, value: float) -> Text:
     return Text.from_markup(text.format(tool_name=tool_name, risk=risk))
 
 
+def format_global_issue(issue: Issue) -> Text:
+    """
+    Format issues about the whole scan.
+    """
+    assert issue.reference is None, "Global issues should not have a reference"
+    tree = Text(f"\n ⚠️ [{issue.code}]: {issue.message}", style="yellow")
+    return tree
+
+
 def format_toxic_flows(servers: list[ServerScanResult]) -> list[Tree]:
     """
     Format toxic flows from the scan results into a tree structure.
@@ -288,6 +297,11 @@ def print_scan_path_result(result: ScanPathResult, print_errors: bool = False) -
 
     if len(result.servers) > 0:
         rich.print(path_print_tree)
+
+    # print global issues
+    for issue in result.issues:
+        if issue.reference is None:
+            rich.print(format_global_issue(issue))
 
     toxic_flows = format_toxic_flows(result.servers)
     if toxic_flows:

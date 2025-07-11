@@ -86,7 +86,7 @@ async def check_server(
                 if isinstance(server_config, StdioServer) or meta.capabilities.prompts:
                     logger.debug("Fetching prompts")
                     try:
-                        prompts = (await session.list_prompts()).prompts
+                        prompts += (await session.list_prompts()).prompts
                         logger.debug("Found %d prompts", len(prompts))
                     except Exception:
                         logger.exception("Failed to list prompts")
@@ -94,14 +94,14 @@ async def check_server(
                 if isinstance(server_config, StdioServer) or meta.capabilities.resources:
                     logger.debug("Fetching resources")
                     try:
-                        resources = (await session.list_resources()).resources
+                        resources += (await session.list_resources()).resources
                         logger.debug("Found %d resources", len(resources))
                     except Exception:
                         logger.exception("Failed to list resources")
                 if isinstance(server_config, StdioServer) or meta.capabilities.tools:
                     logger.debug("Fetching tools")
                     try:
-                        tools = (await session.list_tools()).tools
+                        tools += (await session.list_tools()).tools
                         logger.debug("Found %d tools", len(tools))
                     except Exception:
                         logger.exception("Failed to list tools")
