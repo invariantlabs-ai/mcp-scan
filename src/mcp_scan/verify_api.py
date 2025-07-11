@@ -79,11 +79,8 @@ async def analyze_scan_path(scan_path: ScanPathResult, base_url: str) -> ScanPat
     url = base_url[:-1] if base_url.endswith("/") else base_url
     url = url + "/api/v1/public/mcp-analysis"
     headers = {"Content-Type": "application/json"}
-    payload = VerifyServerRequest(root=[])
-    for server in scan_path.servers:
-        # None server signature are servers which are not reachable.
-        if server.signature is not None:
-            payload.root.append(server.signature)
+    payload = VerifyServerRequest(root=[server.signature for server in scan_path.servers])
+
     # Server signatures do not contain any information about the user setup. Only about the server itself.
     try:
         async with aiohttp.ClientSession() as session:
@@ -94,21 +91,15 @@ async def analyze_scan_path(scan_path: ScanPathResult, base_url: str) -> ScanPat
                     raise Exception(f"Error: {response.status} - {await response.text()}")
 
         # Assign labels
-        for server_idx, (server, labels) in enumerate(zip(scan_path.servers, results.labels, strict=False)):
+        for server, labels in zip(scan_path.servers, results.labels, strict=False):
             if server.signature is None:
-                for issue in results.issues:
-                    if issue.reference and issue.reference[0] == server_idx:
-                        issue.reference = (issue.reference[0] + 1, issue.reference[1])
-                continue
+                pass
+            if len(labels) != len(server.entities):
+                raise ValueError(
+                    f"Labels length mismatch for server {server.name}: expected {len(server.entities)}, got {len(labels)}"
+                )
             server.labels = labels
 
-        # Assign issues
-        for server_idx, server in enumerate(scan_path.servers):
-            if server.signature is None:
-                # reassign references
-                for issue in results.issues:
-                    if issue.reference and issue.reference[0] == server_idx:
-                        issue.reference = (issue.reference[0] + 1, issue.reference[1])
         scan_path.issues += results.issues
 
     except Exception as e:

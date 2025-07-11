@@ -174,7 +174,7 @@ class ServerSignature(BaseModel):
 
 
 class VerifyServerRequest(RootModel):
-    root: list[ServerSignature]
+    root: list[ServerSignature | None]
 
 
 class ServerScanResult(BaseModel):
