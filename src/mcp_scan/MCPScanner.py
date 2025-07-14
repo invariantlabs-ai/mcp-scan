@@ -9,7 +9,7 @@ from mcp_scan.models import Issue, ScanError, ScanPathResult, ServerScanResult
 
 from .mcp_client import check_server_with_timeout, scan_mcp_config_file
 from .StorageFile import StorageFile
-from .verify_api import verify_scan_path_and_labels
+from .verify_api import analyze_scan_path
 
 # Set up logger for this module
 logger = logging.getLogger(__name__)
@@ -56,7 +56,6 @@ class MCPScanner:
         storage_file: str = "~/.mcp-scan",
         server_timeout: int = 10,
         suppress_mcpserver_io: bool = True,
-        local_only: bool = False,
         **kwargs: Any,
     ):
         logger.info("Initializing MCPScanner")
@@ -70,7 +69,6 @@ class MCPScanner:
         self.server_timeout = server_timeout
         self.suppress_mcpserver_io = suppress_mcpserver_io
         self.context_manager = None
-        self.local_only = local_only
         logger.debug(
             "MCPScanner initialized with timeout: %d, checks_per_server: %d", server_timeout, checks_per_server
         )
@@ -195,9 +193,7 @@ class MCPScanner:
         logger.debug(f"Check changed: {path}, {path is None}")
         path_result.issues += self.check_server_changed(path_result)
         logger.debug(f"Verifying server path: {path}, {path is None}")
-        path_result = await verify_scan_path_and_labels(
-            path_result, base_url=self.base_url, run_locally=self.local_only
-        )
+        path_result = await analyze_scan_path(path_result, base_url=self.base_url)
         await self.emit("path_scanned", path_result)
         return path_result
 

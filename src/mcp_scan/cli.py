@@ -268,6 +268,12 @@ def main():
         action="store_true",
         help="Only run verification locally. Does not run all checks, results will be less accurate.",
     )
+    scan_parser.add_argument(
+        "--full-toxic-flows",
+        default=False,
+        action="store_true",
+        help="Show all tools in the toxic flows, by default only the first 3 are shown.",
+    )
 
     # INSPECT command
     inspect_parser = subparsers.add_parser(
@@ -505,7 +511,7 @@ async def run_scan_inspect(mode="scan", args=None):
         result = {r.path: r.model_dump() for r in result}
         print(json.dumps(result, indent=2))
     else:
-        print_scan_result(result)
+        print_scan_result(result, args.print_errors, args.full_toxic_flows)
 
 
 if __name__ == "__main__":

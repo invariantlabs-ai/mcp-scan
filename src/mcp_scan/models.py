@@ -3,7 +3,7 @@ from hashlib import md5
 from itertools import chain
 from typing import Any, Literal, TypeAlias
 
-from mcp.types import InitializeResult, Prompt, Resource, Tool, ToolAnnotations
+from mcp.types import InitializeResult, Prompt, Resource, Tool
 from pydantic import BaseModel, ConfigDict, Field, RootModel, field_serializer, field_validator
 
 Entity: TypeAlias = Prompt | Resource | Tool
@@ -27,13 +27,6 @@ def entity_type_to_str(entity: Entity) -> str:
         return "tool"
     else:
         raise ValueError(f"Unknown entity type: {type(entity)}")
-
-
-class ScalarToolLabels(BaseModel):
-    is_public_sink: int | float
-    destructive: int | float
-    untrusted_output: int | float
-    private_data: int | float
 
 
 class ScannedEntity(BaseModel):
@@ -160,6 +153,10 @@ class Issue(BaseModel):
         default=None,
         description="The index of the tool the issue references. None if it is global",
     )
+    extra_data: dict[str, Any] | None = Field(
+        default=None,
+        description="Extra data to provide more context about the issue.",
+    )
 
 
 class ServerSignature(BaseModel):
@@ -182,7 +179,6 @@ class ServerScanResult(BaseModel):
     name: str | None = None
     server: SSEServer | StdioServer | StreamableHTTPServer
     signature: ServerSignature | None = None
-    labels: list[ScalarToolLabels] | None = None
     error: ScanError | None = None
 
     @property
@@ -270,14 +266,14 @@ def entity_to_tool(
         raise ValueError(f"Unknown entity type: {type(entity)}")
 
 
-class ErrorLabels(BaseModel):
-    error: str
+class ToolReferenceWithLabel(BaseModel):
+    reference: tuple[int, int]
+    label_value: float
 
 
-class ToolAnnotationsWithLabels(ToolAnnotations):
-    labels: ScalarToolLabels | ErrorLabels
+class ToxicFlowExtraData(RootModel[dict[str, list[ToolReferenceWithLabel]]]):
+    pass
 
 
 class AnalysisServerResponse(BaseModel):
-    labels: list[list[ScalarToolLabels]]
     issues: list[Issue]
