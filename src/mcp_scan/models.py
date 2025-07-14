@@ -170,8 +170,8 @@ class ServerSignature(BaseModel):
         return self.prompts + self.resources + self.tools
 
 
-class VerifyServerRequest(RootModel):
-    root: list[ServerSignature | None]
+class VerifyServerRequest(RootModel[list[ServerSignature | None]]):
+    pass
 
 
 class ServerScanResult(BaseModel):
