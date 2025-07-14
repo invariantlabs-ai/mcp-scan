@@ -197,7 +197,9 @@ def format_global_issue(result: ScanPathResult, issue: Issue, show_all: bool = F
                 )
             )
         if len(tool_references) > 3 and not show_all:
-            tool_tree.add(f"[gray62]... and {len(tool_references) - 3} more tools[/gray62]")
+            tool_tree.add(
+                f"[gray62]... and {len(tool_references) - 3} more tools (to see all, use --full-toxic-flows)[/gray62]"
+            )
     return tree
 
 
