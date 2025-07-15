@@ -53,6 +53,7 @@ class TestFullScanFlow:
         ],
     )
     def test_scan_sse_http(self, sample_config_file):
+        """Test scanning with SSE and HTTP transport configurations."""
         result = subprocess.run(
             ["uv", "run", "-m", "src.mcp_scan.run", "scan", "--json", sample_config_file],
             capture_output=True,
