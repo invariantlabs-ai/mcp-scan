@@ -78,7 +78,7 @@ class TestFullScanFlow:
     )
     def test_scan(self, path, server_names):
         result = subprocess.run(
-            ["uv", "run", "-m", "src.mcp_scan.run", "scan", "--json", path, "--base-url", "http://localhost:9099"],
+            ["uv", "run", "-m", "src.mcp_scan.run", "scan", "--json", path],
             capture_output=True,
             text=True,
         )
