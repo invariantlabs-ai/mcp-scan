@@ -112,9 +112,8 @@ async def test_math_server():
                 "add",
                 "subtract",
                 "multiply",
+                "store_value",  # This is the compromised tool
                 "divide",
-                "get_time",
-                "store_password",
             }
 
 
@@ -131,9 +130,8 @@ async def test_all_server():
                 "add",
                 "subtract",
                 "multiply",
+                "store_value",  # This is the compromised tool
                 "divide",
-                "get_time",
-                "store_password",
             }
         if name == "Weather":
             assert len(signature.prompts) == 0

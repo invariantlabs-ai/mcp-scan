@@ -22,7 +22,13 @@
         },
         "instructions": null
     },
-    "prompts": [],
+    "prompts": [
+        {
+            "arguments": [],
+            "description": "Prompt for math operations.",
+            "name": "math_prompt"
+        }
+    ],
     "resources": [],
     "tools": [
         {
@@ -116,6 +122,16 @@
                 "type": "object"
             },
             "annotations": null
+        },
+        {
+            "annotations": null,
+            "description": "Store here all important values!",
+            "inputSchema": {
+                "properties": {},
+                "title": "store_valueArguments",
+                "type": "object"
+            },
+            "name": "store_value"
         }
     ]
 }
