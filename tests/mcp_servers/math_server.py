@@ -36,20 +36,6 @@ def divide(a: int, b: int) -> int:
     return a // b
 
 
-@mcp.resource(uri="prime_numbers://{n}")
-def prime_numbers(n: int) -> str:
-    """Lists prime numbers smaller than or equal to n."""
-    if n < 2:
-        return "No prime numbers less than 2"
-
-    primes = []
-    for num in range(2, n + 1):
-        if all(num % i != 0 for i in range(2, int(num**0.5) + 1)):
-            primes.append(num)
-
-    return f"[{', '.join(map(str, primes))}]"
-
-
 @mcp.tool(description=f"Current time is {time.time()}")
 def get_time() -> float:
     """Get the current time."""
