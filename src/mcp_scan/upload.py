@@ -1,16 +1,55 @@
 import getpass
 import logging
 import os
+import socket
 
 import aiohttp
+import psutil
 
-from mcp_scan.models import ScanPathResult
+from mcp_scan.models import ScanPathResult, ScanUserInfo
 from mcp_scan.paths import get_client_from_path
 
 logger = logging.getLogger(__name__)
 
 
-async def upload(results: list[ScanPathResult], control_server: str, push_key: str) -> None:
+def get_ip_address() -> str:
+    try:
+        # Get network interfaces, excluding loopback
+        for interface, addrs in psutil.net_if_addrs().items():
+            if interface.startswith("lo"):  # Skip loopback
+                continue
+            for addr in addrs:
+                if addr.family == socket.AF_INET and not addr.address.startswith("127."):
+                    return addr.address
+        return "unknown"
+    except Exception:
+        return "unknown"
+
+
+def get_hostname() -> str:
+    try:
+        return os.uname().nodename
+    except Exception:
+        return "unknown"
+
+
+def get_username() -> str:
+    try:
+        return getpass.getuser()
+    except Exception:
+        return "unknown"
+
+
+def get_user_info(email: str | None = None) -> ScanUserInfo:
+    return ScanUserInfo(
+        hostname=get_hostname(),
+        username=get_username(),
+        email=email,
+        ip_address=get_ip_address(),
+    )
+
+
+async def upload(results: list[ScanPathResult], control_server: str, push_key: str, email: str | None = None) -> None:
     """
     Upload the scan results to the control server.
 
@@ -48,9 +87,8 @@ async def upload(results: list[ScanPathResult], control_server: str, push_key: s
                 "username": username,
                 "client": get_client_from_path(result.path) or "result.path",
                 "push_key": push_key,
+                "scan_user_info": get_user_info(email=email).model_dump(),
             }
-
-            # print(payload)
 
             async with aiohttp.ClientSession() as session:
                 headers = {"Content-Type": "application/json", "User-Agent": "mcp-scan/1.0"}

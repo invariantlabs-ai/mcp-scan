@@ -34,4 +34,3 @@ jobs:
       with:
         name: mcp-scan-latest.whl
         path: ${{ github.workspace }}/artifacts/*.whl
-

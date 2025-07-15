@@ -203,6 +203,13 @@ class ScanPathResult(BaseModel):
         return list(chain.from_iterable(server.entities for server in self.servers))
 
 
+class ScanUserInfo(BaseModel):
+    hostname: str | None = None
+    username: str | None = None
+    email: str | None = None
+    ip_address: str | None = None
+
+
 def entity_to_tool(
     entity: Entity,
 ) -> Tool:

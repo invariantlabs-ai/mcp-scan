@@ -173,7 +173,7 @@ class TestFullProxyFlow:
             stdout, stderr = process.communicate()
             print(safe_decode(stdout))
             print(safe_decode(stderr))
-            raise AssertionError("timed out waiting for MCP server to respond")
+            raise AssertionError("timed out waiting for MCP server to respond") from None
 
         assert int(client_output["result"]) == 3
 
