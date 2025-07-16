@@ -149,7 +149,7 @@ def format_tool_flow(tool_name: str, server_name: str, value: float) -> Text:
         tool_name = tool_name[: (MAX_ENTITY_NAME_TOXIC_FLOW_LENGTH - 3)] + "..."
     tool_name = tool_name + " " * (MAX_ENTITY_NAME_TOXIC_FLOW_LENGTH - len(tool_name))
 
-    risk = "[gold1]Mild[/gold1]" if value <= 1.5 else "[red]High[/red]"
+    risk = "[yellow]Low[/yellow]" if value <= 1.5 else "[red]High[/red]"
     return Text.from_markup(text.format(tool_name=tool_name, risk=risk))
 
 
@@ -172,7 +172,7 @@ def format_global_issue(result: ScanPathResult, issue: Issue, show_all: bool = F
             tool_string = tool_string[: (MAX_ENTITY_NAME_TOXIC_FLOW_LENGTH - 3)] + "..."
         tool_string = tool_string + " " * (MAX_ENTITY_NAME_TOXIC_FLOW_LENGTH - len(tool_string))
         if value <= 1.5:
-            severity = "[gold1]Mild[/gold1]"
+            severity = "[yellow]Low[/yellow]"
         elif value <= 2.5:
             severity = "[red]High[/red]"
         else:
