@@ -296,27 +296,6 @@ def main():
         action="store_true",
         help="Opt out of personal data collection.",
     )
-    scan_parser.add_argument(
-        "--control-server",
-        default=False,
-        help="Upload the scan results to the provided control server URL (default: Do not upload)",
-    )
-    scan_parser.add_argument(
-        "--push-key",
-        default=False,
-        help="When uploading the scan results to the provided control server URL, pass the push key (default: Do not upload)",
-    )
-    scan_parser.add_argument(
-        "--email",
-        default=None,
-        help="When uploading the scan results to the provided control server URL, pass the email.",
-    )
-    scan_parser.add_argument(
-        "--opt-out",
-        default=False,
-        action="store_true",
-        help="Opt out of personal data collection.",
-    )
 
     # INSPECT command
     inspect_parser = subparsers.add_parser(
@@ -538,13 +517,22 @@ async def run_scan_inspect(mode="scan", args=None):
             raise ValueError(f"Unknown mode: {mode}, expected 'scan' or 'inspect'")
 
     # upload scan result to control server if specified
-    if args.control_server and args.push_key and args.email:
+
+    if (
+        hasattr(args, "control_server")
+        and args.control_server
+        and hasattr(args, "push_key")
+        and args.push_key
+        and hasattr(args, "email")
+        and args.email
+        and hasattr(args, "opt_out")
+        and args.opt_out
+    ):
         await upload(result, args.control_server, args.push_key, args.email, args.opt_out)
 
     if args.json:
         result = {r.path: r.model_dump() for r in result}
         print(json.dumps(result, indent=2))
-        print(args)
     else:
         print_scan_result(result, args.print_errors, args.full_toxic_flows)
 
