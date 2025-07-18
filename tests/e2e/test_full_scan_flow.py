@@ -13,7 +13,14 @@ class TestFullScanFlow:
     """Test cases for end-to-end scanning workflows."""
 
     @pytest.mark.parametrize(
-        "sample_config_file", [lf("claudestyle_config_file"), lf("vscode_mcp_config_file"), lf("vscode_config_file")]
+        "sample_config_file",
+        [
+            lf("claudestyle_config_file"),
+            lf("vscode_mcp_config_file"),
+            lf("vscode_config_file"),
+            lf("streamable_http_transport_config_file"),
+            lf("sse_transport_config_file"),
+        ],
     )
     def test_basic(self, sample_config_file):
         """Test a basic complete scan workflow from CLI to results. This does not mean that the results are correct or the servers can be run."""
@@ -39,6 +46,30 @@ class TestFullScanFlow:
             pytest.fail("Failed to parse JSON output")
 
     @pytest.mark.parametrize(
+        "sample_config_file",
+        [
+            lf("streamable_http_transport_config_file"),
+            lf("sse_transport_config_file"),
+        ],
+    )
+    def test_scan_sse_http(self, sample_config_file):
+        """Test scanning with SSE and HTTP transport configurations."""
+        result = subprocess.run(
+            ["uv", "run", "-m", "src.mcp_scan.run", "scan", "--json", sample_config_file],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, f"Command failed with error: {result.stderr}"
+        output = json.loads(result.stdout)
+        assert len(output) == 1, "Output should contain exactly one entry for the config file"
+        assert {tool["name"] for tool in output[sample_config_file]["servers"][0]["signature"]["tools"]} == {
+            "is_prime",
+            "gcd",
+            "lcm",
+        }, "Tools in signature do not match expected values"
+        print(output)
+
+    @pytest.mark.parametrize(
         "path, server_names",
         [
             ("tests/mcp_servers/configs_files/weather_config.json", ["Weather"]),
@@ -47,7 +78,6 @@ class TestFullScanFlow:
         ],
     )
     def test_scan(self, path, server_names):
-        path = "tests/mcp_servers/configs_files/all_config.json"
         result = subprocess.run(
             ["uv", "run", "-m", "src.mcp_scan.run", "scan", "--json", path],
             capture_output=True,
@@ -55,9 +85,8 @@ class TestFullScanFlow:
         )
         assert result.returncode == 0, f"Command failed with error: {result.stderr}"
         output = json.loads(result.stdout)
-        results: dict[str, dict] = {}
+
         for server in output[path]["servers"]:
-            results[server["name"]] = server["result"]
             server["signature"]["metadata"]["serverInfo"]["version"] = (
                 "mcp_version"  # swap actual version with placeholder
             )
@@ -65,29 +94,14 @@ class TestFullScanFlow:
             with open(f"tests/mcp_servers/signatures/{server['name'].lower()}_server_signature.json") as f:
                 assert server["signature"] == json.load(f), f"Signature mismatch for {server['name']} server"
 
-        expected_results = {
-            "Weather": [
-                {
-                    "changed": None,
-                    "messages": [],
-                    "status": None,
-                    "verified": True,
-                    "whitelisted": None,
-                }
-            ],
-            "Math": [
-                {
-                    "changed": None,
-                    "messages": [],
-                    "status": None,
-                    "verified": True,
-                    "whitelisted": None,
-                }
-            ]
-            * 4,
-        }
-        for server_name in server_names:
-            assert results[server_name] == expected_results[server_name], f"Results mismatch for {server_name} server"
+        assert len(output) == 1, "Output should contain exactly one entry for the config file"
+        path = next(iter(output.keys()))
+        issues = output[path]["issues"]
+        if "Math" not in server_names:
+            assert len(issues) == 0, "There should be no issues for the Weather server"
+        else:
+            assert len(issues) == 2, "There should be 2 issues for the Math server"
+            assert {issue["code"] for issue in issues} == {"W001", "TF002"}, "Issues codes do not match expected values"
 
     def test_inspect(self):
         path = "tests/mcp_servers/configs_files/all_config.json"

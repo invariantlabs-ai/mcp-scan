@@ -3,11 +3,11 @@
 [Documentation](https://explorer.invariantlabs.ai/docs/mcp-scan) | [Support Discord](https://discord.gg/dZuZfhKnJ4)
 
 
-MCP-Scan is a security scanning tool to both statically and dynamically scan and monitor your MCP connections. It checks them for common security vulnerabilities like [prompt injections](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks), [tool poisoning](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks) and [cross-origin escalations](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks).
+MCP-Scan is a security scanning tool to both statically and dynamically scan and monitor your MCP connections. It checks them for common security vulnerabilities like [prompt injections](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks), [tool poisoning](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks) and [toxic flows](https://invariantlabs.ai/blog/mcp-github-vulnerability).
 
 It operates in two main modes which can be used jointly or separately:
 
-1. `mcp-scan scan` statically scans all your installed servers for malicious tool descriptions and tools (e.g. [tool poisoning attacks](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks), cross-origin escalation, rug pull attacks).
+1. `mcp-scan scan` statically scans all your installed servers for malicious tool descriptions and tools (e.g. [tool poisoning attacks](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks), cross-origin escalation, rug pull attacks, toxic flows).
 
     [Quickstart →](#server-scanning).
 
@@ -46,12 +46,6 @@ To run a static MCP scan, use the following command:
 uvx mcp-scan@latest
 ```
 
-or
-
-```
-npx mcp-scan@latest
-```
-
 This will scan your installed servers for security vulnerabilities in tools, prompts, and resources. It will automatically discover a variety of MCP configurations, including Claude, Cursor and Windsurf.
 
 #### Example Run
@@ -63,6 +57,32 @@ Using `mcp-scan proxy`, you can monitor, log, and safeguard all MCP traffic on y
 
 #### Example Run
 
+<img width="903" alt="image" src="https://github.com/user-attachments/assets/63ac9632-8663-40c3-a765-0bfdfbdf9a16" />
+
+#### Enforcing Guardrails
+
+You can also add guardrailing rules, to restrict and validate the sequence of tool uses passing through proxy.
+
+For this, create a `~/.mcp-scan/guardrails_config.yml` with the following contents:
+
+```yml
+<client-name>:  # your client's shorthand (e.g., cursor, claude, windsurf)
+  <server-name>:  # your server's name according to the mcp config (e.g., whatsapp-mcp)
+    guardrails:
+      secrets: block # block calls/results with secrets
+
+      custom_guardrails:
+        - name: "Filter tool results with 'error'"
+          id: "error_filter_guardrail"
+          action: block # or just 'log'
+          content: |
+            raise "An error was found." if:
+              (msg: ToolOutput)
+              "error" in msg.content
+```
+From then on, all calls proxied via `mcp-scan proxy` will be checked against your configured guardrailing rules for the current client/server.
+
+Custom guardrails are implemented using Invariant Guardrails. To learn more about these rules, [see this playground environment](https://explorer.invariantlabs.ai/docs/guardrails/) and the [official documentation](https://explorer.invariantlabs.ai/docs/).
 
 ## How It Works
 
@@ -73,7 +93,6 @@ MCP-Scan `scan` searches through your configuration files to find MCP server con
 It then scans tool descriptions, both with local checks and by invoking Invariant Guardrailing via an API. For this, tool names and descriptions are shared with invariantlabs.ai. By using MCP-Scan, you agree to the invariantlabs.ai [terms of use](https://explorer.invariantlabs.ai/terms) and [privacy policy](https://invariantlabs.ai/privacy-policy).
 
 Invariant Labs is collecting data for security research purposes (only about tool descriptions and how they change over time, not your user data). Don't use MCP-scan if you don't want to share your tools.
-You can run MCP-scan locally by using the `--local-only` flag. This will only run local checks and will not invoke the Invariant Guardrailing API, however it will not provide as accurate results as it just runs a local LLM-based policy check. This option requires an `OPENAI_API_KEY` environment variable to be set.
 
 MCP-scan does not store or log any usage data, i.e. the contents and results of your MCP tool calls.
 
@@ -100,6 +119,7 @@ These options are available for all commands:
 --base-url URL         Base URL for the verification server
 --verbose              Enable detailed logging output
 --print-errors         Show error details and tracebacks
+--full-toxic-flows     Show all tools that could take part in toxic flow. By default only the top 3 are shown.
 --json                 Output results in JSON format instead of rich text
 ```
 
@@ -118,7 +138,6 @@ Options:
 --checks-per-server NUM       Number of checks to perform on each server (default: 1)
 --server-timeout SECONDS      Seconds to wait before timing out server connections (default: 10)
 --suppress-mcpserver-io BOOL  Suppress stdout/stderr from MCP servers (default: True)
---local-only BOOL             Only run verification locally. Does not run all checks, results will be less accurate (default: False)
 ```
 
 #### proxy

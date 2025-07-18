@@ -33,7 +33,6 @@ class ScannedEntity(BaseModel):
     model_config = ConfigDict()
     hash: str
     type: str
-    verified: bool | None
     timestamp: datetime
     description: str | None = None
 
@@ -65,6 +64,13 @@ class SSEServer(BaseModel):
     headers: dict[str, str] = {}
 
 
+class StreamableHTTPServer(BaseModel):
+    model_config = ConfigDict()
+    url: str
+    type: Literal["http"] | None = "http"
+    headers: dict[str, str] = {}
+
+
 class StdioServer(BaseModel):
     model_config = ConfigDict()
     command: str
@@ -74,21 +80,21 @@ class StdioServer(BaseModel):
 
 
 class MCPConfig(BaseModel):
-    def get_servers(self) -> dict[str, SSEServer | StdioServer]:
+    def get_servers(self) -> dict[str, SSEServer | StdioServer | StreamableHTTPServer]:
         raise NotImplementedError("Subclasses must implement this method")
 
-    def set_servers(self, servers: dict[str, SSEServer | StdioServer]) -> None:
+    def set_servers(self, servers: dict[str, SSEServer | StdioServer | StreamableHTTPServer]) -> None:
         raise NotImplementedError("Subclasses must implement this method")
 
 
 class ClaudeConfigFile(MCPConfig):
     model_config = ConfigDict()
-    mcpServers: dict[str, SSEServer | StdioServer]
+    mcpServers: dict[str, SSEServer | StdioServer | StreamableHTTPServer]
 
-    def get_servers(self) -> dict[str, SSEServer | StdioServer]:
+    def get_servers(self) -> dict[str, SSEServer | StdioServer | StreamableHTTPServer]:
         return self.mcpServers
 
-    def set_servers(self, servers: dict[str, SSEServer | StdioServer]) -> None:
+    def set_servers(self, servers: dict[str, SSEServer | StdioServer | StreamableHTTPServer]) -> None:
         self.mcpServers = servers
 
 
@@ -96,12 +102,12 @@ class VSCodeMCPConfig(MCPConfig):
     # see https://code.visualstudio.com/docs/copilot/chat/mcp-servers
     model_config = ConfigDict()
     inputs: list[Any] | None = None
-    servers: dict[str, SSEServer | StdioServer]
+    servers: dict[str, SSEServer | StdioServer | StreamableHTTPServer]
 
-    def get_servers(self) -> dict[str, SSEServer | StdioServer]:
+    def get_servers(self) -> dict[str, SSEServer | StdioServer | StreamableHTTPServer]:
         return self.servers
 
-    def set_servers(self, servers: dict[str, SSEServer | StdioServer]) -> None:
+    def set_servers(self, servers: dict[str, SSEServer | StdioServer | StreamableHTTPServer]) -> None:
         self.servers = servers
 
 
@@ -109,10 +115,10 @@ class VSCodeConfigFile(MCPConfig):
     model_config = ConfigDict()
     mcp: VSCodeMCPConfig
 
-    def get_servers(self) -> dict[str, SSEServer | StdioServer]:
+    def get_servers(self) -> dict[str, SSEServer | StdioServer | StreamableHTTPServer]:
         return self.mcp.servers
 
-    def set_servers(self, servers: dict[str, SSEServer | StdioServer]) -> None:
+    def set_servers(self, servers: dict[str, SSEServer | StdioServer | StreamableHTTPServer]) -> None:
         self.mcp.servers = servers
 
 
@@ -129,20 +135,28 @@ class ScanError(BaseModel):
     def text(self) -> str:
         return self.message or (str(self.exception) or "")
 
+    def clone(self) -> "ScanError":
+        """
+        Create a copy of the ScanError instance. This is not the same as `model_copy(deep=True)`, because it does not
+        clone the exception. This is crucial to avoid issues with serialization of exceptions.
+        """
+        return ScanError(
+            message=self.message,
+            exception=self.exception,
+        )
 
-class EntityScanResult(BaseModel):
-    model_config = ConfigDict()
-    verified: bool | None = None
-    changed: bool | None = None
-    whitelisted: bool | None = None
-    status: str | None = None
-    messages: list[str] = []
 
-
-class CrossRefResult(BaseModel):
-    model_config = ConfigDict()
-    found: bool | None = None
-    sources: list[str] = []
+class Issue(BaseModel):
+    code: str
+    message: str
+    reference: tuple[int, int] | None = Field(
+        default=None,
+        description="The index of the tool the issue references. None if it is global",
+    )
+    extra_data: dict[str, Any] | None = Field(
+        default=None,
+        description="Extra data to provide more context about the issue.",
+    )
 
 
 class ServerSignature(BaseModel):
@@ -156,20 +170,15 @@ class ServerSignature(BaseModel):
         return self.prompts + self.resources + self.tools
 
 
-class VerifyServerResponse(RootModel):
-    root: list[list[EntityScanResult]]
-
-
-class VerifyServerRequest(RootModel):
-    root: list[ServerSignature]
+class VerifyServerRequest(RootModel[list[ServerSignature | None]]):
+    pass
 
 
 class ServerScanResult(BaseModel):
     model_config = ConfigDict()
     name: str | None = None
-    server: SSEServer | StdioServer
+    server: SSEServer | StdioServer | StreamableHTTPServer
     signature: ServerSignature | None = None
-    result: list[EntityScanResult] | None = None
     error: ScanError | None = None
 
     @property
@@ -183,24 +192,43 @@ class ServerScanResult(BaseModel):
     def is_verified(self) -> bool:
         return self.result is not None
 
-    @property
-    def entities_with_result(self) -> list[tuple[Entity, EntityScanResult | None]]:
-        if self.result is not None:
-            return list(zip(self.entities, self.result, strict=False))
-        else:
-            return [(entity, None) for entity in self.entities]
+    def clone(self) -> "ServerScanResult":
+        """
+        Create a copy of the ServerScanResult instance. This is not the same as `model_copy(deep=True)`, because it does not
+        clone the error. This is crucial to avoid issues with serialization of exceptions.
+        """
+        output = ServerScanResult(
+            name=self.name,
+            server=self.server.model_copy(deep=True),
+            signature=self.signature.model_copy(deep=True) if self.signature else None,
+            error=self.error.clone() if self.error else None,
+        )
+        return output
 
 
 class ScanPathResult(BaseModel):
     model_config = ConfigDict()
     path: str
-    servers: list[ServerScanResult] = []
+    servers: list[ServerScanResult] = Field(default_factory=list)
+    issues: list[Issue] = Field(default_factory=list)
     error: ScanError | None = None
-    cross_ref_result: CrossRefResult | None = None
 
     @property
     def entities(self) -> list[Entity]:
         return list(chain.from_iterable(server.entities for server in self.servers))
+
+    def clone(self) -> "ScanPathResult":
+        """
+        Create a copy of the ScanPathResult instance. This is not the same as `model_copy(deep=True)`, because it does not
+        clone the error. This is crucial to avoid issues with serialization of exceptions.
+        """
+        output = ScanPathResult(
+            path=self.path,
+            servers=[server.clone() for server in self.servers],
+            issues=[issue.model_copy(deep=True) for issue in self.issues],
+            error=self.error.clone() if self.error else None,
+        )
+        return output
 
 
 class ScanUserID(BaseModel):
@@ -248,3 +276,16 @@ def entity_to_tool(
         )
     else:
         raise ValueError(f"Unknown entity type: {type(entity)}")
+
+
+class ToolReferenceWithLabel(BaseModel):
+    reference: tuple[int, int]
+    label_value: float
+
+
+class ToxicFlowExtraData(RootModel[dict[str, list[ToolReferenceWithLabel]]]):
+    pass
+
+
+class AnalysisServerResponse(BaseModel):
+    issues: list[Issue]

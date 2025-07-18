@@ -5,12 +5,11 @@ from collections import defaultdict
 from collections.abc import Callable
 from typing import Any
 
-from mcp_scan.models import CrossRefResult, ScanError, ScanPathResult, ServerScanResult
+from mcp_scan.models import Issue, ScanError, ScanPathResult, ServerScanResult
 
 from .mcp_client import check_server_with_timeout, scan_mcp_config_file
 from .StorageFile import StorageFile
-from .utils import calculate_distance
-from .verify_api import verify_scan_path
+from .verify_api import analyze_scan_path
 
 # Set up logger for this module
 logger = logging.getLogger(__name__)
@@ -57,7 +56,6 @@ class MCPScanner:
         storage_file: str = "~/.mcp-scan",
         server_timeout: int = 10,
         suppress_mcpserver_io: bool = True,
-        local_only: bool = False,
         **kwargs: Any,
     ):
         logger.info("Initializing MCPScanner")
@@ -71,7 +69,6 @@ class MCPScanner:
         self.server_timeout = server_timeout
         self.suppress_mcpserver_io = suppress_mcpserver_io
         self.context_manager = None
-        self.local_only = local_only
         logger.debug(
             "MCPScanner initialized with timeout: %d, checks_per_server: %d", server_timeout, checks_per_server
         )
@@ -126,31 +123,38 @@ class MCPScanner:
             result.error = ScanError(message=error_msg, exception=e)
         return result
 
-    async def check_server_changed(self, server: ServerScanResult) -> ServerScanResult:
-        logger.debug("Checking for changes in server: %s", server.name)
-        result = server.model_copy(deep=True)
-        for i, (entity, entity_result) in enumerate(server.entities_with_result):
-            if entity_result is None:
-                continue
-            c, messages = self.storage_file.check_and_update(server.name or "", entity, entity_result.verified)
-            result.result[i].changed = c
-            if c:
-                logger.info("Entity %s in server %s has changed", entity.name, server.name)
-                result.result[i].messages.extend(messages)
-        return result
+    def check_server_changed(self, path_result: ScanPathResult) -> list[Issue]:
+        logger.debug("Checking server changed: %s", path_result.path)
+        issues: list[Issue] = []
+        for server_idx, server in enumerate(path_result.servers):
+            logger.debug(
+                "Checking for changes in server %d/%d: %s", server_idx + 1, len(path_result.servers), server.name
+            )
+            for entity_idx, entity in enumerate(server.entities):
+                c, messages = self.storage_file.check_and_update(server.name or "", entity)
+                if c:
+                    logger.info("Entity %s in server %s has changed", entity.name, server.name)
+                    issues.append(
+                        Issue(
+                            code="W003",
+                            message="Entity has changed. " + ", ".join(messages),
+                            reference=(server_idx, entity_idx),
+                        )
+                    )
+        return issues
 
-    async def check_whitelist(self, server: ServerScanResult) -> ServerScanResult:
-        logger.debug("Checking whitelist for server: %s", server.name)
-        result = server.model_copy()
-        for i, (entity, entity_result) in enumerate(server.entities_with_result):
-            if entity_result is None:
-                continue
-            if self.storage_file.is_whitelisted(entity):
-                logger.debug("Entity %s is whitelisted", entity.name)
-                result.result[i].whitelisted = True
-            else:
-                result.result[i].whitelisted = False
-        return result
+    def check_whitelist(self, path_result: ScanPathResult) -> list[Issue]:
+        logger.debug("Checking whitelist for path: %s", path_result.path)
+        issues: list[Issue] = []
+        for server_idx, server in enumerate(path_result.servers):
+            for entity_idx, entity in enumerate(server.entities):
+                if self.storage_file.is_whitelisted(entity):
+                    issues.append(
+                        Issue(
+                            code="X002", message="This entity has been whitelisted", reference=(server_idx, entity_idx)
+                        )
+                    )
+        return issues
 
     async def emit(self, signal: str, data: Any):
         logger.debug("Emitting signal: %s", signal)
@@ -159,7 +163,7 @@ class MCPScanner:
 
     async def scan_server(self, server: ServerScanResult, inspect_only: bool = False) -> ServerScanResult:
         logger.info("Scanning server: %s, inspect_only: %s", server.name, inspect_only)
-        result = server.model_copy(deep=True)
+        result = server.clone()
         try:
             result.signature = await check_server_with_timeout(
                 server.server, self.server_timeout, self.suppress_mcpserver_io
@@ -171,12 +175,6 @@ class MCPScanner:
                 len(result.signature.resources),
                 len(result.signature.tools),
             )
-
-            if not inspect_only:
-                logger.debug("Checking if server has changed: %s", server.name)
-                result = await self.check_server_changed(result)
-                logger.debug("Checking whitelist for server: %s", server.name)
-                result = await self.check_whitelist(result)
         except Exception as e:
             error_msg = "could not start server"
             logger.exception("%s: %s", error_msg, server.name)
@@ -190,41 +188,14 @@ class MCPScanner:
         for i, server in enumerate(path_result.servers):
             logger.debug("Scanning server %d/%d: %s", i + 1, len(path_result.servers), server.name)
             path_result.servers[i] = await self.scan_server(server, inspect_only)
-        logger.debug("Verifying server path: %s", path)
-        path_result = await verify_scan_path(path_result, base_url=self.base_url, run_locally=self.local_only)
-        path_result.cross_ref_result = await self.check_cross_references(path_result)
+        logger.debug(f"Check whitelisted {path}, {path is None}")
+        path_result.issues += self.check_whitelist(path_result)
+        logger.debug(f"Check changed: {path}, {path is None}")
+        path_result.issues += self.check_server_changed(path_result)
+        logger.debug(f"Verifying server path: {path}, {path is None}")
+        path_result = await analyze_scan_path(path_result, base_url=self.base_url)
         await self.emit("path_scanned", path_result)
         return path_result
-
-    async def check_cross_references(self, path_result: ScanPathResult) -> CrossRefResult:
-        logger.info("Checking cross references for path: %s", path_result.path)
-        cross_ref_result = CrossRefResult(found=False)
-        if sum(len(server.entities) for server in path_result.servers) < 2:
-            logger.debug("Not enough entities to check cross references")
-            return cross_ref_result
-        if len(path_result.servers) < 2:
-            logger.debug("Not enough servers to check cross references")
-            return cross_ref_result
-        for server in path_result.servers:
-            other_servers = [s for s in path_result.servers if s != server]
-            other_server_names = [s.name for s in other_servers]
-            other_entity_names = [e.name for s in other_servers for e in s.entities]
-            flagged_names = set(map(str.lower, other_server_names + other_entity_names))
-            logger.debug("Found %d potential cross-reference names", len(flagged_names))
-            for entity in server.entities:
-                tokens = (entity.description or "").lower().split()
-                for token in tokens:
-                    best_distance = calculate_distance(reference=token, responses=list(flagged_names))[0]
-                    if ((best_distance[1] <= 2) and (len(token) >= 5)) or (token in flagged_names):
-                        logger.warning("Cross-reference found: %s with token %s", entity.name, token)
-                        cross_ref_result.found = True
-                        cross_ref_result.sources.append(f"{entity.name}:{token}")
-
-        if cross_ref_result.found:
-            logger.info("Cross references detected with %d sources", len(cross_ref_result.sources))
-        else:
-            logger.debug("No cross references found")
-        return cross_ref_result
 
     async def scan(self) -> list[ScanPathResult]:
         logger.info("Starting scan of %d paths", len(self.paths))

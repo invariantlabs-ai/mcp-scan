@@ -1,0 +1,14 @@
+{
+    "mcp": {
+        "servers": {
+            "http_server": {
+                "type": "http",
+                "url": "http://localhost:8124/mcp"
+            },
+            "sse_server": {
+                "type": "sse",
+                "url": "http://localhost:8123/sse"
+            }
+        }
+    }
+}

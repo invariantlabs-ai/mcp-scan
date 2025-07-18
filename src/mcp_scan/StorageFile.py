@@ -100,17 +100,15 @@ class StorageFile:
         self.whitelist = {}
         self.save()
 
-    def check_and_update(self, server_name: str, entity: Entity, verified: bool | None) -> tuple[bool, list[str]]:
+    def check_and_update(self, server_name: str, entity: Entity) -> tuple[bool, list[str]]:
         logger.debug("Checking entity: %s in server: %s", entity.name, server_name)
         entity_type = entity_type_to_str(entity)
         key = f"{server_name}.{entity_type}.{entity.name}"
         hash = hash_entity(entity)
-        logger.debug("Entity key: %s, hash: %s", key, hash)
 
         new_data = ScannedEntity(
             hash=hash,
             type=entity_type,
-            verified=verified,
             timestamp=datetime.now(),
             description=entity.description,
         )

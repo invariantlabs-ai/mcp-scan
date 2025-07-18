@@ -264,10 +264,37 @@ def main():
         metavar="NUM",
     )
     scan_parser.add_argument(
+        "--full-toxic-flows",
+        default=False,
+        action="store_true",
+        help="Show all tools in the toxic flows, by default only the first 3 are shown.",
+    )
+    scan_parser.add_argument(
         "--local-only",
         default=False,
         action="store_true",
         help="Only run verification locally. Does not run all checks, results will be less accurate.",
+    )
+    scan_parser.add_argument(
+        "--control-server",
+        default=False,
+        help="Upload the scan results to the provided control server URL (default: Do not upload)",
+    )
+    scan_parser.add_argument(
+        "--push-key",
+        default=False,
+        help="When uploading the scan results to the provided control server URL, pass the push key (default: Do not upload)",
+    )
+    scan_parser.add_argument(
+        "--email",
+        default=None,
+        help="When uploading the scan results to the provided control server URL, pass the email.",
+    )
+    scan_parser.add_argument(
+        "--opt-out",
+        default=False,
+        action="store_true",
+        help="Opt out of personal data collection.",
     )
     scan_parser.add_argument(
         "--control-server",
@@ -479,20 +506,6 @@ def main():
     elif args.command == "uninstall":
         asyncio.run(uninstall())
         sys.exit(0)
-    elif args.command == "whitelist":
-        if args.reset:
-            MCPScanner(**vars(args)).reset_whitelist()
-            sys.exit(0)
-        elif all(x is None for x in [args.name, args.hash]):  # no args
-            MCPScanner(**vars(args)).print_whitelist()
-            sys.exit(0)
-        elif all(x is not None for x in [args.name, args.hash]):
-            MCPScanner(**vars(args)).whitelist(args.name, args.hash, args.local_only)
-            MCPScanner(**vars(args)).print_whitelist()
-            sys.exit(0)
-        else:
-            rich.print("[bold red]Please provide a name and hash.[/bold red]")
-            sys.exit(1)
     elif args.command == "scan" or args.command is None:  # default to scan
         asyncio.run(run_scan_inspect(args=args))
         sys.exit(0)
@@ -521,9 +534,11 @@ async def run_scan_inspect(mode="scan", args=None):
             result = await scanner.scan()
         elif mode == "inspect":
             result = await scanner.inspect()
+        else:
+            raise ValueError(f"Unknown mode: {mode}, expected 'scan' or 'inspect'")
 
     # upload scan result to control server if specified
-    if args.control_server and args.push_key:
+    if args.control_server and args.push_key and args.email:
         await upload(result, args.control_server, args.push_key, args.email, args.opt_out)
 
     if args.json:
@@ -531,7 +546,7 @@ async def run_scan_inspect(mode="scan", args=None):
         print(json.dumps(result, indent=2))
         print(args)
     else:
-        print_scan_result(result)
+        print_scan_result(result, args.print_errors, args.full_toxic_flows)
 
 
 if __name__ == "__main__":

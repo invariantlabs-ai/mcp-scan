@@ -6,7 +6,10 @@ from rich.text import Text
 from rich.traceback import Traceback as rTraceback
 from rich.tree import Tree
 
-from .models import Entity, EntityScanResult, ScanError, ScanPathResult, entity_type_to_str, hash_entity
+from .models import Entity, Issue, ScanError, ScanPathResult, ToxicFlowExtraData, entity_type_to_str, hash_entity
+
+MAX_ENTITY_NAME_LENGTH = 25
+MAX_ENTITY_NAME_TOXIC_FLOW_LENGTH = 30
 
 
 def format_exception(e: Exception | None) -> tuple[str, rTraceback | None]:
@@ -51,38 +54,69 @@ def append_status(status: str, new_status: str) -> str:
     return f"{new_status}, {status}"
 
 
-def format_entity_line(entity: Entity, result: EntityScanResult | None = None) -> Text:
+def format_entity_line(entity: Entity, issues: list[Issue]) -> Text:
     # is_verified = verified.value
     # if is_verified is not None and changed.value is not None:
     #     is_verified = is_verified and not changed.value
-    is_verified = None
-    status = ""
-    include_description = True
-    if result is not None:
-        is_verified = result.verified
-        status = result.status or ""
-        if result.changed is not None and result.changed:
-            is_verified = False
-            status = append_status(status, "[bold]changed since previous scan[/bold]")
-        if not is_verified and result.whitelisted is not None and result.whitelisted:
-            status = append_status(status, "[bold]whitelisted[/bold]")
-            is_verified = True
-        include_description = not is_verified
+    if any(issue.code.startswith("X002") for issue in issues):
+        status = "whitelisted"
+    elif any(issue.code.startswith("X") for issue in issues):
+        status = "analysis_error"
+    elif any(issue.code.startswith("E") for issue in issues):
+        status = "issue"
+    elif any(issue.code.startswith("W") for issue in issues):
+        status = "warning"
+    else:
+        status = "successful"
 
-    color = {True: "[green]", False: "[red]", None: "[gray62]"}[is_verified]
-    icon = {True: ":white_heavy_check_mark:", False: ":cross_mark:", None: ""}[is_verified]
+    color_map = {
+        "successful": "[green]",
+        "issue": "[red]",
+        "analysis_error": "[gray62]",
+        "warning": "[yellow]",
+        "whitelisted": "[blue]",
+    }
+    color = color_map[status]
+    icon = {
+        "successful": ":white_heavy_check_mark:",
+        "issue": ":cross_mark:",
+        "analysis_error": "",
+        "warning": "⚠️ ",
+        "whitelisted": ":white_heavy_check_mark:",
+    }[status]
+
+    include_description = status not in ["whitelisted", "analysis_error", "successful"]
 
     # right-pad & truncate name
     name = entity.name
-    if len(name) > 25:
-        name = name[:22] + "..."
-    name = name + " " * (25 - len(name))
+    if len(name) > MAX_ENTITY_NAME_LENGTH:
+        name = name[: (MAX_ENTITY_NAME_LENGTH - 3)] + "..."
+    name = name + " " * (MAX_ENTITY_NAME_LENGTH - len(name))
 
     # right-pad type
     type = entity_type_to_str(entity)
     type = type + " " * (len("resource") - len(type))
 
-    text = f"{type} {color}[bold]{name}[/bold] {icon} {status}"
+    status_text = " ".join(
+        [
+            color_map["analysis_error"]
+            + rf"\[{issue.code}]: {issue.message}"
+            + color_map["analysis_error"].replace("[", "[/")
+            for issue in issues
+            if issue.code.startswith("X")
+        ]
+        + [
+            color_map["issue"] + rf"\[{issue.code}]: {issue.message}" + color_map["issue"].replace("[", "[/")
+            for issue in issues
+            if issue.code.startswith("E")
+        ]
+        + [
+            color_map["warning"] + rf"\[{issue.code}]: {issue.message}" + color_map["warning"].replace("[", "[/")
+            for issue in issues
+            if issue.code.startswith("W")
+        ]
+    )
+    text = f"{type} {color}[bold]{name}[/bold] {icon} {status_text}"
 
     if include_description:
         if hasattr(entity, "description") and entity.description is not None:
@@ -91,8 +125,8 @@ def format_entity_line(entity: Entity, result: EntityScanResult | None = None) -
             description = "<no description available>"
         text += f"\n[gray62][bold]Current description:[/bold]\n{description}[/gray62]"
 
-    messages = result.messages if result is not None else []
-    if not is_verified:
+    messages = []
+    if status not in ["successful", "analysis_error", "whitelisted"]:
         hash = hash_entity(entity)
         messages.append(
             f"[bold]You can whitelist this {entity_type_to_str(entity)} "
@@ -108,7 +142,68 @@ def format_entity_line(entity: Entity, result: EntityScanResult | None = None) -
     return formatted_text
 
 
-def print_scan_path_result(result: ScanPathResult, print_errors: bool = False) -> None:
+def format_tool_flow(tool_name: str, server_name: str, value: float) -> Text:
+    text = "{tool_name} {risk}"
+    tool_name = f"{server_name}/{tool_name}"
+    if len(tool_name) > MAX_ENTITY_NAME_TOXIC_FLOW_LENGTH:
+        tool_name = tool_name[: (MAX_ENTITY_NAME_TOXIC_FLOW_LENGTH - 3)] + "..."
+    tool_name = tool_name + " " * (MAX_ENTITY_NAME_TOXIC_FLOW_LENGTH - len(tool_name))
+
+    risk = "[yellow]Low[/yellow]" if value <= 1.5 else "[red]High[/red]"
+    return Text.from_markup(text.format(tool_name=tool_name, risk=risk))
+
+
+def format_global_issue(result: ScanPathResult, issue: Issue, show_all: bool = False) -> Tree:
+    """
+    Format issues about the whole scan.
+    """
+    assert issue.reference is None, "Global issues should not have a reference"
+    assert issue.code.startswith("TF"), (
+        "Global issues should start with 'TF'. Only Toxic Flows are supported as global issues."
+    )
+    tree = Tree(f"[yellow]\n⚠️ [{issue.code}]: {issue.message}[/yellow]")
+
+    def _format_tool_kind_name(tool_kind_name: str) -> str:
+        return " ".join(tool_kind_name.split("_")[:-1]).capitalize()
+
+    def _format_tool_name(server_name: str, tool_name: str, value: float) -> str:
+        tool_string = f"{server_name}/{tool_name}"
+        if len(tool_string) > MAX_ENTITY_NAME_TOXIC_FLOW_LENGTH:
+            tool_string = tool_string[: (MAX_ENTITY_NAME_TOXIC_FLOW_LENGTH - 3)] + "..."
+        tool_string = tool_string + " " * (MAX_ENTITY_NAME_TOXIC_FLOW_LENGTH - len(tool_string))
+        if value <= 1.5:
+            severity = "[yellow]Low[/yellow]"
+        elif value <= 2.5:
+            severity = "[red]High[/red]"
+        else:
+            severity = "[bold][red]Critical[/red][/bold]"
+        return f"{tool_string} {severity}"
+
+    try:
+        extra_data = ToxicFlowExtraData.model_validate(issue.extra_data)
+    except Exception:
+        tree.add("[gray62]Invalid extra data format[/gray62]")
+        return tree
+
+    for tool_kind_name, tool_references in extra_data.root.items():
+        tool_references.sort(key=lambda x: x.label_value, reverse=True)
+        tool_tree = tree.add(f"[bold]{_format_tool_kind_name(tool_kind_name)}[/bold]")
+        for tool_reference in tool_references[: 3 if not show_all else None]:
+            tool_tree.add(
+                _format_tool_name(
+                    result.servers[tool_reference.reference[0]].name or "",
+                    result.servers[tool_reference.reference[0]].signature.entities[tool_reference.reference[1]].name,
+                    tool_reference.label_value,
+                )
+            )
+        if len(tool_references) > 3 and not show_all:
+            tool_tree.add(
+                f"[gray62]... and {len(tool_references) - 3} more tools (to see all, use --full-toxic-flows)[/gray62]"
+            )
+    return tree
+
+
+def print_scan_path_result(result: ScanPathResult, print_errors: bool = False, full_toxic_flows: bool = False) -> None:
     if result.error is not None:
         err_status, traceback = format_error(result.error)
         rich.print(format_path_line(result.path, err_status))
@@ -121,27 +216,26 @@ def print_scan_path_result(result: ScanPathResult, print_errors: bool = False) -
     rich.print(format_path_line(result.path, message))
     path_print_tree = Tree("│")
     server_tracebacks = []
-    for server in result.servers:
+    for server_idx, server in enumerate(result.servers):
         if server.error is not None:
             err_status, traceback = format_error(server.error)
-            server_print = path_print_tree.add(format_servers_line(server.name or "", err_status))
+            path_print_tree.add(format_servers_line(server.name or "", err_status))
             if traceback is not None:
                 server_tracebacks.append((server, traceback))
         else:
             server_print = path_print_tree.add(format_servers_line(server.name or ""))
-            for entity, entity_result in server.entities_with_result:
-                server_print.add(format_entity_line(entity, entity_result))
+            for entity_idx, entity in enumerate(server.entities):
+                issues = [issue for issue in result.issues if issue.reference == (server_idx, entity_idx)]
+                server_print.add(format_entity_line(entity, issues))
 
     if len(result.servers) > 0:
         rich.print(path_print_tree)
-    if result.cross_ref_result is not None and result.cross_ref_result.found:
-        rich.print(
-            rich.text.Text.from_markup(
-                f"\n[bold yellow]:construction: Cross-Origin Violation: "
-                f"Descriptions of server {result.cross_ref_result.sources} explicitly mention "
-                f"tools or resources of other servers, or other servers.[/bold yellow]"
-            ),
-        )
+
+    # print global issues
+    for issue in result.issues:
+        if issue.reference is None:
+            rich.print(format_global_issue(result, issue, full_toxic_flows))
+
     if print_errors and len(server_tracebacks) > 0:
         console = rich.console.Console()
         for server, traceback in server_tracebacks:
@@ -151,9 +245,9 @@ def print_scan_path_result(result: ScanPathResult, print_errors: bool = False) -
     print(end="", flush=True)
 
 
-def print_scan_result(result: list[ScanPathResult], print_errors: bool = False) -> None:
+def print_scan_result(result: list[ScanPathResult], print_errors: bool = False, full_toxic_flows: bool = False) -> None:
     for i, path_result in enumerate(result):
-        print_scan_path_result(path_result, print_errors)
+        print_scan_path_result(path_result, print_errors, full_toxic_flows)
         if i < len(result) - 1:
             rich.print()
     print(end="", flush=True)

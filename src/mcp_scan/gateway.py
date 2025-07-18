@@ -7,7 +7,7 @@ from rich.text import Text
 from rich.tree import Tree
 
 from mcp_scan.mcp_client import scan_mcp_config_file
-from mcp_scan.models import MCPConfig, SSEServer, StdioServer
+from mcp_scan.models import MCPConfig, SSEServer, StdioServer, StreamableHTTPServer
 from mcp_scan.paths import get_client_from_path
 from mcp_scan.printer import format_path_line
 
@@ -158,7 +158,7 @@ class MCPGatewayInstaller:
                 continue
 
             path_print_tree = Tree("│")
-            new_servers: dict[str, SSEServer | StdioServer] = {}
+            new_servers: dict[str, SSEServer | StdioServer | StreamableHTTPServer] = {}
             for name, server in config.get_servers().items():
                 if isinstance(server, StdioServer):
                     try:
@@ -209,7 +209,7 @@ class MCPGatewayInstaller:
 
             path_print_tree = Tree("│")
             config = await scan_mcp_config_file(path)
-            new_servers: dict[str, SSEServer | StdioServer] = {}
+            new_servers: dict[str, SSEServer | StdioServer | StreamableHTTPServer] = {}
             for name, server in config.get_servers().items():
                 if isinstance(server, StdioServer):
                     try:
