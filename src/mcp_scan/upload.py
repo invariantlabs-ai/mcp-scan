@@ -6,10 +6,13 @@ import socket
 import aiohttp
 import psutil
 
+from mcp_scan.identity import IdentityManager
 from mcp_scan.models import ScanPathResult, ScanUserInfo
 from mcp_scan.paths import get_client_from_path
 
 logger = logging.getLogger(__name__)
+
+identity = IdentityManager()
 
 
 def get_ip_address() -> str:
@@ -40,16 +43,26 @@ def get_username() -> str:
         return "unknown"
 
 
-def get_user_info(email: str | None = None) -> ScanUserInfo:
+def get_user_info(email: str | None = None, opt_out: bool = False) -> ScanUserInfo:
+    """
+    Get the user info for the scan.
+
+    email: The email of the user (command line argument).
+    opt_out: If True, a new identity is created and saved.
+    """
+    user_identifier = identity.get_identity(regenerate=opt_out)
     return ScanUserInfo(
-        hostname=get_hostname(),
-        username=get_username(),
-        email=email,
-        ip_address=get_ip_address(),
+        hostname=get_hostname() if not opt_out else None,
+        username=get_username() if not opt_out else None,
+        email=email if not opt_out else None,
+        ip_address=get_ip_address() if not opt_out else None,
+        anonymous_identifier=user_identifier,
     )
 
 
-async def upload(results: list[ScanPathResult], control_server: str, push_key: str, email: str | None = None) -> None:
+async def upload(
+    results: list[ScanPathResult], control_server: str, push_key: str, email: str | None = None, opt_out: bool = False
+) -> None:
     """
     Upload the scan results to the control server.
 
@@ -66,28 +79,15 @@ async def upload(results: list[ScanPathResult], control_server: str, push_key: s
     base_url = control_server.rstrip("/")
     upload_url = f"{base_url}/api/scans/push"
 
-    # get host name
-    try:
-        hostname = os.uname().nodename
-    except Exception:
-        hostname = "unknown"
-
-    # Get user information
-    try:
-        username = getpass.getuser() + "@" + hostname
-    except Exception:
-        username = "unknown@" + hostname
-
     # Convert all scan results to server data
     for result in results:
         try:
             # include user and client information in the upload data
             payload = {
                 **(result.model_dump()),
-                "username": username,
-                "client": get_client_from_path(result.path) or "result.path",
                 "push_key": push_key,
-                "scan_user_info": get_user_info(email=email).model_dump(),
+                "client": get_client_from_path(result.path) or "result.path",
+                "scan_user_info": get_user_info(email=email, opt_out=opt_out).model_dump(),
             }
 
             async with aiohttp.ClientSession() as session:
@@ -113,3 +113,4 @@ async def upload(results: list[ScanPathResult], control_server: str, push_key: s
         except Exception as e:
             logger.error(f"Unexpected error while uploading scan results: {e}")
             print(f"❌ Unexpected error while uploading scan results: {e}")
+            raise e

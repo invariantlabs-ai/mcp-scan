@@ -203,11 +203,16 @@ class ScanPathResult(BaseModel):
         return list(chain.from_iterable(server.entities for server in self.servers))
 
 
+class ScanUserID(BaseModel):
+    uuid: str = Field(description="The unique identifier for the user.")
+
+
 class ScanUserInfo(BaseModel):
     hostname: str | None = None
     username: str | None = None
     email: str | None = None
     ip_address: str | None = None
+    anonymous_identifier: ScanUserID | None = None
 
 
 def entity_to_tool(

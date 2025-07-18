@@ -275,11 +275,6 @@ def main():
         help="Upload the scan results to the provided control server URL (default: Do not upload)",
     )
     scan_parser.add_argument(
-        "--org-name",
-        default=False,
-        help="When uploading the scan results to the provided control server URL, pass the organization name (default: Do not upload)",
-    )
-    scan_parser.add_argument(
         "--push-key",
         default=False,
         help="When uploading the scan results to the provided control server URL, pass the push key (default: Do not upload)",
@@ -288,6 +283,12 @@ def main():
         "--email",
         default=None,
         help="When uploading the scan results to the provided control server URL, pass the email.",
+    )
+    scan_parser.add_argument(
+        "--opt-out",
+        default=False,
+        action="store_true",
+        help="Opt out of personal data collection.",
     )
 
     # INSPECT command
@@ -523,7 +524,7 @@ async def run_scan_inspect(mode="scan", args=None):
 
     # upload scan result to control server if specified
     if args.control_server and args.push_key:
-        await upload(result, args.control_server, args.push_key, args.email)
+        await upload(result, args.control_server, args.push_key, args.email, args.opt_out)
 
     if args.json:
         result = {r.path: r.model_dump() for r in result}
