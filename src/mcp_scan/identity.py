@@ -5,8 +5,6 @@ import uuid
 
 from pydantic import ValidationError
 
-from mcp_scan.models import ScanUserID
-
 logger = logging.getLogger(__name__)
 
 
@@ -23,14 +21,18 @@ class IdentityManager:
 
     def __init__(self, path: os.PathLike = DEFAULT_IDENTITY_PATH):
         self.path = pathlib.Path(path)
-        self._identity: ScanUserID | None = None
+        self._identity: str | None = None
         self._load_or_create()
+
+    def _generate_identity(self) -> str:
+        """Generates a new identity."""
+        return str(uuid.uuid4())
 
     def _load_or_create(self):
         """Loads identity from path or creates a new one, populating self._identity."""
         if self.path.exists():
             try:
-                self._identity = ScanUserID.model_validate_json(self.path.read_text())
+                self._identity = self.path.read_text()
                 return
             except (ValidationError, ValueError):
                 # File is malformed or not valid JSON. A new one will be created.
@@ -38,20 +40,20 @@ class IdentityManager:
                 pass
 
         # Create and save a new identity if the file doesn't exist or was invalid
-        new_identity = ScanUserID(uuid=str(uuid.uuid4()))
+        new_identity = self._generate_identity()
         self._save(new_identity)
         self._identity = new_identity
 
-    def _save(self, identity: ScanUserID):
+    def _save(self, identity: str):
         """Saves the provided identity object to the JSON file."""
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.path.write_text(identity.model_dump_json(indent=2))
+        self.path.write_text(identity)
 
-    def get_identity(self, regenerate: bool = False) -> ScanUserID:
+    def get_identity(self, regenerate: bool = False) -> str:
         """
         Get the scanner's identity. If regenerate is True, a new identity is created and saved.
         """
         if regenerate or self._identity is None:
-            self._identity = ScanUserID(uuid=str(uuid.uuid4()))
+            self._identity = self._generate_identity()
             self._save(self._identity)
         return self._identity

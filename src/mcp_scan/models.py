@@ -231,16 +231,12 @@ class ScanPathResult(BaseModel):
         return output
 
 
-class ScanUserID(BaseModel):
-    uuid: str = Field(description="The unique identifier for the user.")
-
-
 class ScanUserInfo(BaseModel):
     hostname: str | None = None
     username: str | None = None
     email: str | None = None
     ip_address: str | None = None
-    anonymous_identifier: ScanUserID | None = None
+    anonymous_identifier: str | None = None
 
 
 def entity_to_tool(
