@@ -24,6 +24,7 @@ class IdentityManager:
     def __init__(self, path: os.PathLike = DEFAULT_IDENTITY_PATH):
         self.path = pathlib.Path(path)
         self._identity: ScanUserID | None = None
+        self._load_or_create()
 
     def _load_or_create(self):
         """Loads identity from path or creates a new one, populating self._identity."""

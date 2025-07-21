@@ -517,16 +517,13 @@ async def run_scan_inspect(mode="scan", args=None):
             raise ValueError(f"Unknown mode: {mode}, expected 'scan' or 'inspect'")
 
     # upload scan result to control server if specified
-
     if (
         hasattr(args, "control_server")
         and args.control_server
         and hasattr(args, "push_key")
         and args.push_key
         and hasattr(args, "email")
-        and args.email
         and hasattr(args, "opt_out")
-        and args.opt_out
     ):
         await upload(result, args.control_server, args.push_key, args.email, args.opt_out)
 
