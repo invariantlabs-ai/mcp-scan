@@ -270,12 +270,6 @@ def main():
         help="Show all tools in the toxic flows, by default only the first 3 are shown.",
     )
     scan_parser.add_argument(
-        "--local-only",
-        default=False,
-        action="store_true",
-        help="Only run verification locally. Does not run all checks, results will be less accurate.",
-    )
-    scan_parser.add_argument(
         "--control-server",
         default=False,
         help="Upload the scan results to the provided control server URL (default: Do not upload)",
