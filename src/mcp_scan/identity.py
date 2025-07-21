@@ -47,7 +47,7 @@ class IdentityManager:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.path.write_text(identity.model_dump_json(indent=2))
 
-    def get_identity(self, regenerate: bool = False) -> ScanUserID | None:
+    def get_identity(self, regenerate: bool = False) -> ScanUserID:
         """
         Get the scanner's identity. If regenerate is True, a new identity is created and saved.
         """
