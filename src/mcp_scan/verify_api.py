@@ -2,6 +2,7 @@ import logging
 
 import aiohttp
 
+from .identity import IdentityManager
 from .models import (
     AnalysisServerResponse,
     Issue,
@@ -10,15 +11,21 @@ from .models import (
 )
 
 logger = logging.getLogger(__name__)
+identity_manager = IdentityManager()
 
 
 POLICY_PATH = "src/mcp_scan/policy.gr"
 
 
-async def analyze_scan_path(scan_path: ScanPathResult, base_url: str) -> ScanPathResult:
+async def analyze_scan_path(
+    scan_path: ScanPathResult, base_url: str, opt_out_of_identity: bool = False
+) -> ScanPathResult:
     url = base_url[:-1] if base_url.endswith("/") else base_url
     url = url + "/api/v1/public/mcp-analysis"
-    headers = {"Content-Type": "application/json"}
+    headers = {
+        "Content-Type": "application/json",
+        "X-Anonymous-Identifier": identity_manager.get_identity(opt_out_of_identity),
+    }
     payload = VerifyServerRequest(root=[server.signature for server in scan_path.servers])
 
     # Server signatures do not contain any information about the user setup. Only about the server itself.
