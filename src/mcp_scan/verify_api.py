@@ -24,7 +24,7 @@ async def analyze_scan_path(
     url = url + "/api/v1/public/mcp-analysis"
     headers = {
         "Content-Type": "application/json",
-        "X-Anonymous-Identifier": identity_manager.get_identity(opt_out_of_identity),
+        "X-User": identity_manager.get_identity(opt_out_of_identity),
     }
     payload = VerifyServerRequest(root=[server.signature for server in scan_path.servers])
 
