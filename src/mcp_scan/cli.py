@@ -288,7 +288,7 @@ def main():
         "--opt-out",
         default=False,
         action="store_true",
-        help="Opt out of personal data collection.",
+        help="Opts out of sending unique a unique user identifier with every scan.",
     )
 
     # INSPECT command
