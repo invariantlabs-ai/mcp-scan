@@ -376,7 +376,9 @@ def main():
     add_install_arguments(proxy_parser)
 
     # Parse arguments (default to 'scan' if no command provided)
-    args = parser.parse_args(["scan"] if len(sys.argv) == 1 else None)
+    if len(sys.argv) == 1 or sys.argv[1] not in subparsers.choices:
+        sys.argv.insert(1, "scan")
+    args = parser.parse_args()
 
     # postprocess the files argument (if shorthands are used)
     if hasattr(args, "files") and args.files is None:
