@@ -49,6 +49,11 @@ class IdentityManager:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.path.write_text(identity)
 
+    def clear(self):
+        """Clears the identity."""
+        self.path.unlink(missing_ok=True)
+        self._identity = None
+
     def get_identity(self, regenerate: bool = False) -> str:
         """
         Get the scanner's identity. If regenerate is True, a new identity is created and saved.

@@ -51,6 +51,12 @@ def get_user_info(email: str | None = None, opt_out: bool = False) -> ScanUserIn
     opt_out: If True, a new identity is created and saved.
     """
     user_identifier = identity.get_identity(regenerate=opt_out)
+
+    # If opt_out is True, clear the identity, so next scan will have a new identity
+    # even if --opt-out is set to False on that scan.
+    if opt_out:
+        identity.clear()
+
     return ScanUserInfo(
         hostname=get_hostname() if not opt_out else None,
         username=get_username() if not opt_out else None,
@@ -78,6 +84,7 @@ async def upload(
     # Normalize control server URL
     base_url = control_server.rstrip("/")
     upload_url = f"{base_url}/api/scans/push"
+    user_info = get_user_info(email=email, opt_out=opt_out)
 
     # Convert all scan results to server data
     for result in results:
@@ -87,7 +94,7 @@ async def upload(
                 **(result.model_dump()),
                 "push_key": push_key,
                 "client": get_client_from_path(result.path) or "result.path",
-                "scan_user_info": get_user_info(email=email, opt_out=opt_out).model_dump(),
+                "scan_user_info": user_info.model_dump(),
             }
 
             async with aiohttp.ClientSession() as session:
