@@ -164,7 +164,7 @@ def format_global_issue(result: ScanPathResult, issue: Issue, show_all: bool = F
     tree = Tree(f"[yellow]\n⚠️ [{issue.code}]: {issue.message}[/yellow]")
 
     def _format_tool_kind_name(tool_kind_name: str) -> str:
-        return " ".join(tool_kind_name.split("_")[:-1]).capitalize()
+        return " ".join(tool_kind_name.split("_")).title()
 
     def _format_tool_name(server_name: str, tool_name: str, value: float) -> str:
         tool_string = f"{server_name}/{tool_name}"
