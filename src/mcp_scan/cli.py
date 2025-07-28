@@ -399,7 +399,8 @@ def main():
 
     # Parse arguments (default to 'scan' if no command provided)
     if len(sys.argv) == 1 or sys.argv[1] not in subparsers.choices:
-        sys.argv.insert(1, "scan")
+        if sys.argv[1] != '--help':
+            sys.argv.insert(1, "scan")
     args = parser.parse_args()
 
     # postprocess the files argument (if shorthands are used)
@@ -447,7 +448,8 @@ def main():
     setup_logging(do_log)
 
     # Handle commands
-    if args.command == "help":
+    print(args.command, args)
+    if args.command == "help" or (args.command is None and args.help):
         parser.print_help()
         sys.exit(0)
     elif args.command == "whitelist":
@@ -492,7 +494,7 @@ def main():
         args.local_only = True
         install_extras(args)
         asyncio.run(install())
-        print("[Proxy installed, you may need to restart/reload your MCP clients to use it]")
+        rich.print("[Proxy installed, you may need to restart/reload your MCP clients to use it]")
         server(on_exit=uninstall)
         sys.exit(0)
     else:
