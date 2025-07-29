@@ -193,7 +193,7 @@ class MCPScanner:
         if not inspect_only:
             path_result = await self.check_path(path_result)
         return path_result
-    
+
     async def check_path(self, path_result: ScanPathResult) -> ScanPathResult:
         logger.debug(f"Check whitelisted {path_result.path}, {path_result.path is None}")
         path_result.issues += self.check_whitelist(path_result)
