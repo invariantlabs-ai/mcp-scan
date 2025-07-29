@@ -1,14 +1,12 @@
 import logging
 
 import aiohttp
-import rich
 
 from .identity import IdentityManager
 from .models import (
     AnalysisServerResponse,
     Issue,
     ScanPathResult,
-    ServerSignature,
     VerifyServerRequest,
 )
 
