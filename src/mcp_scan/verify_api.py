@@ -1,12 +1,14 @@
 import logging
 
 import aiohttp
+import rich
 
 from .identity import IdentityManager
 from .models import (
     AnalysisServerResponse,
     Issue,
     ScanPathResult,
+    ServerSignature,
     VerifyServerRequest,
 )
 
@@ -26,7 +28,12 @@ async def analyze_scan_path(
         "Content-Type": "application/json",
         "X-User": identity_manager.get_identity(opt_out_of_identity),
     }
-    payload = VerifyServerRequest(root=[server.signature for server in scan_path.servers])
+    payload = VerifyServerRequest(
+        root=[
+            server.signature.model_dump() if server.signature else None
+            for server in scan_path.servers
+        ]
+    )
 
     # Server signatures do not contain any information about the user setup. Only about the server itself.
     try:
