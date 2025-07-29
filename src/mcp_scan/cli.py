@@ -13,6 +13,7 @@ from mcp_scan.gateway import MCPGatewayConfig, MCPGatewayInstaller
 from mcp_scan.upload import upload
 from mcp_scan_server.server import MCPScanServer
 
+
 from .MCPScanner import MCPScanner
 from .paths import WELL_KNOWN_MCP_PATHS, client_shorthands_to_paths
 from .printer import print_scan_result
@@ -179,6 +180,43 @@ def add_install_arguments(parser):
         metavar="PORT",
     )
 
+def add_scan_arguments(scan_parser):
+    scan_parser.add_argument(
+        "--checks-per-server",
+        type=int,
+        default=1,
+        help="Number of times to check each server (default: 1)",
+        metavar="NUM",
+    )
+    scan_parser.add_argument(
+        "--full-toxic-flows",
+        default=False,
+        action="store_true",
+        help="Show all tools in the toxic flows, by default only the first 3 are shown.",
+    )
+    scan_parser.add_argument(
+        "--control-server",
+        default=False,
+        help="Upload the scan results to the provided control server URL (default: Do not upload)",
+    )
+    scan_parser.add_argument(
+        "--push-key",
+        default=False,
+        help="When uploading the scan results to the provided control server URL, pass the push key (default: Do not upload)",
+    )
+    scan_parser.add_argument(
+        "--email",
+        default=None,
+        help="When uploading the scan results to the provided control server URL, pass the email.",
+    )
+    scan_parser.add_argument(
+        "--opt-out",
+        default=False,
+        action="store_true",
+        help="Opts out of sending unique a unique user identifier with every scan.",
+    )
+   
+
 
 def add_uninstall_arguments(parser):
     parser.add_argument(
@@ -209,6 +247,18 @@ def install_extras(args):
     if hasattr(args, "install_extras") and args.install_extras:
         add_extra(*args.install_extras, "-y")
 
+def setup_scan_parser(scan_parser):
+    scan_parser.add_argument(
+        "files",
+        nargs="*",
+        default=WELL_KNOWN_MCP_PATHS,
+        help="Path(s) to MCP config file(s). If not provided, well-known paths will be checked",
+        metavar="CONFIG_FILE",
+    )
+    add_common_arguments(scan_parser)
+    add_server_arguments(scan_parser)
+    add_scan_arguments(scan_parser)
+   
 
 def main():
     # Create main parser with description
@@ -247,49 +297,7 @@ def main():
             "If no files are specified, well-known config locations will be checked."
         ),
     )
-    scan_parser.add_argument(
-        "files",
-        nargs="*",
-        default=WELL_KNOWN_MCP_PATHS,
-        help="Path(s) to MCP config file(s). If not provided, well-known paths will be checked",
-        metavar="CONFIG_FILE",
-    )
-    add_common_arguments(scan_parser)
-    add_server_arguments(scan_parser)
-    scan_parser.add_argument(
-        "--checks-per-server",
-        type=int,
-        default=1,
-        help="Number of times to check each server (default: 1)",
-        metavar="NUM",
-    )
-    scan_parser.add_argument(
-        "--full-toxic-flows",
-        default=False,
-        action="store_true",
-        help="Show all tools in the toxic flows, by default only the first 3 are shown.",
-    )
-    scan_parser.add_argument(
-        "--control-server",
-        default=False,
-        help="Upload the scan results to the provided control server URL (default: Do not upload)",
-    )
-    scan_parser.add_argument(
-        "--push-key",
-        default=False,
-        help="When uploading the scan results to the provided control server URL, pass the push key (default: Do not upload)",
-    )
-    scan_parser.add_argument(
-        "--email",
-        default=None,
-        help="When uploading the scan results to the provided control server URL, pass the email.",
-    )
-    scan_parser.add_argument(
-        "--opt-out",
-        default=False,
-        action="store_true",
-        help="Opts out of sending unique a unique user identifier with every scan.",
-    )
+    setup_scan_parser(scan_parser)
 
     # INSPECT command
     inspect_parser = subparsers.add_parser(
@@ -358,12 +366,25 @@ def main():
         metavar="HASH",
     )
     # install
-    install_parser = subparsers.add_parser("install", help="Install Invariant Gateway")
+    install_parser = subparsers.add_parser("install-proxy", help="Install Invariant Gateway")
     add_install_arguments(install_parser)
 
     # uninstall
-    uninstall_parser = subparsers.add_parser("uninstall", help="Uninstall Invariant Gateway")
+    uninstall_parser = subparsers.add_parser("uninstall-proxy", help="Uninstall Invariant Gateway")
     add_uninstall_arguments(uninstall_parser)
+    
+    # install autoscan
+    install_autoscan_parser = subparsers.add_parser("install-autoscan", help="Install itself as a MCP server for automatic scanning")
+    add_install_arguments(install_autoscan_parser)
+
+    # uninstall autoscan
+    uninstall_autoscan_parser = subparsers.add_parser("uninstall-autoscan", help="Uninstall MCP-scan MCP server")
+    add_uninstall_arguments(uninstall_autoscan_parser)
+    
+    # mcp server mode
+    mcp_server_parser = subparsers.add_parser("mcp-server", help="Start an MCP server")
+    # add a catch all argument
+    mcp_server_parser.add_argument("args", nargs="*", help="Arguments passed to the MCP server for scanning")
 
     # HELP command
     help_parser = subparsers.add_parser(  # noqa: F841
@@ -408,7 +429,7 @@ def main():
         args.files = client_shorthands_to_paths(args.files)
 
     # Display version banner
-    if not (hasattr(args, "json") and args.json):
+    if not ((hasattr(args, "json") and args.json) or (args.command == "mcp-server")):
         rich.print(f"[bold blue]Invariant MCP-scan v{version_info}[/bold blue]\n")
 
     async def install():
@@ -448,7 +469,6 @@ def main():
     setup_logging(do_log)
 
     # Handle commands
-    print(args.command, args)
     if args.command == "help" or (args.command is None and args.help):
         parser.print_help()
         sys.exit(0)
@@ -475,7 +495,7 @@ def main():
             whitelist_parser.print_help()
             sys.exit(1)
     elif args.command == "inspect":
-        asyncio.run(run_scan_inspect(mode="inspect", args=args))
+        asyncio.run(print_scan_inspect(mode="inspect", args=args))
         sys.exit(0)
     elif args.command == "install":
         asyncio.run(install())
@@ -484,7 +504,7 @@ def main():
         asyncio.run(uninstall())
         sys.exit(0)
     elif args.command == "scan" or args.command is None:  # default to scan
-        asyncio.run(run_scan_inspect(args=args))
+        asyncio.run(print_scan_inspect(args=args))
         sys.exit(0)
     elif args.command == "server":
         install_extras(args)
@@ -497,6 +517,9 @@ def main():
         rich.print("[Proxy installed, you may need to restart/reload your MCP clients to use it]")
         server(on_exit=uninstall)
         sys.exit(0)
+    elif args.command == "mcp-server":
+        from mcp_scan.mcp_server import mcp_server
+        sys.exit(mcp_server(args.args))
     else:
         # This shouldn't happen due to argparse's handling
         rich.print(f"[bold red]Unknown command: {args.command}[/bold red]")
@@ -524,7 +547,10 @@ async def run_scan_inspect(mode="scan", args=None):
         and hasattr(args, "opt_out")
     ):
         await upload(result, args.control_server, args.push_key, args.email, args.opt_out)
+    return result
 
+async def print_scan_inspect(mode="scan", args=None):
+    result = await run_scan_inspect(mode, args)
     if args.json:
         result = {r.path: r.model_dump() for r in result}
         print(json.dumps(result, indent=2))
