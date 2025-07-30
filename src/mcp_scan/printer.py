@@ -54,7 +54,7 @@ def append_status(status: str, new_status: str) -> str:
     return f"{new_status}, {status}"
 
 
-def format_entity_line(entity: Entity, issues: list[Issue]) -> Text:
+def format_entity_line(entity: Entity, issues: list[Issue], inspect_mode: bool = False) -> Text:
     # is_verified = verified.value
     # if is_verified is not None and changed.value is not None:
     #     is_verified = is_verified and not changed.value
@@ -75,17 +75,19 @@ def format_entity_line(entity: Entity, issues: list[Issue]) -> Text:
         "analysis_error": "[gray62]",
         "warning": "[yellow]",
         "whitelisted": "[blue]",
+        "inspect_mode": "[white]",
     }
-    color = color_map[status]
-    icon = {
+    color = color_map[status] if not inspect_mode else color_map["inspect_mode"]
+    icon_map = {
         "successful": ":white_heavy_check_mark:",
         "issue": ":cross_mark:",
         "analysis_error": "",
         "warning": "⚠️ ",
         "whitelisted": ":white_heavy_check_mark:",
-    }[status]
-
-    include_description = status not in ["whitelisted", "analysis_error", "successful"]
+        "inspect_mode": "  ",
+    }
+    icon = icon_map[status] if not inspect_mode else icon_map["inspect_mode"]
+    include_description = inspect_mode or (status not in ["whitelisted", "analysis_error", "successful"])
 
     # right-pad & truncate name
     name = entity.name
@@ -203,7 +205,12 @@ def format_global_issue(result: ScanPathResult, issue: Issue, show_all: bool = F
     return tree
 
 
-def print_scan_path_result(result: ScanPathResult, print_errors: bool = False, full_toxic_flows: bool = False) -> None:
+def print_scan_path_result(
+    result: ScanPathResult,
+    print_errors: bool = False,
+    full_toxic_flows: bool = False,
+    inspect_mode: bool = False,
+) -> None:
     if result.error is not None:
         err_status, traceback = format_error(result.error)
         rich.print(format_path_line(result.path, err_status))
@@ -226,7 +233,7 @@ def print_scan_path_result(result: ScanPathResult, print_errors: bool = False, f
             server_print = path_print_tree.add(format_servers_line(server.name or ""))
             for entity_idx, entity in enumerate(server.entities):
                 issues = [issue for issue in result.issues if issue.reference == (server_idx, entity_idx)]
-                server_print.add(format_entity_line(entity, issues))
+                server_print.add(format_entity_line(entity, issues, inspect_mode))
 
     if len(result.servers) > 0:
         rich.print(path_print_tree)
@@ -245,9 +252,14 @@ def print_scan_path_result(result: ScanPathResult, print_errors: bool = False, f
     print(end="", flush=True)
 
 
-def print_scan_result(result: list[ScanPathResult], print_errors: bool = False, full_toxic_flows: bool = False) -> None:
+def print_scan_result(
+    result: list[ScanPathResult],
+    print_errors: bool = False,
+    full_toxic_flows: bool = False,
+    inspect_mode: bool = False,
+) -> None:
     for i, path_result in enumerate(result):
-        print_scan_path_result(path_result, print_errors, full_toxic_flows)
+        print_scan_path_result(path_result, print_errors, full_toxic_flows, inspect_mode)
         if i < len(result) - 1:
             rich.print()
     print(end="", flush=True)
