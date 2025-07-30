@@ -17,7 +17,7 @@ from mcp_scan_server.server import MCPScanServer
 from .MCPScanner import MCPScanner
 from .paths import WELL_KNOWN_MCP_PATHS, client_shorthands_to_paths
 from .printer import print_scan_result
-from .StorageFile import StorageFile
+from .Storage import Storage
 from .version import version_info
 
 # Configure logging to suppress all output by default
@@ -384,6 +384,8 @@ def main():
     # mcp server mode
     mcp_server_parser = subparsers.add_parser("mcp-server", help="Start an MCP server")
     # add a catch all argument
+    mcp_server_parser.add_argument("--tool", action="store_true", default=False, help="Expose a tool for scanning")
+    mcp_server_parser.add_argument("--background", action="store_true", default=False, help="Periodically run the scan in the background")
     mcp_server_parser.add_argument("args", nargs="*", help="Arguments passed to the MCP server for scanning")
 
     # HELP command
@@ -457,7 +459,7 @@ def main():
         await installer.uninstall(verbose=True)
 
     def server(on_exit=None):
-        sf = StorageFile(args.storage_file)
+        sf = Storage(args.storage_file)
         guardrails_config_path = sf.create_guardrails_config()
         mcp_scan_server = MCPScanServer(
             port=args.port, config_file_path=guardrails_config_path, on_exit=on_exit, pretty=args.pretty
@@ -473,7 +475,7 @@ def main():
         parser.print_help()
         sys.exit(0)
     elif args.command == "whitelist":
-        sf = StorageFile(args.storage_file)
+        sf = Storage(args.storage_file)
         if args.reset:
             sf.reset_whitelist()
             rich.print("[bold]Whitelist reset[/bold]")
@@ -519,7 +521,7 @@ def main():
         sys.exit(0)
     elif args.command == "mcp-server":
         from mcp_scan.mcp_server import mcp_server
-        sys.exit(mcp_server(args.args))
+        sys.exit(mcp_server(tool=args.tool, background=args.background, args=args.args))
     else:
         # This shouldn't happen due to argparse's handling
         rich.print(f"[bold red]Unknown command: {args.command}[/bold red]")

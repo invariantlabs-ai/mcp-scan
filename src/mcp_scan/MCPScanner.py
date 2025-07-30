@@ -8,7 +8,7 @@ from typing import Any
 from mcp_scan.models import Issue, ScanError, ScanPathResult, ServerScanResult
 
 from .mcp_client import check_server_with_timeout, scan_mcp_config_file
-from .StorageFile import StorageFile
+from .Storage import Storage
 from .verify_api import analyze_scan_path
 
 # Set up logger for this module
@@ -66,7 +66,7 @@ class MCPScanner:
         self.checks_per_server = checks_per_server
         self.storage_file_path = os.path.expanduser(storage_file)
         logger.debug("Storage file path: %s", self.storage_file_path)
-        self.storage_file = StorageFile(self.storage_file_path)
+        self.storage_file = Storage(self.storage_file_path)
         self.server_timeout = server_timeout
         self.suppress_mcpserver_io = suppress_mcpserver_io
         self.context_manager = None
