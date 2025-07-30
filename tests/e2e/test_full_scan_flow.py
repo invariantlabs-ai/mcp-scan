@@ -101,7 +101,7 @@ class TestFullScanFlow:
             assert len(issues) == 0, "There should be no issues for the Weather server"
         else:
             assert len(issues) in [1, 2], "There should be 2 or 1 issues for the Math server"
-            assert {issue["code"] for issue in issues} == {"W001", "TF002"}, "Issues codes do not match expected values"
+            assert {issue["code"] for issue in issues}.issubset({"W001", "TF002"}), "Issues codes do not match expected values"
 
     def test_inspect(self):
         path = "tests/mcp_servers/configs_files/all_config.json"
