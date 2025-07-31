@@ -83,6 +83,7 @@ async def check_server(
                 resources: list = []
                 resource_templates: list = []
                 tools: list = []
+                completions: list = []
                 logger.debug(f"Server capabilities: {meta.capabilities}")
                 if isinstance(server_config, StdioServer) or meta.capabilities.prompts:
                     logger.debug("Fetching prompts")
@@ -107,7 +108,7 @@ async def check_server(
                         logger.debug("Found %d resource templates", len(resource_templates))
                     except Exception:
                         logger.exception("Failed to list resource templates")
-                        
+
                 if isinstance(server_config, StdioServer) or meta.capabilities.tools:
                     logger.debug("Fetching tools")
                     try:

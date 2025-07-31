@@ -3,10 +3,10 @@ from hashlib import md5
 from itertools import chain
 from typing import Any, Literal, TypeAlias
 
-from mcp.types import InitializeResult, Prompt, Resource, Tool, ResourceTemplate
+from mcp.types import InitializeResult, Prompt, Resource, Tool, ResourceTemplate, Completion
 from pydantic import BaseModel, ConfigDict, Field, RootModel, field_serializer, field_validator
 
-Entity: TypeAlias = Prompt | Resource | Tool
+Entity: TypeAlias = Prompt | Resource | Tool | ResourceTemplate | Completion
 Metadata: TypeAlias = InitializeResult
 
 

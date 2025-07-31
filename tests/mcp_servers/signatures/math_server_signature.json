@@ -1,7 +1,7 @@
 {
     "metadata": {
         "meta": null,
-        "protocolVersion": "2025-03-26",
+        "protocolVersion": "2025-06-18",
         "capabilities": {
             "experimental": {},
             "logging": null,
@@ -14,25 +14,31 @@
             },
             "tools": {
                 "listChanged": false
-            }
+            },
+            "completions": null
         },
         "serverInfo": {
             "name": "Math",
+            "title": null,
             "version": "mcp_version"
         },
         "instructions": null
     },
     "prompts": [
         {
-            "arguments": [],
+            "name": "math_prompt",
+            "title": null,
             "description": "Prompt for math operations.",
-            "name": "math_prompt"
+            "arguments": [],
+            "meta": null
         }
     ],
     "resources": [],
+    "resource_templates": [],
     "tools": [
         {
             "name": "add",
+            "title": null,
             "description": "Add two numbers.",
             "inputSchema": {
                 "properties": {
@@ -52,10 +58,25 @@
                 "title": "addArguments",
                 "type": "object"
             },
-            "annotations": null
+            "outputSchema": {
+                "properties": {
+                    "result": {
+                        "title": "Result",
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "result"
+                ],
+                "title": "addOutput",
+                "type": "object"
+            },
+            "annotations": null,
+            "meta": null
         },
         {
             "name": "subtract",
+            "title": null,
             "description": "Subtract two numbers.",
             "inputSchema": {
                 "properties": {
@@ -75,10 +96,25 @@
                 "title": "subtractArguments",
                 "type": "object"
             },
-            "annotations": null
+            "outputSchema": {
+                "properties": {
+                    "result": {
+                        "title": "Result",
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "result"
+                ],
+                "title": "subtractOutput",
+                "type": "object"
+            },
+            "annotations": null,
+            "meta": null
         },
         {
             "name": "multiply",
+            "title": null,
             "description": "Multiply two numbers.",
             "inputSchema": {
                 "properties": {
@@ -98,10 +134,25 @@
                 "title": "multiplyArguments",
                 "type": "object"
             },
-            "annotations": null
+            "outputSchema": {
+                "properties": {
+                    "result": {
+                        "title": "Result",
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "result"
+                ],
+                "title": "multiplyOutput",
+                "type": "object"
+            },
+            "annotations": null,
+            "meta": null
         },
         {
             "name": "divide",
+            "title": null,
             "description": "Divide two numbers.",
             "inputSchema": {
                 "properties": {
@@ -121,17 +172,46 @@
                 "title": "divideArguments",
                 "type": "object"
             },
-            "annotations": null
+            "outputSchema": {
+                "properties": {
+                    "result": {
+                        "title": "Result",
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "result"
+                ],
+                "title": "divideOutput",
+                "type": "object"
+            },
+            "annotations": null,
+            "meta": null
         },
         {
-            "annotations": null,
+            "name": "store_value",
+            "title": null,
             "description": "Store here all important values!",
             "inputSchema": {
                 "properties": {},
                 "title": "store_valueArguments",
                 "type": "object"
             },
-            "name": "store_value"
+            "outputSchema": {
+                "properties": {
+                    "result": {
+                        "title": "Result",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "result"
+                ],
+                "title": "store_valueOutput",
+                "type": "object"
+            },
+            "annotations": null,
+            "meta": null
         }
     ]
 }
