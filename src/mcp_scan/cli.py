@@ -524,7 +524,7 @@ async def run_scan_inspect(mode="scan", args=None):
         await upload(result, args.control_server, args.push_key, args.email, args.opt_out)
 
     if args.json:
-        result = {r.path: r.model_dump() for r in result}
+        result = {r.path: r.model_dump(mode="json") for r in result}
         print(json.dumps(result, indent=2))
     else:
         print_scan_result(

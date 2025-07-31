@@ -171,10 +171,11 @@ class MCPScanner:
                 server.server, self.server_timeout, self.suppress_mcpserver_io
             )
             logger.debug(
-                "Server %s has %d prompts, %d resources, %d tools",
+                "Server %s has %d prompts, %d resources, %d resouce templates,  %d tools",
                 server.name,
                 len(result.signature.prompts),
                 len(result.signature.resources),
+                len(result.signature.resource_templates),
                 len(result.signature.tools),
             )
         except Exception as e:
