@@ -1,4 +1,5 @@
 import logging
+import os
 
 import aiohttp
 
@@ -14,9 +15,6 @@ logger = logging.getLogger(__name__)
 identity_manager = IdentityManager()
 
 
-POLICY_PATH = "src/mcp_scan/policy.gr"
-
-
 async def analyze_scan_path(
     scan_path: ScanPathResult, base_url: str, opt_out_of_identity: bool = False
 ) -> ScanPathResult:
@@ -25,6 +23,7 @@ async def analyze_scan_path(
     headers = {
         "Content-Type": "application/json",
         "X-User": identity_manager.get_identity(opt_out_of_identity),
+        "X-Environment": os.getenv("MCP_SCAN_ENVIRONMENT", "production")
     }
     payload = VerifyServerRequest(
         root=[
