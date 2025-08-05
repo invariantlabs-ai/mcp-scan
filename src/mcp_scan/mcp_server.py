@@ -151,20 +151,19 @@ async def perform_and_schedule_scan(path, args):
     logger.info(f"Sleeping for {sleep_time.total_seconds()} seconds")
     return sleep_time.total_seconds()
 
+
 def create_lifespan_context(args):
     @asynccontextmanager
-    async def lifespan(mcp: FastMCP) -> AsyncIterator[Scanner]:
+    async def lifespan(mcp: FastMCP) -> AsyncIterator[object]:
         scanner = Scanner(args)
-        if args.background: 
-            yield scanner
-            #scanner.start()
-            # Initialize on startup
-            #try:
-            #    yield scanner
-            #finally:
-            #    scanner.stop()
+        if args.background:
+            try:
+                scanner.start()
+                yield {'scanner': scanner}
+            finally:
+                scanner.stop()
         else:
-            yield scanner
+            yield {'scanner': scanner}
     return lifespan
 
 def install_mcp_server(args):
@@ -203,8 +202,7 @@ def install_mcp_server(args):
 def mcp_server(args):
 
     # get args
-    parser = argparse.ArgumentParser()
-    lifespan_fn = create_lifespan_context(args)
+    lifespan = create_lifespan_context(args)
     storage = Storage(args.storage_file)
     setup_mcp_server_logging(storage.get_mcp_server_log_path(os.getpid(), args.client_name))
     
@@ -229,7 +227,7 @@ def mcp_server(args):
 
     logger.info(f"Instructions: {instructions}")
     
-    mcp = FastMCP("MCP Scan", instructions=instructions, lifespan=lifespan_fn)
+    mcp = FastMCP("MCP Scan", instructions=instructions, lifespan=lifespan)
 
     if args.background and args.tool:
         logger.info("Adding get_scan_results tool")
