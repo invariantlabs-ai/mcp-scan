@@ -105,8 +105,9 @@ class TestFullScanFlow:
             assert len(issues) == 1, "There should be 1 for the Weather server"
             assert {issue["code"] for issue in issues} == {"TF001"}, "Issues codes do not match expected values"
         elif set(server_names) == {"Math"}:
-            assert len(issues) == 2, "There should be 2 issues for the Math server"
-            assert {issue["code"] for issue in issues} == {"W001", "TF002"}, "Issues codes do not match expected values"
+            # account for two backend versions
+            assert (({issue["code"] for issue in issues} == {"W001", "TF002"}) or 
+                    ({issue["code"] for issue in issues} == {"W001"})), "Issues codes do not match expected values"
         else:
             assert False, "Invalid server names"
 
