@@ -20,7 +20,7 @@ jobs:
     - name: Create venv
       run: uv venv
     - name: Run tests
-      run: make test
+      run: make ci
     # build and store whl as artifact
     - name: Build and store whl
       if: matrix.os == 'ubuntu-latest'

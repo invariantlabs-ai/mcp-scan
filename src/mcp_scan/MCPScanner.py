@@ -163,18 +163,19 @@ class MCPScanner:
         if self.context_manager is not None:
             await self.context_manager.emit(signal, data)
 
-    async def scan_server(self, server: ServerScanResult, inspect_only: bool = False) -> ServerScanResult:
-        logger.info("Scanning server: %s, inspect_only: %s", server.name, inspect_only)
+    async def scan_server(self, server: ServerScanResult) -> ServerScanResult:
+        logger.info("Scanning server: %s", server.name)
         result = server.clone()
         try:
             result.signature = await check_server_with_timeout(
                 server.server, self.server_timeout, self.suppress_mcpserver_io
             )
             logger.debug(
-                "Server %s has %d prompts, %d resources, %d tools",
+                "Server %s has %d prompts, %d resources, %d resouce templates,  %d tools",
                 server.name,
                 len(result.signature.prompts),
                 len(result.signature.resources),
+                len(result.signature.resource_templates),
                 len(result.signature.tools),
             )
         except Exception as e:
@@ -189,12 +190,17 @@ class MCPScanner:
         path_result = await self.get_servers_from_path(path)
         for i, server in enumerate(path_result.servers):
             logger.debug("Scanning server %d/%d: %s", i + 1, len(path_result.servers), server.name)
-            path_result.servers[i] = await self.scan_server(server, inspect_only)
-        logger.debug(f"Check whitelisted {path}, {path is None}")
+            path_result.servers[i] = await self.scan_server(server)
+        if not inspect_only:
+            path_result = await self.check_path(path_result)
+        return path_result
+
+    async def check_path(self, path_result: ScanPathResult) -> ScanPathResult:
+        logger.debug(f"Check whitelisted {path_result.path}, {path_result.path is None}")
         path_result.issues += self.check_whitelist(path_result)
-        logger.debug(f"Check changed: {path}, {path is None}")
+        logger.debug(f"Check changed: {path_result.path}, {path_result.path is None}")
         path_result.issues += self.check_server_changed(path_result)
-        logger.debug(f"Verifying server path: {path}, {path is None}")
+        logger.debug(f"Verifying server path: {path_result.path}, {path_result.path is None}")
         path_result = await analyze_scan_path(
             path_result, base_url=self.base_url, opt_out_of_identity=self.opt_out_of_identity
         )

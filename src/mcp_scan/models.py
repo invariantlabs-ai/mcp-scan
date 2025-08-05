@@ -3,10 +3,10 @@ from hashlib import md5
 from itertools import chain
 from typing import Any, Literal, TypeAlias
 
-from mcp.types import InitializeResult, Prompt, Resource, Tool
+from mcp.types import InitializeResult, Prompt, Resource, Tool, ResourceTemplate, Completion
 from pydantic import BaseModel, ConfigDict, Field, RootModel, field_serializer, field_validator
 
-Entity: TypeAlias = Prompt | Resource | Tool
+Entity: TypeAlias = Prompt | Resource | Tool | ResourceTemplate | Completion
 Metadata: TypeAlias = InitializeResult
 
 
@@ -25,6 +25,8 @@ def entity_type_to_str(entity: Entity) -> str:
         return "resource"
     elif isinstance(entity, Tool):
         return "tool"
+    elif isinstance(entity, ResourceTemplate):
+        return "resource template"
     else:
         raise ValueError(f"Unknown entity type: {type(entity)}")
 
@@ -163,11 +165,12 @@ class ServerSignature(BaseModel):
     metadata: Metadata
     prompts: list[Prompt] = Field(default_factory=list)
     resources: list[Resource] = Field(default_factory=list)
+    resource_templates: list[ResourceTemplate] = Field(default_factory=list)
     tools: list[Tool] = Field(default_factory=list)
 
     @property
     def entities(self) -> list[Entity]:
-        return self.prompts + self.resources + self.tools
+        return self.prompts + self.resources + self.resource_templates + self.tools
 
 
 class VerifyServerRequest(RootModel[list[ServerSignature | None]]):
@@ -254,7 +257,7 @@ def entity_to_tool(
             inputSchema={},
             annotations=None,
         )
-    elif isinstance(entity, Prompt):
+    elif isinstance(entity, (Prompt, ResourceTemplate)):
         return Tool(
             name=entity.name,
             description=entity.description,

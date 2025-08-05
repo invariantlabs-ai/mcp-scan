@@ -225,8 +225,7 @@ mcp-scan whitelist tool "add" "a1b2c3..."
 ```
 
 ## Contributing
-
-We welcome contributions to MCP-Scan. If you have suggestions, bug reports, or feature requests, please open an issue on our GitHub repository.
+We welcome suggestions, bug reports, or feature requests as GitHub issues.
 
 ## Development Setup
 To run this package from source, follow these steps:
@@ -246,6 +245,7 @@ For automated scanning we recommend using the `--json` flag and parsing the outp
 - [MCP Security Notification Tool Poisoning Attacks](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks)
 - [WhatsApp MCP Exploited](https://invariantlabs.ai/blog/whatsapp-mcp-exploited)
 - [MCP Prompt Injection](https://simonwillison.net/2025/Apr/9/mcp-prompt-injection/)
+- [Toxic Flow Analysis](https://invariantlabs.ai/blog/toxic-flow-analysis)
 
 ## Changelog
 See [CHANGELOG.md](CHANGELOG.md).

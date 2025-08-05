@@ -1,6 +1,6 @@
 [project]
 name = "mcp-scan"
-version = "0.3.2"
+version = "0.3.3"
 description = "MCP Scan tool"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -9,7 +9,7 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "mcp[cli]==1.9.4",
+    "mcp[cli]==1.12.2",
     "rich>=14.0.0",
     "pyjson5>=1.6.8",
     "aiofiles>=23.1.0",

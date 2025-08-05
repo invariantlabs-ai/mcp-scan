@@ -81,7 +81,9 @@ async def check_server(
                 # for see servers we need to check the announced capabilities
                 prompts: list = []
                 resources: list = []
+                resource_templates: list = []
                 tools: list = []
+                completions: list = []
                 logger.debug(f"Server capabilities: {meta.capabilities}")
                 if isinstance(server_config, StdioServer) or meta.capabilities.prompts:
                     logger.debug("Fetching prompts")
@@ -91,6 +93,7 @@ async def check_server(
                     except Exception:
                         logger.exception("Failed to list prompts")
 
+                logger.debug("Server capabilities: %s", meta.capabilities)
                 if isinstance(server_config, StdioServer) or meta.capabilities.resources:
                     logger.debug("Fetching resources")
                     try:
@@ -98,6 +101,14 @@ async def check_server(
                         logger.debug("Found %d resources", len(resources))
                     except Exception:
                         logger.exception("Failed to list resources")
+
+                    logger.debug("Fetching resource templates")
+                    try:
+                        resource_templates += (await session.list_resource_templates()).resourceTemplates
+                        logger.debug("Found %d resource templates", len(resource_templates))
+                    except Exception:
+                        logger.exception("Failed to list resource templates")
+
                 if isinstance(server_config, StdioServer) or meta.capabilities.tools:
                     logger.debug("Fetching tools")
                     try:
@@ -110,6 +121,7 @@ async def check_server(
                     metadata=meta,
                     prompts=prompts,
                     resources=resources,
+                    resource_templates=resource_templates,
                     tools=tools,
                 )
 

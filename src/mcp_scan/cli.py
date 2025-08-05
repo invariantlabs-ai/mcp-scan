@@ -554,10 +554,15 @@ async def run_scan_inspect(mode="scan", args=None):
 async def print_scan_inspect(mode="scan", args=None):
     result = await run_scan_inspect(mode, args)
     if args.json:
-        result = {r.path: r.model_dump() for r in result}
+        result = {r.path: r.model_dump(mode="json") for r in result}
         print(json.dumps(result, indent=2))
     else:
-        print_scan_result(result, args.print_errors, args.full_toxic_flows)
+        print_scan_result(
+            result,
+            args.print_errors,
+            args.full_toxic_flows if hasattr(args, "full_toxic_flows") else False,
+            mode == "inspect",
+        )
 
 
 if __name__ == "__main__":
