@@ -25,12 +25,15 @@ import psutil
 logger = logging.getLogger(__name__)
 
 # start a thread that runs the do_mcp_scan function
-def thread_fn(path, args):
+def thread_fn(path, args, stop_event):
     logger.info(f"Launching scanning thread")
     t = threading.current_thread()
     sleep_time = 10 # initially sleep for 10 seconds to avoid race conditions on startup
-    while getattr(t, "do_run", True): # TODO: make this an interruptible sleep
-        time.sleep(sleep_time)
+    while getattr(t, "do_run", True):
+        # Use event.wait() for interruptible sleep
+        if stop_event.wait(timeout=sleep_time):
+            # Event was set, we should stop
+            break
         logger.info(f"Waking up to perform scan")
         sleep_time = asyncio.run(perform_and_schedule_scan(path, args))
         if sleep_time is None: sleep_time = 10 # seconds
@@ -41,21 +44,20 @@ class Scanner:
         self.args = args
         self.storage = Storage(args.storage_file)
         self.scan_path = self.storage.get_background_scan_path()
+        self.stop_event = threading.Event()
         logger.info(f"Scanner initialized")
 
     def start(self):
         logger.info(f"Starting scanner thread")
-        self.thread = threading.Thread(target=thread_fn, args=(self.scan_path, self.args))
+        self.thread = threading.Thread(target=thread_fn, args=(self.scan_path, self.args, self.stop_event))
         self.thread.start()
 
     def stop(self):
         logger.info(f"Stopping scanner thread")
         self.thread.do_run = False
+        self.stop_event.set()  # Signal the thread to wake up and stop
         self.thread.join()
         
-    def get_result(self):
-        pass
-
 def setup_mcp_server_logging(log_path):
     # Create a root logger
     root_logger = logging.getLogger()
@@ -154,12 +156,13 @@ def create_lifespan_context(args):
     async def lifespan(mcp: FastMCP) -> AsyncIterator[Scanner]:
         scanner = Scanner(args)
         if args.background: 
-            scanner.start()
+            yield scanner
+            #scanner.start()
             # Initialize on startup
-            try:
-                yield scanner
-            finally:
-                scanner.stop()
+            #try:
+            #    yield scanner
+            #finally:
+            #    scanner.stop()
         else:
             yield scanner
     return lifespan
