@@ -139,6 +139,21 @@ class Storage:
 
         self.scanned_entities.root[key] = new_data
         return changed, messages
+    
+    def get_background_scan_path(self):
+        return os.path.join(self.path, "background_scan.json")
+
+    def get_mcp_server_log_path(self, pid: int, client_name: str | None = None):
+        date = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
+        file = os.path.join(self.path, "mcp_server", f"{date}_{pid}_{client_name}.log")
+        # create folder if it doesn't exist
+        os.makedirs(os.path.dirname(file), exist_ok=True)
+        # create file if it doesn't exist
+        if not os.path.exists(file):
+            with open(file, "w") as f:
+                f.write("")
+        return file
+
 
     def print_whitelist(self) -> None:
         logger.info("Printing whitelist with %d entries", len(self.whitelist))

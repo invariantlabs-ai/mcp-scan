@@ -3,6 +3,7 @@ import asyncio
 import json
 import logging
 import sys
+import os
 
 import psutil
 import rich
@@ -373,20 +374,23 @@ def main():
     uninstall_parser = subparsers.add_parser("uninstall-proxy", help="Uninstall Invariant Gateway")
     add_uninstall_arguments(uninstall_parser)
     
-    # install autoscan
-    install_autoscan_parser = subparsers.add_parser("install-autoscan", help="Install itself as a MCP server for automatic scanning")
-    add_install_arguments(install_autoscan_parser)
-
-    # uninstall autoscan
-    uninstall_autoscan_parser = subparsers.add_parser("uninstall-autoscan", help="Uninstall MCP-scan MCP server")
-    add_uninstall_arguments(uninstall_autoscan_parser)
+    # install 
+    install_autoscan_parser = subparsers.add_parser("install-mcp-server", help="Install itself as a MCP server for automatic scanning")
+    install_autoscan_parser.add_argument("file", type=str, default=None, help="File to install the MCP server in")
+    install_autoscan_parser.add_argument("--tool", action="store_true", default=False, help="Expose a tool for scanning")
+    install_autoscan_parser.add_argument("--background", action="store_true", default=False, help="Periodically run the scan in the background")
+    install_autoscan_parser.add_argument("--scan-interval", type=int, default=60*30, help="Scan interval in seconds (default: 1800 seconds = 30 minutes)")
+    install_autoscan_parser.add_argument("--client-name", type=str, default=None, help="Name of the client issuing the scan")
+    setup_scan_parser(install_autoscan_parser)
     
     # mcp server mode
     mcp_server_parser = subparsers.add_parser("mcp-server", help="Start an MCP server")
-    # add a catch all argument
     mcp_server_parser.add_argument("--tool", action="store_true", default=False, help="Expose a tool for scanning")
     mcp_server_parser.add_argument("--background", action="store_true", default=False, help="Periodically run the scan in the background")
-    mcp_server_parser.add_argument("args", nargs="*", help="Arguments passed to the MCP server for scanning")
+    mcp_server_parser.add_argument("--scan-interval", type=int, default=60*30, help="Scan interval in seconds (default: 1800 seconds = 30 minutes)")
+    mcp_server_parser.add_argument("--client-name", type=str, default=None, help="Name of the client issuing the scan")
+    setup_scan_parser(mcp_server_parser)
+
 
     # HELP command
     help_parser = subparsers.add_parser(  # noqa: F841
@@ -499,10 +503,10 @@ def main():
     elif args.command == "inspect":
         asyncio.run(print_scan_inspect(mode="inspect", args=args))
         sys.exit(0)
-    elif args.command == "install":
+    elif args.command == "install-proxy":
         asyncio.run(install())
         sys.exit(0)
-    elif args.command == "uninstall":
+    elif args.command == "uninstall-proxy":
         asyncio.run(uninstall())
         sys.exit(0)
     elif args.command == "scan" or args.command is None:  # default to scan
@@ -521,7 +525,10 @@ def main():
         sys.exit(0)
     elif args.command == "mcp-server":
         from mcp_scan.mcp_server import mcp_server
-        sys.exit(mcp_server(tool=args.tool, background=args.background, args=args.args))
+        sys.exit(mcp_server(args))
+    elif args.command == "install-mcp-server":
+        from mcp_scan.mcp_server import install_mcp_server
+        sys.exit(install_mcp_server(args))
     else:
         # This shouldn't happen due to argparse's handling
         rich.print(f"[bold red]Unknown command: {args.command}[/bold red]")
