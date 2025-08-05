@@ -97,11 +97,18 @@ class TestFullScanFlow:
         assert len(output) == 1, "Output should contain exactly one entry for the config file"
         path = next(iter(output.keys()))
         issues = output[path]["issues"]
-        if "Math" not in server_names:
-            assert len(issues) == 0, "There should be no issues for the Weather server"
+        
+        if set(server_names) == {"Weather", "Math"}:
+            assert len(issues) == 3, "There should be 3 issue for the Math and Weather server"
+            assert {issue["code"] for issue in issues} == {"W001", "TF001", "TF002"}, "Issues codes do not match expected values"
+        elif set(server_names) == {"Weather"}:
+            assert len(issues) == 1, "There should be 1 for the Weather server"
+            assert {issue["code"] for issue in issues} == {"TF001"}, "Issues codes do not match expected values"
+        elif set(server_names) == {"Math"}:
+            assert len(issues) == 1, "There should be 1 issue for the Math server"
+            assert {issue["code"] for issue in issues} == {"W001"}, "Issues codes do not match expected values"
         else:
-            assert len(issues) in [1, 2], "There should be 2 or 1 issues for the Math server"
-            assert {issue["code"] for issue in issues}.issubset({"W001", "TF002"}), "Issues codes do not match expected values"
+            assert False, "Invalid server names"
 
     def test_inspect(self):
         path = "tests/mcp_servers/configs_files/all_config.json"
@@ -118,7 +125,6 @@ class TestFullScanFlow:
             server["signature"]["metadata"]["serverInfo"]["version"] = (
                 "mcp_version"  # swap actual version with placeholder
             )
-
             with open(f"tests/mcp_servers/signatures/{server['name'].lower()}_server_signature.json") as f:
                 assert server["signature"] == json.load(f), f"Signature mismatch for {server['name']} server"
 
