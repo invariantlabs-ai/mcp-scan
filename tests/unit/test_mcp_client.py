@@ -106,9 +106,15 @@ async def test_math_server():
     for name, server in servers.items():
         signature = await check_server_with_timeout(server, 5, False)
         if name == "Math":
-            assert len(signature.prompts) == 0
+            assert len(signature.prompts) == 1
             assert len(signature.resources) == 0
-            assert {t.name for t in signature.tools} == {"add", "subtract", "multiply", "divide"}
+            assert {t.name for t in signature.tools} == {
+                "add",
+                "subtract",
+                "multiply",
+                "store_value",  # This is the compromised tool
+                "divide",
+            }
 
 
 @pytest.mark.asyncio
@@ -118,13 +124,20 @@ async def test_all_server():
     for name, server in servers.items():
         signature = await check_server_with_timeout(server, 5, False)
         if name == "Math":
-            assert len(signature.prompts) == 0
+            assert len(signature.prompts) == 1
             assert len(signature.resources) == 0
-            assert {t.name for t in signature.tools} == {"add", "subtract", "multiply", "divide"}
+            assert {t.name for t in signature.tools} == {
+                "add",
+                "subtract",
+                "multiply",
+                "store_value",  # This is the compromised tool
+                "divide",
+            }
         if name == "Weather":
-            assert len(signature.prompts) == 0
-            assert len(signature.resources) == 0
             assert {t.name for t in signature.tools} == {"weather"}
+            assert {p.name for p in signature.prompts} == {"good_morning"}
+            assert {r.name for r in signature.resources} == {"weathers"}
+            assert {rt.name for rt in signature.resource_templates} == {"weather_description"}
 
 
 @pytest.mark.asyncio
@@ -134,6 +147,7 @@ async def test_weather_server():
     for name, server in servers.items():
         signature = await check_server_with_timeout(server, 5, False)
         if name == "Weather":
-            assert len(signature.prompts) == 0
-            assert len(signature.resources) == 0
             assert {t.name for t in signature.tools} == {"weather"}
+            assert {p.name for p in signature.prompts} == {"good_morning"}
+            assert {r.name for r in signature.resources} == {"weathers"}
+            assert {rt.name for rt in signature.resource_templates} == {"weather_description"}

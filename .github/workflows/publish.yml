@@ -1,4 +1,4 @@
-name: Publish to PyPI and npm
+name: Publish to PyPI
 
 on:
   workflow_dispatch:
@@ -15,11 +15,7 @@ jobs:
       run: uv venv
     - name: Run tests
       run: make test
-    - name: Authenticate NPM
-      run: |
-        echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
-        echo "email=${{ secrets.NPM_EMAIL }}" >> ~/.npmrc
-    - name: Publish PyPI and npm
+    - name: Publish PyPI
       run: make publish
       env:
         PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}

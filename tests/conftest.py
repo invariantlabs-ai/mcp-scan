@@ -1,5 +1,8 @@
 """Global pytest fixtures for mcp-scan tests."""
 
+import subprocess
+import time
+
 import pytest
 
 from mcp_scan.utils import TempFile
@@ -85,6 +88,86 @@ def vscode_config_file(vscode_config):
         temp_file.write(vscode_config)
         temp_file.flush()
         yield temp_file.name
+
+
+@pytest.fixture
+def sse_transport_config():
+    """Sample settings.json with multiple sse MCP server."""
+    return """{
+    "mcp": {
+        "servers": {
+            "sse_server": {
+                "type": "sse",
+                "url": "http://localhost:8123/sse"
+            }
+        }
+    }
+}
+
+"""
+
+
+@pytest.fixture
+def sse_transport_config_file(sse_transport_config):
+    with TempFile(mode="w") as temp_file:
+        process = subprocess.Popen(
+            [
+                "uv",
+                "run",
+                "python",
+                "tests/mcp_servers/multiple_transport_server.py",
+                "--transport",
+                "sse",
+                "--port",
+                "8123",
+            ],
+        )
+        time.sleep(1)  # Wait for the server to start
+        temp_file.write(sse_transport_config)
+        temp_file.flush()
+        yield temp_file.name
+        process.terminate()
+        process.wait()
+
+
+@pytest.fixture
+def streamable_http_transport_config():
+    """Sample settings.json with streamable_http MCP server."""
+    return """{
+    "mcp": {
+        "servers": {
+            "http_server": {
+                "type": "http",
+                "url": "http://localhost:8124/mcp"
+            }
+        }
+    }
+}
+
+"""
+
+
+@pytest.fixture
+def streamable_http_transport_config_file(streamable_http_transport_config):
+    with TempFile(mode="w") as temp_file:
+        process = subprocess.Popen(
+            [
+                "uv",
+                "run",
+                "python",
+                "tests/mcp_servers/multiple_transport_server.py",
+                "--transport",
+                "streamable_http",
+                "--port",
+                "8124",
+            ],
+        )
+        time.sleep(1)  # Wait for the server to start
+        temp_file.write(streamable_http_transport_config)
+        temp_file.flush()
+        yield temp_file.name
+        process.terminate()
+        process.wait()
 
 
 @pytest.fixture

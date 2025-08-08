@@ -16,4 +16,11 @@
 - `0.1.15` Added local-only mode for scanning.
 - `0.1.16` Fix when handling tools or args that contain dots.
 - `0.1.17` Fix single server would throw an error.
-- `0.2.1` `mcp-scan proxy` for live MCP call scanning, [MCP guardrails](https://explorer.invariantlabs.ai/docs/mcp-scan/guardrails/)
+- `0.2.1` `mcp-scan proxy` for live MCP call scanning, [MCP guardrails](https://explorer.invariantlabs.ai/docs/mcp-scan/guardrails/); removed NPM support
+- `0.2.2` Fix bug with non-serializable exceptions. Move cross reference analysis to server-side. Now supports fuzzy similarity. Support `streamable-http` as transport.
+- `0.2.3` Bug fix. A broken MCP server would compromise the output for all the other servers within the same client.
+- `0.3.0` Add Toxic Flow analysis.
+- `0.3.1` Add cosmetics. Now defaults to `scan` also with `--` parameters.
+- `0.3.2` Add user IDs, --control-server for managed use and --opt-out to disable tracking.
+- `0.3.2` Add user IDs, --control-server for managed use and --opt-out to disable tracking.
+- `0.3.3` Fix `inspect` mode, bug fixes.

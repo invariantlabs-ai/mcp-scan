@@ -1,7 +1,7 @@
 {
     "metadata": {
         "meta": null,
-        "protocolVersion": "2024-11-05",
+        "protocolVersion": "2025-06-18",
         "capabilities": {
             "experimental": {},
             "logging": null,
@@ -14,19 +14,63 @@
             },
             "tools": {
                 "listChanged": false
-            }
+            },
+            "completions": {}
         },
         "serverInfo": {
             "name": "Weather",
+            "title": null,
             "version": "mcp_version"
         },
         "instructions": null
     },
-    "prompts": [],
-    "resources": [],
+    "prompts": [
+        {
+            "name": "good_morning",
+            "title": null,
+            "description": "Prompt to generate a good morning message for the user.",
+            "arguments": [
+                {
+                    "name": "name",
+                    "description": null,
+                    "required": true
+                },
+                {
+                    "name": "weather",
+                    "description": null,
+                    "required": false
+                }
+            ],
+            "meta": null
+        }
+    ],
+    "resources": [
+        {
+            "name": "weathers",
+            "title": null,
+            "uri": "weather://list",
+            "description": "List of possible weather supported by the server.",
+            "mimeType": "text/plain",
+            "size": null,
+            "annotations": null,
+            "meta": null
+        }
+    ],
+    "resource_templates": [
+        {
+            "name": "weather_description",
+            "title": null,
+            "uriTemplate": "weather://{weather}/description",
+            "description": "Description of a weather.",
+            "mimeType": null,
+            "annotations": null,
+            "meta": null
+        }
+    ],
     "tools": [
         {
             "name": "weather",
+            "title": null,
             "description": "Get current weather for a location.",
             "inputSchema": {
                 "properties": {
@@ -41,7 +85,21 @@
                 "title": "weatherArguments",
                 "type": "object"
             },
-            "annotations": null
+            "outputSchema": {
+                "properties": {
+                    "result": {
+                        "title": "Result",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "result"
+                ],
+                "title": "weatherOutput",
+                "type": "object"
+            },
+            "annotations": null,
+            "meta": null
         }
     ]
 }

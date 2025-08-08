@@ -10,6 +10,12 @@ run:
 	uv run -m src.mcp_scan.run ${RUN_ARGS}
 
 test:
+	export MCP_SCAN_ENVIRONMENT=test
+	uv pip install -e .[test]
+	uv run pytest
+
+ci:
+	export MCP_SCAN_ENVIRONMENT=ci
 	uv pip install -e .[test]
 	uv run pytest
 
@@ -26,19 +32,10 @@ shiv: build
 	mkdir -p dist
 	uv run shiv -c mcp-scan -o dist/mcp-scan.pyz --python "/usr/bin/env python3" dist/*.whl
 
-npm-package: shiv
-	mkdir -p npm/dist
-	cp dist/mcp-scan.pyz npm/dist/
-	uv run python npm/write_package.py
-	chmod +x npm/bin/mcp-scan.js
-
 publish-pypi: build
 	uv publish --token ${PYPI_TOKEN}
 
-publish-npm: npm-package
-	cd npm && npm publish
-
-publish: publish-pypi publish-npm
+publish: publish-pypi
 
 pre-commit:
 	pre-commit run --all-files
