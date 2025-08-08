@@ -3,6 +3,10 @@ from datetime import datetime
 from enum import Enum
 from typing import Any
 
+from fastapi import FastAPI, Request
+
+Message = dict[str, Any]
+
 
 class MergeNodeTypes(Enum):
     SELF = "self"
@@ -24,7 +28,7 @@ class SessionNode:
     """
 
     timestamp: datetime
-    message: dict[str, Any]
+    message: Message
     session_id: str
     server_name: str
     original_session_index: int
@@ -36,6 +40,12 @@ class SessionNode:
     def __lt__(self, other: "SessionNode") -> bool:
         """Sort by timestamp."""
         return self.timestamp < other.timestamp
+
+    def to_json(self) -> Message:
+        """
+        Convert the session node to a message.
+        """
+        return self.message
 
 
 class Session:
@@ -49,6 +59,7 @@ class Session:
     ):
         self.nodes: list[SessionNode] = nodes or []
         self.last_analysis_index: int = -1
+        self.last_pushed_index: int = -1
 
     def _build_stack(self, other: "Session") -> list[MergeInstruction]:
         """
@@ -145,6 +156,12 @@ class Session:
     def __repr__(self):
         return f"Session(nodes={self.get_sorted_nodes()})"
 
+    def to_json(self) -> list[Message]:
+        """
+        Convert the session to a list of messages.
+        """
+        return [node.to_json() for node in self.nodes]
+
 
 class SessionStore:
     """
@@ -179,6 +196,12 @@ class SessionStore:
         session.merge(other)
         return session
 
+    def to_json(self) -> dict[str, dict[str, list[dict[str, Any]]]]:
+        """
+        Convert the sessions to a dictionary.
+        """
+        return {"sessions": {client_name: session.to_json() for client_name, session in self.sessions.items()}}
+
 
 async def to_session(messages: list[dict[str, Any]], server_name: str, session_id: str) -> Session:
     """
@@ -198,3 +221,17 @@ async def to_session(messages: list[dict[str, Any]], server_name: str, session_i
         )
 
     return Session(nodes=session_nodes)
+
+
+def get_session_store(request: Request) -> SessionStore:
+    """
+    Get the session store.
+    """
+    return request.app.state.session_store
+
+
+def setup_session_store(app: FastAPI) -> None:
+    """
+    Setup the session store as a dependency for the given FastAPI app.
+    """
+    app.state.session_store = SessionStore()
