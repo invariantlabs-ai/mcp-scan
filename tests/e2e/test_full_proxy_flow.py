@@ -25,31 +25,23 @@ def safe_decode(bytes_output, encoding="utf-8", errors="replace"):
 
 
 async def run_toy_server_client(config):
-    try:
-        async with get_client(config) as (read, write):
-            async with ClientSession(read, write) as session:
-                print("[Client] Initializing connection")
-                await session.initialize()
-                print("[Client] Listing tools")
-                tools = await session.list_tools()
-                print("[Client] Tools: ", tools.tools)
+    async with get_client(config) as (read, write):
+        async with ClientSession(read, write) as session:
+            print("[Client] Initializing connection")
+            await session.initialize()
+            print("[Client] Listing tools")
+            tools = await session.list_tools()
+            print("[Client] Tools: ", tools.tools)
 
-                print("[Client] Calling tool add")
-                result = await session.call_tool("add", arguments={"a": 1, "b": 2})
-                result = result.content[0].text
-                print("[Client] Result: ", result)
+            print("[Client] Calling tool add")
+            result = await session.call_tool("add", arguments={"a": 1, "b": 2})
+            result = result.content[0].text
+            print("[Client] Result: ", result)
 
-                return {
-                    "result": result,
-                    "tools": tools.tools,
-                }
-    except Exception as e:
-        print(f"[Client] Error during MCP communication: {e}")
-        print(f"[Client] Error type: {type(e)}")
-        import traceback
-
-        print(f"[Client] Traceback: {traceback.format_exc()}")
-        raise
+            return {
+                "result": result,
+                "tools": tools.tools,
+            }
     return result
 
 
@@ -159,41 +151,10 @@ class TestFullProxyFlow:
                         + safe_decode(stderr)
                     )
 
-        # Debug: Check process status and get any output so far
-        print(f"[DEBUG] Process status: {process.poll()}")
-
-        # Add a small delay to let the server start up properly
-        print("[DEBUG] Waiting for server to start up...")
-        await asyncio.sleep(2)
-
-        # Check if process is still running
-        if process.poll() is not None:
-            stdout, stderr = process.communicate()
-            print("[DEBUG] Process terminated unexpectedly")
-            print(f"[DEBUG] stdout: {safe_decode(stdout)}")
-            print(f"[DEBUG] stderr: {safe_decode(stderr)}")
-            raise AssertionError("Process terminated unexpectedly during startup")
-
         with open(toy_server_add_config_file) as f:
             # assert that 'invariant-gateway' is in the file
             content = f.read()
             print(content)
-
-        # Debug: Try to check if the server is actually responding
-        print("[DEBUG] Checking if server is responding...")
-        try:
-            import aiohttp
-
-            async with aiohttp.ClientSession() as session:
-                async with session.get(f"http://localhost:{self.PORT}/") as response:
-                    print(f"[DEBUG] Server health check response: {response.status}")
-                    if response.status == 200:
-                        print("[DEBUG] Server is responding to HTTP requests")
-                    else:
-                        print(f"[DEBUG] Server returned unexpected status: {response.status}")
-        except Exception as e:
-            print(f"[DEBUG] Server health check failed: {e}")
-            print("[DEBUG] This might be expected if server is still starting up")
 
         # start client
         config = await scan_mcp_config_file(toy_server_add_config_file)
