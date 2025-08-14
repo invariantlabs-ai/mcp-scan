@@ -7,6 +7,10 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     runs-on: ${{ matrix.os }}
@@ -17,8 +21,13 @@ jobs:
     - uses: actions/checkout@v4
     - name: Install the latest version of uv
       uses: astral-sh/setup-uv@v6
+      with:
+        enable-cache: true
+        cache-dependency-glob: "pyproject.toml"
     - name: Create venv
       run: uv venv
+    - name: Run linters
+      run: make lint
     - name: Run tests
       run: make ci
     # build and store whl as artifact

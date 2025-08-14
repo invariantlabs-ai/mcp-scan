@@ -23,13 +23,10 @@ async def analyze_scan_path(
     headers = {
         "Content-Type": "application/json",
         "X-User": identity_manager.get_identity(opt_out_of_identity),
-        "X-Environment": os.getenv("MCP_SCAN_ENVIRONMENT", "production")
+        "X-Environment": os.getenv("MCP_SCAN_ENVIRONMENT", "production"),
     }
     payload = VerifyServerRequest(
-        root=[
-            server.signature.model_dump() if server.signature else None
-            for server in scan_path.servers
-        ]
+        root=[server.signature.model_dump() if server.signature else None for server in scan_path.servers]
     )
 
     # Server signatures do not contain any information about the user setup. Only about the server itself.

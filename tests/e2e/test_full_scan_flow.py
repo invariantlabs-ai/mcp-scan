@@ -97,19 +97,22 @@ class TestFullScanFlow:
         assert len(output) == 1, "Output should contain exactly one entry for the config file"
         path = next(iter(output.keys()))
         issues = output[path]["issues"]
-        
+
         if set(server_names) == {"Weather", "Math"}:
             assert len(issues) == 3, "There should be 3 issue for the Math and Weather server"
-            assert {issue["code"] for issue in issues} == {"W001", "TF001", "TF002"}, "Issues codes do not match expected values"
+            assert {issue["code"] for issue in issues} == {"W001", "TF001", "TF002"}, (
+                "Issues codes do not match expected values"
+            )
         elif set(server_names) == {"Weather"}:
             assert len(issues) == 1, "There should be 1 for the Weather server"
             assert {issue["code"] for issue in issues} == {"TF001"}, "Issues codes do not match expected values"
         elif set(server_names) == {"Math"}:
             # account for two backend versions
-            assert (({issue["code"] for issue in issues} == {"W001", "TF002"}) or 
-                    ({issue["code"] for issue in issues} == {"W001"})), "Issues codes do not match expected values"
+            assert ({issue["code"] for issue in issues} == {"W001", "TF002"}) or (
+                {issue["code"] for issue in issues} == {"W001"}
+            ), "Issues codes do not match expected values"
         else:
-            assert False, "Invalid server names"
+            raise AssertionError("Invalid server names")
 
     def test_inspect(self):
         path = "tests/mcp_servers/configs_files/all_config.json"

@@ -3,7 +3,6 @@ name: Publish to PyPI
 on:
   workflow_dispatch:
 
-
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -11,8 +10,13 @@ jobs:
     - uses: actions/checkout@v4
     - name: Install the latest version of uv
       uses: astral-sh/setup-uv@v6
+      with:
+        enable-cache: true
+        cache-dependency-glob: "pyproject.toml"
     - name: Create venv
       run: uv venv
+    - name: Run linters
+      run: make lint
     - name: Run tests
       run: make test
     - name: Publish PyPI

@@ -3,7 +3,7 @@ from hashlib import md5
 from itertools import chain
 from typing import Any, Literal, TypeAlias
 
-from mcp.types import InitializeResult, Prompt, Resource, Tool, ResourceTemplate, Completion
+from mcp.types import Completion, InitializeResult, Prompt, Resource, ResourceTemplate, Tool
 from pydantic import BaseModel, ConfigDict, Field, RootModel, field_serializer, field_validator
 
 Entity: TypeAlias = Prompt | Resource | Tool | ResourceTemplate | Completion
@@ -257,7 +257,7 @@ def entity_to_tool(
             inputSchema={},
             annotations=None,
         )
-    elif isinstance(entity, (Prompt, ResourceTemplate)):
+    elif isinstance(entity, Prompt | ResourceTemplate):
         return Tool(
             name=entity.name,
             description=entity.description,
