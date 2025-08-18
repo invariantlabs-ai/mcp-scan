@@ -290,6 +290,13 @@ def main():
         action="store_true",
         help="Opts out of sending unique a unique user identifier with every scan.",
     )
+    scan_parser.add_argument(
+        "--include-built-in",
+        default=False,
+        action="store_true",
+        help="Also include built-in IDE tools.",
+    )
+
 
     # INSPECT command
     inspect_parser = subparsers.add_parser(

@@ -58,6 +58,7 @@ class MCPScanner:
         server_timeout: int = 10,
         suppress_mcpserver_io: bool = True,
         opt_out: bool = False,
+        include_built_in: bool = False,
         **kwargs: Any,
     ):
         logger.info("Initializing MCPScanner")
@@ -72,6 +73,7 @@ class MCPScanner:
         self.suppress_mcpserver_io = suppress_mcpserver_io
         self.context_manager = None
         self.opt_out_of_identity = opt_out
+        self.include_built_in = include_built_in
         logger.debug(
             "MCPScanner initialized with timeout: %d, checks_per_server: %d", server_timeout, checks_per_server
         )
@@ -197,7 +199,8 @@ class MCPScanner:
             path_result.servers[i] = await self.scan_server(server)
 
         # add built-in tools
-        path_result = get_builtin_tools(path_result)
+        if self.include_built_in:
+            path_result = get_builtin_tools(path_result)
 
         if not inspect_only:
             path_result = await self.check_path(path_result)
