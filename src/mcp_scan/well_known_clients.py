@@ -1,11 +1,12 @@
 import logging
+import os
 import re
 import sys
-import os
 
+from mcp.types import Implementation, InitializeResult, ServerCapabilities, Tool, ToolsCapability
+
+from mcp_scan.mcp_client import ServerSignature, StdioServer
 from mcp_scan.models import ScanPathResult, ServerScanResult
-from mcp_scan.mcp_client import StdioServer, ServerSignature
-from mcp.types import InitializeResult, ServerCapabilities, Implementation, Tool, ToolsCapability
 
 # Set up logger for this module
 logger = logging.getLogger(__name__)
@@ -23,7 +24,7 @@ CLIENT_TOOLS = {
         "edit_file": "Make changes to an existing file.",
         "write_to_file": "Create new files.",
         # Run Tools
-        "run_terminal_command": "Execute terminal commands and return their output.",
+        "run_terminal_command": "Execute terminal commands with internet access and monitor output.",
     },
     "cursor": {
         # Search Tools
@@ -38,7 +39,7 @@ CLIENT_TOOLS = {
         "Edit & Reapply": "Suggest edits to files and apply them automatically.",
         "Delete File": "Delete files autonomously (can be disabled in settings).",
         # Run Tools
-        "Terminal": "Execute terminal commands and monitor output.",
+        "Terminal": "Execute terminal commands with internet access and monitor output.",
     },
     "vscode": {
         # VSCode tools can be added here when needed
@@ -49,7 +50,7 @@ CLIENT_TOOLS = {
         "new": "Scaffold a new workspace in VS Code",
         "openSimpleBrowser": "Preview a locally hosted website in the Simple Browser",
         "problems": "Check errors for a particular file",
-        "runCommands": "Runs commands in the terminal",
+        "runCommands": "Run commands in terminal with internet access",
         "runNotebooks": "Run notebook cells",
         "runTasks": "Runs tasks and gets their output for your workspace",
         "search": "Search and read files in your workspace",
@@ -61,8 +62,8 @@ CLIENT_TOOLS = {
         "vscodeAPI": "Use VS Code API references to answer questions about VS Code extension ...",
         "changes": "Get diffs of changed files",
         "codebase": "Find relevant file chunks, symbols, and other information in your codebase",
-        "editFiles": "Edit files in your workspace"
-    }
+        "editFiles": "Edit files in your workspace",
+    },
 }
 
 # Platform-specific client paths
@@ -135,61 +136,55 @@ def client_shorthands_to_paths(shorthands: list[str]):
 def get_builtin_tools(path_result: ScanPathResult) -> ScanPathResult:
     """
     Add built-in tools for well-known clients to the scan result.
-    
+
     Args:
         path_result: The scan path result to add built-in tools to
-        
+
     Returns:
         ScanPathResult with built-in tools added for the detected client
     """
     output = path_result.clone()
     client = get_client_from_path(path_result.path)
-    
+
     if client and client in CLIENT_TOOLS:
         tools_dict = CLIENT_TOOLS[client]
-        
+
         # Skip if no tools defined for this client
         if not tools_dict:
             logger.info("No tools defined for %s; not adding built-in tools", client)
             return output
-            
+
         # Create server and metadata
         server = StdioServer(command=client)
         client_display_name = client.title()
         instructions = f"Built-in tools for {client_display_name}."
-            
+
         metadata = InitializeResult(
             protocolVersion="built-in",
             capabilities=ServerCapabilities(tools=ToolsCapability(listChanged=False)),
             serverInfo=Implementation(name=client_display_name, version="built-in"),
-            instructions=instructions
+            instructions=instructions,
         )
-        
-        signature = ServerSignature(
-            metadata=metadata,
-            tools=[],
-            prompts=[],
-            resources=[],
-            resource_templates=[]
-        )
-        
+
+        signature = ServerSignature(metadata=metadata, tools=[], prompts=[], resources=[], resource_templates=[])
+
         # Create Tool entities programmatically
         for tool_name, tool_description in tools_dict.items():
-            signature.tools.append(Tool(
-                name=tool_name,
-                description=tool_description,
-                inputSchema={}, 
-                outputSchema={}, 
-                annotations=None, 
-                meta={}
-            ))
-        
-        output.servers.append(ServerScanResult(
-            name=f"{client_display_name} (built-in)", 
-            server=server, 
-            signature=signature
-        ))
+            signature.tools.append(
+                Tool(
+                    name=tool_name,
+                    description=tool_description,
+                    inputSchema={},
+                    outputSchema={},
+                    annotations=None,
+                    meta={},
+                )
+            )
+
+        output.servers.append(
+            ServerScanResult(name=f"{client_display_name} (built-in)", server=server, signature=signature)
+        )
     elif client:
         logger.warning("Unknown client; not adding built-in tools for %s", client)
-    
+
     return output
