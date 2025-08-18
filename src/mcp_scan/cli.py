@@ -3,11 +3,14 @@ import asyncio
 import json
 import logging
 import sys
+from typing import Any
 
 import psutil
 import rich
 from invariant.__main__ import add_extra
 from rich.logging import RichHandler
+from pydantic import BaseModel
+from pydantic.networks import AnyUrl
 
 from mcp_scan.gateway import MCPGatewayConfig, MCPGatewayInstaller
 from mcp_scan.upload import upload
@@ -18,6 +21,17 @@ from .paths import WELL_KNOWN_MCP_PATHS, client_shorthands_to_paths
 from .printer import print_scan_result
 from .StorageFile import StorageFile
 from .version import version_info
+
+
+class PydanticJSONEncoder(json.JSONEncoder):
+    """Custom JSON encoder that handles Pydantic types."""
+    
+    def default(self, o: Any) -> Any:
+        if isinstance(o, AnyUrl):
+            return str(o)
+        if isinstance(o, BaseModel):
+            return o.model_dump(mode="json")
+        return super().default(o)
 
 # Configure logging to suppress all output by default
 logging.getLogger().setLevel(logging.CRITICAL + 1)  # Higher than any standard level
@@ -525,7 +539,7 @@ async def run_scan_inspect(mode="scan", args=None):
 
     if args.json:
         result = {r.path: r.model_dump(mode="json") for r in result}
-        print(json.dumps(result, indent=2))
+        print(json.dumps(result, indent=2, cls=PydanticJSONEncoder))
     else:
         print_scan_result(
             result,
