@@ -5,10 +5,8 @@ from typing import List
 
 
 mcp = FastMCP(
-    name="Small MCP Server",
-    description="A small MCP server for personal use"
+    name="Small MCP Server"
 )
-
 
 # begin tool that returns the current time
 @mcp.tool()
