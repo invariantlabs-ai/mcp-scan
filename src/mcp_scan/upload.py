@@ -8,7 +8,7 @@ import psutil
 
 from mcp_scan.identity import IdentityManager
 from mcp_scan.models import ScanPathResult, ScanUserInfo
-from mcp_scan.paths import get_client_from_path
+from mcp_scan.well_known_clients import get_client_from_path
 
 logger = logging.getLogger(__name__)
 
@@ -93,7 +93,7 @@ async def upload(
             payload = {
                 **(result.model_dump()),
                 "push_key": push_key,
-                "client": get_client_from_path(result.path) or "result.path",
+                "client": get_client_from_path(result.path) or result.path,
                 "scan_user_info": user_info.model_dump(),
             }
 

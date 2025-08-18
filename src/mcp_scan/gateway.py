@@ -8,7 +8,7 @@ from rich.tree import Tree
 
 from mcp_scan.mcp_client import scan_mcp_config_file
 from mcp_scan.models import MCPConfig, SSEServer, StdioServer, StreamableHTTPServer
-from mcp_scan.paths import get_client_from_path
+from mcp_scan.well_known_clients import get_client_from_path
 from mcp_scan.printer import format_path_line
 
 parser = argparse.ArgumentParser(
