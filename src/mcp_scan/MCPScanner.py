@@ -6,6 +6,7 @@ from collections.abc import Callable
 from typing import Any
 
 from mcp_scan.models import Issue, ScanError, ScanPathResult, ServerScanResult
+from mcp_scan.well_known_clients import get_client_from_path, get_builtin_tools
 
 from .mcp_client import check_server_with_timeout, scan_mcp_config_file
 from .StorageFile import StorageFile
@@ -184,13 +185,20 @@ class MCPScanner:
             result.error = ScanError(message=error_msg, exception=e)
         await self.emit("server_scanned", result)
         return result
+    
+
 
     async def scan_path(self, path: str, inspect_only: bool = False) -> ScanPathResult:
         logger.info("Scanning path: %s, inspect_only: %s", path, inspect_only)
         path_result = await self.get_servers_from_path(path)
+
         for i, server in enumerate(path_result.servers):
             logger.debug("Scanning server %d/%d: %s", i + 1, len(path_result.servers), server.name)
             path_result.servers[i] = await self.scan_server(server)
+
+        # add built-in tools
+        path_result = get_builtin_tools(path_result)
+
         if not inspect_only:
             path_result = await self.check_path(path_result)
         return path_result

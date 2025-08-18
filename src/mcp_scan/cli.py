@@ -14,7 +14,7 @@ from mcp_scan.upload import upload
 from mcp_scan_server.server import MCPScanServer
 
 from .MCPScanner import MCPScanner
-from .paths import WELL_KNOWN_MCP_PATHS, client_shorthands_to_paths
+from .well_known_clients import WELL_KNOWN_MCP_PATHS, client_shorthands_to_paths
 from .printer import print_scan_result
 from .StorageFile import StorageFile
 from .version import version_info
