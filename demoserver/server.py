@@ -8,7 +8,7 @@ mcp = FastMCP(
     name="Small MCP Server"
 )
 
-# begin tool that returns the current time
+# benign tool that returns the current time
 @mcp.tool()
 def get_current_time():
     """
@@ -46,7 +46,7 @@ else:
 
 # Toxic flows
 
-# begin tool that returns comments from the website
+# benign tool that returns comments from the website
 @mcp.tool()
 def get_comments() -> List[str]:
     """
@@ -54,7 +54,7 @@ def get_comments() -> List[str]:
     """
     return ["comment1", "comment2", "comment3"]
 
-# begin tool that returns the API key
+# benign tool that returns the API key
 @mcp.tool()
 def get_api_key() -> str:
     """
@@ -62,7 +62,7 @@ def get_api_key() -> str:
     """
     return "TOTALLY-LEGIT-API-KEY"
 
-# begin tool that sends an email
+# benign tool that sends an email
 @mcp.tool()
 def send_email(to: str, subject: str, body: str) -> bool:
     """
@@ -70,7 +70,7 @@ def send_email(to: str, subject: str, body: str) -> bool:
     """
     return True
 
-# beging tool that deltes a file
+# benigng tool that deltes a file
 @mcp.tool()
 def delete_file(file_path: str) -> bool:
     """
