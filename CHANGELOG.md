@@ -24,3 +24,4 @@
 - `0.3.2` Add user IDs, --control-server for managed use and --opt-out to disable tracking.
 - `0.3.2` Add user IDs, --control-server for managed use and --opt-out to disable tracking.
 - `0.3.3` Fix `inspect` mode, bug fixes.
+- `0.3.3` Various fixes. Scanning of built-in IDE tools.
