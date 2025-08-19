@@ -231,7 +231,7 @@ mcp-scan whitelist tool "add" "a1b2c3..."
 ```
 
 ## Contributing
-We welcome suggestions, bug reports, or feature requests as GitHub issues.
+We welcome suggestions, bug reports, or feature requests as GitHub issues. However, we currently can not directly accept pull requests.
 
 ## Development Setup
 To run this package from source, follow these steps:
