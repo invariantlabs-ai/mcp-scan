@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime
 from hashlib import md5
 from itertools import chain
@@ -6,16 +7,19 @@ from typing import Any, Literal, TypeAlias
 from mcp.types import InitializeResult, Prompt, Resource, Tool, ResourceTemplate, Completion
 from pydantic import BaseModel, ConfigDict, Field, RootModel, field_serializer, field_validator
 
+logger = logging.getLogger(__name__)
+
 Entity: TypeAlias = Prompt | Resource | Tool | ResourceTemplate | Completion
 Metadata: TypeAlias = InitializeResult
 
 
-def hash_entity(entity: Entity | None) -> str | None:
-    if entity is None:
-        return None
+def hash_entity(entity: Entity) -> str:
     if not hasattr(entity, "description") or entity.description is None:
-        return None
-    return md5((entity.description).encode()).hexdigest()
+        logger.warning("Entity has no description: %s", entity)
+        entity_description = "no description available"
+    else:
+        entity_description = entity.description
+    return md5((entity_description).encode()).hexdigest()
 
 
 def entity_type_to_str(entity: Entity) -> str:
