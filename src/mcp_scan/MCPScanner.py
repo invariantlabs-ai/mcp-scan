@@ -5,7 +5,7 @@ from collections import defaultdict
 from collections.abc import Callable
 from typing import Any
 
-from mcp_scan.models import Issue, ScanError, ScanPathResult, ServerScanResult
+from mcp_scan.models import Issue, ScanError, ScanPathResult, ServerScanResult, ServerSignature
 from mcp_scan.well_known_clients import get_client_from_path, get_builtin_tools
 
 from .mcp_client import check_server_with_timeout, scan_mcp_config_file
@@ -166,6 +166,22 @@ class MCPScanner:
         if self.context_manager is not None:
             await self.context_manager.emit(signal, data)
 
+    def get_canonical_server_name(self, config_name: str, signature: ServerSignature | None) -> str:
+        if (signature and 
+            signature.metadata and 
+            hasattr(signature.metadata, 'serverInfo') and
+            signature.metadata.serverInfo and
+            hasattr(signature.metadata.serverInfo, 'name') and
+            signature.metadata.serverInfo.name):
+            
+            real_name = signature.metadata.serverInfo.name.strip()
+            if real_name:
+                logger.debug(f"Using server self-reported name: '{real_name}' (config name: '{config_name}')")
+                return real_name
+        
+        logger.debug(f"Using config name: '{config_name}' (no self-reported name available)")
+        return config_name
+
     async def scan_server(self, server: ServerScanResult) -> ServerScanResult:
         logger.info("Scanning server: %s", server.name)
         result = server.clone()
@@ -173,9 +189,16 @@ class MCPScanner:
             result.signature = await check_server_with_timeout(
                 server.server, self.server_timeout, self.suppress_mcpserver_io
             )
+            
+            # Update server name to use self-reported name if available
+            canonical_name = self.get_canonical_server_name(server.name, result.signature)
+            if canonical_name != server.name:
+                logger.debug(f"Server name updated from '{server.name}' to '{canonical_name}'")
+            result.name = canonical_name
+            
             logger.debug(
-                "Server %s has %d prompts, %d resources, %d resouce templates,  %d tools",
-                server.name,
+                "Server %s has %d prompts, %d resources, %d resource templates, %d tools",
+                result.name,
                 len(result.signature.prompts),
                 len(result.signature.resources),
                 len(result.signature.resource_templates),
