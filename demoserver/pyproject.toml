@@ -1,0 +1,9 @@
+[project]
+name = "demoserver"
+version = "0.1.0"
+description = "A simple dmeo server"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "mcp[cli]>=1.12.2",
+]

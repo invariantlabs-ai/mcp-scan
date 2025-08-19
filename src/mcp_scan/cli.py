@@ -16,7 +16,7 @@ from mcp_scan_server.server import MCPScanServer
 
 
 from .MCPScanner import MCPScanner
-from .paths import WELL_KNOWN_MCP_PATHS, client_shorthands_to_paths
+from .well_known_clients import WELL_KNOWN_MCP_PATHS, client_shorthands_to_paths
 from .printer import print_scan_result
 from .Storage import Storage
 from .version import version_info
@@ -215,6 +215,12 @@ def add_scan_arguments(scan_parser):
         default=False,
         action="store_true",
         help="Opts out of sending unique a unique user identifier with every scan.",
+    )
+    scan_parser.add_argument(
+        "--include-built-in",
+        default=False,
+        action="store_true",
+        help="Also include built-in IDE tools.",
     )
    
 
