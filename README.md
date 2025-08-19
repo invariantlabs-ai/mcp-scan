@@ -48,6 +48,12 @@ uvx mcp-scan@latest
 
 This will scan your installed servers for security vulnerabilities in tools, prompts, and resources. It will automatically discover a variety of MCP configurations, including Claude, Cursor and Windsurf.
 
+To scan a particular MCP config, you can do: 
+
+```bash
+mcp-scan ~/custom/config.json
+```
+
 #### Example Run
 [![demo](demo.svg)](https://asciinema.org/a/716858)
 
