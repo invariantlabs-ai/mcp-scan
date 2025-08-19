@@ -26,3 +26,4 @@
 - `0.3.3` Fix `inspect` mode, bug fixes.
 - `0.3.4` Various fixes. Scanning of built-in IDE tools.
 - `0.3.5` Improving description of some built-in IDE tools.
+- `0.3.6` Bug fix: tools without description were not working.
