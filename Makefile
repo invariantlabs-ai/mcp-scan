@@ -17,7 +17,7 @@ test:
 ci:
 	export MCP_SCAN_ENVIRONMENT=ci
 	uv pip install -e .[test]
-	uv run pytest
+	uv run pytest -vv
 
 clean:
 	rm -rf ./dist

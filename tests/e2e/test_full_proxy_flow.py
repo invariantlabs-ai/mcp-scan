@@ -161,6 +161,13 @@ class TestFullProxyFlow:
         servers = list(config.mcpServers.values())
         assert len(servers) == 1
         server = servers[0]
+
+        # Debug: Print server config before starting client
+        print(f"[DEBUG] Server config: {server}")
+        print(f"[DEBUG] Server command: {server.command}")
+        print(f"[DEBUG] Server args: {server.args}")
+        print(f"[DEBUG] Server env: {server.env}")
+
         client_program = run_toy_server_client(server)
 
         # wait for client to finish
@@ -174,6 +181,18 @@ class TestFullProxyFlow:
             print(safe_decode(stdout))
             print(safe_decode(stderr))
             raise AssertionError("timed out waiting for MCP server to respond") from e
+        except Exception as e:
+            print(f"Client failed with exception: {e}")
+            print(f"Exception type: {type(e)}")
+            # Get any output from the process before terminating
+            stdout, stderr = process.communicate()
+            print("=== PROCESS OUTPUT ===")
+            print(safe_decode(stdout))
+            print("=== PROCESS ERROR ===")
+            print(safe_decode(stderr))
+            process.terminate()
+            process.wait()
+            raise
 
         assert int(client_output["result"]) == 3
 
