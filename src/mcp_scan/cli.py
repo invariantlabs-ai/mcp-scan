@@ -27,7 +27,7 @@ logging.getLogger().setLevel(logging.CRITICAL + 1)  # Higher than any standard l
 logging.getLogger().addHandler(logging.NullHandler())
 
 
-def setup_logging(verbose=False):
+def setup_logging(verbose=False, log_to_stderr=False):
     """Configure logging based on the verbose flag."""
     if verbose:
         # Configure the root logger
@@ -35,16 +35,27 @@ def setup_logging(verbose=False):
         # Remove any existing handlers (including the NullHandler)
         for hdlr in root_logger.handlers:
             root_logger.removeHandler(hdlr)
-        logging.basicConfig(
-            format="%(message)s",
-            datefmt="[%X]",
-            force=True,
-            level=logging.DEBUG,
-            handlers=[RichHandler(markup=True, rich_tracebacks=True)],
-        )
-
-        # Log that verbose mode is enabled
-        root_logger.debug("Verbose mode enabled, logging initialized")
+        if log_to_stderr:
+            # stderr logging
+            stderr_console = rich.Console(stderr=True)
+            logging.basicConfig(
+                format="%(message)s",
+                datefmt="[%X]",
+                force=True,
+                level=logging.DEBUG,
+                handlers=[RichHandler(markup=True, rich_tracebacks=True, console=stderr_console)],
+            )
+            root_logger.debug("Verbose mode enabled, logging initialized to stderr")
+        else: # stdout logging
+            logging.basicConfig(
+                format="%(message)s",
+                datefmt="[%X]",
+                force=True,
+                level=logging.DEBUG,
+                handlers=[RichHandler(markup=True, rich_tracebacks=True)],
+            )
+            root_logger.debug("Logging initialized to stdout")
+        root_logger.debug("Logging initialized")
 
 
 def get_invoking_name():
@@ -254,14 +265,15 @@ def install_extras(args):
     if hasattr(args, "install_extras") and args.install_extras:
         add_extra(*args.install_extras, "-y")
 
-def setup_scan_parser(scan_parser):
-    scan_parser.add_argument(
-        "files",
-        nargs="*",
-        default=WELL_KNOWN_MCP_PATHS,
-        help="Path(s) to MCP config file(s). If not provided, well-known paths will be checked",
-        metavar="CONFIG_FILE",
-    )
+def setup_scan_parser(scan_parser, add_files=True):
+    if add_files:
+        scan_parser.add_argument(
+            "files",
+            nargs="*",
+            default=WELL_KNOWN_MCP_PATHS,
+            help="Path(s) to MCP config file(s). If not provided, well-known paths will be checked",
+            metavar="CONFIG_FILE",
+        )
     add_common_arguments(scan_parser)
     add_server_arguments(scan_parser)
     add_scan_arguments(scan_parser)
@@ -373,10 +385,14 @@ def main():
         metavar="HASH",
     )
     # install
+    install_parser = subparsers.add_parser("install", help="Install Invariant Gateway (deprecated)")
+    add_install_arguments(install_parser)
     install_parser = subparsers.add_parser("install-proxy", help="Install Invariant Gateway")
     add_install_arguments(install_parser)
 
     # uninstall
+    uninstall_parser = subparsers.add_parser("uninstall", help="Uninstall Invariant Gateway (deprecated)")
+    add_uninstall_arguments(uninstall_parser)
     uninstall_parser = subparsers.add_parser("uninstall-proxy", help="Uninstall Invariant Gateway")
     add_uninstall_arguments(uninstall_parser)
     
@@ -387,7 +403,7 @@ def main():
     install_autoscan_parser.add_argument("--background", action="store_true", default=False, help="Periodically run the scan in the background")
     install_autoscan_parser.add_argument("--scan-interval", type=int, default=60*30, help="Scan interval in seconds (default: 1800 seconds = 30 minutes)")
     install_autoscan_parser.add_argument("--client-name", type=str, default=None, help="Name of the client issuing the scan")
-    setup_scan_parser(install_autoscan_parser)
+    setup_scan_parser(install_autoscan_parser, add_files=False)
     
     # mcp server mode
     mcp_server_parser = subparsers.add_parser("mcp-server", help="Start an MCP server")
@@ -478,7 +494,7 @@ def main():
 
     # Set up logging if verbose flag is enabled
     do_log = hasattr(args, "verbose") and args.verbose
-    setup_logging(do_log)
+    setup_logging(do_log, log_to_stderr=(args.command != "mcp-server"))
 
     # Handle commands
     if args.command == "help" or (args.command is None and args.help):
@@ -509,10 +525,10 @@ def main():
     elif args.command == "inspect":
         asyncio.run(print_scan_inspect(mode="inspect", args=args))
         sys.exit(0)
-    elif args.command == "install-proxy":
+    elif args.command == "install-proxy" or args.command == "install":
         asyncio.run(install())
         sys.exit(0)
-    elif args.command == "uninstall-proxy":
+    elif args.command == "uninstall-proxy" or args.command == "uninstall":
         asyncio.run(uninstall())
         sys.exit(0)
     elif args.command == "scan" or args.command is None:  # default to scan

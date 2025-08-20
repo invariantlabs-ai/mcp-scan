@@ -21,6 +21,7 @@ from mcp_scan.mcp_client import scan_mcp_config_file
 from mcp_scan.utils import rebalance_command_args
 from mcp_scan.models import StdioServer
 import psutil
+import random
 
 logger = logging.getLogger(__name__)
 
@@ -28,11 +29,13 @@ logger = logging.getLogger(__name__)
 def thread_fn(path, args, stop_event):
     logger.info(f"Launching scanning thread")
     t = threading.current_thread()
-    sleep_time = 10 # initially sleep for 10 seconds to avoid race conditions on startup
+    jitter = random.randint(0, 10)
+    sleep_time = 10 + jitter # initially sleep for 10 + jitter seconds to avoid race conditions on startup
     while getattr(t, "do_run", True):
         # Use event.wait() for interruptible sleep
         if stop_event.wait(timeout=sleep_time):
             # Event was set, we should stop
+            logger.info(f"Recieved stop event; stopping")
             break
         logger.info(f"Waking up to perform scan")
         sleep_time = asyncio.run(perform_and_schedule_scan(path, args))
@@ -78,7 +81,8 @@ def setup_mcp_server_logging(log_path):
     file_handler.setFormatter(file_formatter)
     
     # Create stderr handler with Rich formatting
-    stderr_handler = RichHandler(markup=True, rich_tracebacks=True)
+    stderr_console = rich.console.Console(stderr=True)
+    stderr_handler = RichHandler(markup=True, rich_tracebacks=True, console=stderr_console)
     stderr_handler.setLevel(logging.DEBUG)
     # Rich handler uses its own formatting, so no need to set a formatter
     
@@ -126,6 +130,7 @@ async def perform_and_schedule_scan(path, args):
             else:
                 logger.info(f"No scan is scheduled; running scan")
             result = await run_scan_inspect(mode="scan", args=args)
+
             # Convert result to JSON format for return
             result_dict = {r.path: r.model_dump(mode="json") for r in result}
             now = datetime.now()
@@ -183,6 +188,12 @@ def install_mcp_server(args):
         parent = psutil.Process().parent()
         cmd = parent.cmdline()
         cmd = [c.replace('install-mcp-server', 'mcp-server') for c in cmd]
+
+        # remove the file argument
+        idx = cmd.index(args.file)
+        if idx >= 0:
+            cmd = cmd[:idx] + cmd[idx+1:]
+
         if 'mcp-scan' in config.mcpServers:
             rich.print(f"MCP server already installed in {path}; Updating configuration")
         config.mcpServers['mcp-scan'] = StdioServer(
