@@ -4,6 +4,7 @@ import os
 from collections import defaultdict
 from collections.abc import Callable
 from typing import Any
+import re
 
 from mcp_scan.models import Issue, ScanError, ScanPathResult, ServerScanResult
 from mcp_scan.well_known_clients import get_client_from_path, get_builtin_tools
@@ -195,6 +196,12 @@ class MCPScanner:
         path_result = await self.get_servers_from_path(path)
 
         for i, server in enumerate(path_result.servers):
+            if server.server.type == "stdio":
+                full_command = server.server.command + " " + " ".join(server.server.args or [])
+                # check if pattern is contained in full_command
+                if re.search(r"mcp[-_]scan.*mcp-server", full_command):
+                    logger.info("Skipping scan of server %d/%d: %s", i + 1, len(path_result.servers), server.name)
+                    continue
             logger.debug("Scanning server %d/%d: %s", i + 1, len(path_result.servers), server.name)
             path_result.servers[i] = await self.scan_server(server)
 
