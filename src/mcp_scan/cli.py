@@ -397,7 +397,7 @@ def main():
     add_uninstall_arguments(uninstall_parser)
     
     # install 
-    install_autoscan_parser = subparsers.add_parser("install-mcp-server", help="Install itself as a MCP server for automatic scanning")
+    install_autoscan_parser = subparsers.add_parser("install-mcp-server", help="Install itself as a MCP server for automatic scanning (experimental)")
     install_autoscan_parser.add_argument("file", type=str, default=None, help="File to install the MCP server in")
     install_autoscan_parser.add_argument("--tool", action="store_true", default=False, help="Expose a tool for scanning")
     install_autoscan_parser.add_argument("--background", action="store_true", default=False, help="Periodically run the scan in the background")
@@ -406,7 +406,7 @@ def main():
     setup_scan_parser(install_autoscan_parser, add_files=False)
     
     # mcp server mode
-    mcp_server_parser = subparsers.add_parser("mcp-server", help="Start an MCP server")
+    mcp_server_parser = subparsers.add_parser("mcp-server", help="Start an MCP server (experimental)")
     mcp_server_parser.add_argument("--tool", action="store_true", default=False, help="Expose a tool for scanning")
     mcp_server_parser.add_argument("--background", action="store_true", default=False, help="Periodically run the scan in the background")
     mcp_server_parser.add_argument("--scan-interval", type=int, default=60*30, help="Scan interval in seconds (default: 1800 seconds = 30 minutes)")
