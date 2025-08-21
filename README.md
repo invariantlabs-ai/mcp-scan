@@ -21,13 +21,13 @@
 
 ## Highlights
 
-- ✅ Auto-discover MCP configurations
-- ✅ Detects MCP Security Vulnerabilities:
-  - ✨ Prompt Injection Attacks
-  - ✨ Tool Poisoning Attacks
-  - ✨ Toxic Flows
-- ✅ Scan local STDIO MCP Servers
-- ✅ Scan remote HTTP/SSE MCP Servers
+- Auto-discover MCP configurations
+- Detects MCP Security Vulnerabilities:
+  - Prompt Injection Attacks
+  - Tool Poisoning Attacks
+  - Toxic Flows
+- Scan local STDIO MCP Servers
+- Scan remote HTTP/SSE MCP Servers
 
 ## Quick Start
 
