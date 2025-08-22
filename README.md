@@ -1,11 +1,60 @@
-# MCP-Scan: An MCP Security Scanner
+<p align="center">
+  <h1 align="center">
+  mcp-scan
+  </h1>
+</p>
 
-[Documentation](https://explorer.invariantlabs.ai/docs/mcp-scan) | [Support Discord](https://discord.gg/dZuZfhKnJ4)
+<p align="center">
+  MCP security scanning tool for local and remote MCP Servers
+</p>
+
+<p align="center">
+  <a href="https://pypi.python.org/pypi/mcp-scan"><img src="https://img.shields.io/pypi/v/mcp-scan.svg" alt="mcp-scan"/></a>
+  <!-- disabled until license is available on PyPI release <a href="https://pypi.python.org/pypi/mcp-scan"><img src="https://img.shields.io/pypi/l/mcp-scan.svg" alt="mcp-scan license"/></a> -->
+  <a href="https://pypi.python.org/pypi/mcp-scan"><img src="https://img.shields.io/pypi/pyversions/mcp-scan.svg" alt="mcp-scan python version requirements"/></a>
+</p>
+
+<div align="center">
+  <img src=".github/mcp-scan-cmd-banner.png?raw=true" alt="MCP-Scan logo"/>
+</div>
+
+## Highlights
+
+- Auto-discover MCP configurations
+- Detects MCP Security Vulnerabilities:
+  - Prompt Injection Attacks
+  - Tool Poisoning Attacks
+  - Toxic Flows
+- Scan local STDIO MCP Servers
+- Scan remote HTTP/SSE MCP Servers
+
+## Quick Start
+
+### MCP Server Scanning
+
+To run an MCP scan:
+
+```bash
+uvx mcp-scan@latest
+```
+
+This will scan your installed servers for security vulnerabilities in tools, prompts, and resources. It will automatically discover a variety of MCP configurations, including Claude, Cursor and Windsurf.
+
+To scan a particular MCP server configuration, for example, a VS Code MCP config, you can run:
+
+```bash
+mcp-scan ~/.vscode/mcp.json
+```
+
+#### Example Run
+[![MCP Scan for security vulnerabilities demo](demo.svg)](https://asciinema.org/a/716858)
 
 
-MCP-Scan is a security scanning tool to both statically and dynamically scan and monitor your MCP connections. It checks them for common security vulnerabilities like [prompt injections](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks), [tool poisoning](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks) and [toxic flows](https://invariantlabs.ai/blog/mcp-github-vulnerability).
+## MCP Security Scanner Capabilities
 
-It operates in two main modes which can be used jointly or separately:
+MCP-Scan is a security scanning tool to both statically and dynamically scan and monitor your MCP connections. It checks them for common security vulnerabilities like [prompt injections](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks), [tool poisoning](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks) and [toxic flows](https://invariantlabs.ai/blog/mcp-github-vulnerability). Consult our detailed [Documentation](https://explorer.invariantlabs.ai/docs/mcp-scan) for more information.
+
+MCp-Scan operates in two main modes which can be used jointly or separately:
 
 1. `mcp-scan scan` statically scans all your installed servers for malicious tool descriptions and tools (e.g. [tool poisoning attacks](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks), cross-origin escalation, rug pull attacks, toxic flows).
 
@@ -36,26 +85,6 @@ _mcp-scan in proxy mode._
 - Detect cross-origin escalation attacks (e.g. [tool shadowing](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks)), and detect and prevent [MCP rug pull attacks](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks), i.e. mcp-scan detects changes to MCP tools via hashing
 
 
-## Quick Start
-
-### Server Scanning
-
-To run a static MCP scan, use the following command:
-
-```bash
-uvx mcp-scan@latest
-```
-
-This will scan your installed servers for security vulnerabilities in tools, prompts, and resources. It will automatically discover a variety of MCP configurations, including Claude, Cursor and Windsurf.
-
-To scan a particular MCP config, you can do: 
-
-```bash
-mcp-scan ~/custom/config.json
-```
-
-#### Example Run
-[![demo](demo.svg)](https://asciinema.org/a/716858)
 
 ### Server Proxying
 
@@ -207,7 +236,7 @@ HASH                          Hash of the entity to whitelist
 
 Display detailed help information and examples.
 
-```
+```bash
 mcp-scan help
 ```
 
@@ -230,13 +259,16 @@ mcp-scan whitelist
 mcp-scan whitelist tool "add" "a1b2c3..."
 ```
 
-## Contributing
-We welcome suggestions, bug reports, or feature requests as GitHub issues. However, we currently can not directly accept pull requests.
+## MCP-Scan is closed to contributions
+
+MCP-Scan can currently no longer accept external contributions. We are focused on stabilizing releases.
+We welcome suggestions, bug reports, or feature requests as GitHub issues.
 
 ## Development Setup
+
 To run this package from source, follow these steps:
 
-```
+```bash
 uv run pip install -e .
 uv run -m src.mcp_scan.cli
 ```
@@ -247,6 +279,7 @@ If you want to include MCP-scan results in your own project or registry, please 
 For automated scanning we recommend using the `--json` flag and parsing the output.
 
 ## Further Reading
+
 - [Introducing MCP-Scan](https://invariantlabs.ai/blog/introducing-mcp-scan)
 - [MCP Security Notification Tool Poisoning Attacks](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks)
 - [WhatsApp MCP Exploited](https://invariantlabs.ai/blog/whatsapp-mcp-exploited)
@@ -254,4 +287,5 @@ For automated scanning we recommend using the `--json` flag and parsing the outp
 - [Toxic Flow Analysis](https://invariantlabs.ai/blog/toxic-flow-analysis)
 
 ## Changelog
+
 See [CHANGELOG.md](CHANGELOG.md).
