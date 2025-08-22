@@ -133,7 +133,7 @@ async def analyze_scan_path(
                     raise Exception(f"Error: {response.status} - {await response.text()}")
 
         scan_path.issues += results.issues
-
+        scan_path.labels = results.labels
     except Exception as e:
         logger.exception("Error analyzing scan path")
         try:
