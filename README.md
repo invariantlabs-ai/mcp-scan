@@ -73,10 +73,11 @@ For this, create a `~/.mcp-scan/guardrails_config.yml` with the following conten
 
 ```yml
 <client-name>:  # your client's shorthand (e.g., cursor, claude, windsurf)
-  <server-name>:  # your server's name according to the mcp config (e.g., whatsapp-mcp)
+  servers:
+    <server-name>:  # your server's name according to the mcp config (e.g., whatsapp-mcp)
     guardrails:
       secrets: block # block calls/results with secrets
-
+    
       custom_guardrails:
         - name: "Filter tool results with 'error'"
           id: "error_filter_guardrail"
