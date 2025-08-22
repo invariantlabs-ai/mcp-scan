@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="https://pypi.python.org/pypi/mcp-scan"><img src="https://img.shields.io/pypi/v/mcp-scan.svg" alt="mcp-scan"/></a>
-  <!-- disabled until license is available on PyPI release <a href="https://pypi.python.org/pypi/mcp-scan"><img src="https://img.shields.io/pypi/l/mcp-scan.svg" alt="mcp-scan license"/></a> -->
+  <a href="https://pypi.python.org/pypi/mcp-scan"><img src="https://img.shields.io/pypi/l/mcp-scan.svg" alt="mcp-scan license"/></a>
   <a href="https://pypi.python.org/pypi/mcp-scan"><img src="https://img.shields.io/pypi/pyversions/mcp-scan.svg" alt="mcp-scan python version requirements"/></a>
 </p>
 
