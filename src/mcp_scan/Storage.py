@@ -7,6 +7,7 @@ from datetime import datetime
 
 import rich
 import yaml  # type: ignore
+from filelock import FileLock
 from pydantic import ValidationError
 
 from mcp_scan_server.models import DEFAULT_GUARDRAIL_CONFIG, GuardrailConfigFile
@@ -18,17 +19,24 @@ from .utils import upload_whitelist_entry
 logger = logging.getLogger(__name__)
 
 
-class StorageFile:
+class Storage:
     def __init__(self, path: str):
-        logger.debug("Initializing StorageFile with path: %s", path)
+        logger.debug("Initializing Storage with path: %s", path)
         self.path = os.path.expanduser(path)
 
         logger.debug("Expanded path: %s", self.path)
-        # if path is a file
         self.scanned_entities: ScannedEntities = ScannedEntities({})
         self.whitelist: dict[str, str] = {}
         self.guardrails_config: GuardrailConfigFile = GuardrailConfigFile()
 
+        self.detect_and_convert_legacy_storage()
+        self.init_from_path()
+        os.makedirs(self.path, exist_ok=True)
+        self._lock_path = os.path.join(self.path, ".mcp-scan.lock")
+        self._lock = FileLock(self._lock_path, timeout=10)
+
+
+    def detect_and_convert_legacy_storage(self):
         if os.path.isfile(self.path):
             rich.print(f"[bold]Legacy storage file detected at {self.path}, converting to new format[/bold]")
             # legacy format
@@ -40,7 +48,7 @@ class StorageFile:
 
             try:
                 logger.debug("Loading legacy format file")
-                with open(path) as f:
+                with open(self.path) as f:
                     legacy_data = json.load(f)
                 if "__whitelist" in legacy_data:
                     logger.debug("Found whitelist in legacy data with %d entries", len(legacy_data["__whitelist"]))
@@ -53,14 +61,15 @@ class StorageFile:
                     error_msg = f"Could not load legacy storage file {self.path}: {e}"
                     logger.error(error_msg)
                     rich.print(f"[bold red]{error_msg}[/bold red]")
-                os.remove(path)
+                os.remove(self.path)
                 logger.info("Removed legacy storage file after conversion")
             except Exception:
-                logger.exception("Error processing legacy storage file: %s", path)
+                logger.exception("Error processing legacy storage file: %s", self.path)
 
-        if os.path.exists(path) and os.path.isdir(path):
-            logger.debug("Path exists and is a directory: %s", path)
-            scanned_entities_path = os.path.join(path, "scanned_entities.json")
+    def init_from_path(self):
+        if os.path.exists(self.path) and os.path.isdir(self.path):
+            logger.debug("Path exists and is a directory: %s", self.path)
+            scanned_entities_path = os.path.join(self.path, "scanned_entities.json")
 
             if os.path.exists(scanned_entities_path):
                 logger.debug("Loading scanned entities from: %s", scanned_entities_path)
@@ -72,7 +81,7 @@ class StorageFile:
                         error_msg = f"Could not load scanned entities file {scanned_entities_path}: {e}"
                         logger.error(error_msg)
                         rich.print(f"[bold red]{error_msg}[/bold red]")
-            whitelist_path = os.path.join(path, "whitelist.json")
+            whitelist_path = os.path.join(self.path, "whitelist.json")
             if os.path.exists(whitelist_path):
                 logger.debug("Loading whitelist from: %s", whitelist_path)
                 with open(whitelist_path) as f:
@@ -130,6 +139,21 @@ class StorageFile:
 
         self.scanned_entities.root[key] = new_data
         return changed, messages
+    
+    def get_background_scan_path(self):
+        return os.path.join(self.path, "background_scan.json")
+
+    def get_mcp_server_log_path(self, pid: int, client_name: str | None = None):
+        date = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
+        file = os.path.join(self.path, "mcp_server", f"{date}_{pid}_{client_name}.log")
+        # create folder if it doesn't exist
+        os.makedirs(os.path.dirname(file), exist_ok=True)
+        # create file if it doesn't exist
+        if not os.path.exists(file):
+            with open(file, "w") as f:
+                f.write("")
+        return file
+
 
     def print_whitelist(self) -> None:
         logger.info("Printing whitelist with %d entries", len(self.whitelist))
@@ -170,30 +194,32 @@ class StorageFile:
         Returns the path to the guardrails config file.
         """
         guardrails_config_path = os.path.join(self.path, "guardrails_config.yml")
-        if not os.path.exists(guardrails_config_path):
-            # make sure the directory exists (otherwise the write below will fail)
-            if not os.path.exists(self.path):
-                os.makedirs(self.path, exist_ok=True)
-            logger.debug("Creating guardrails config file at: %s", guardrails_config_path)
+        with self._lock:
+            if not os.path.exists(guardrails_config_path):
+                # make sure the directory exists (otherwise the write below will fail)
+                if not os.path.exists(self.path):
+                    os.makedirs(self.path, exist_ok=True)
+                logger.debug("Creating guardrails config file at: %s", guardrails_config_path)
 
-            with open(guardrails_config_path, "w") as f:
-                if self.guardrails_config is not None:
-                    f.write(DEFAULT_GUARDRAIL_CONFIG)
+                with open(guardrails_config_path, "w") as f:
+                    if self.guardrails_config is not None:
+                        f.write(DEFAULT_GUARDRAIL_CONFIG)
         return guardrails_config_path
 
     def save(self) -> None:
         logger.info("Saving storage data to %s", self.path)
-        try:
-            os.makedirs(self.path, exist_ok=True)
-            scanned_entities_path = os.path.join(self.path, "scanned_entities.json")
-            logger.debug("Saving scanned entities to: %s", scanned_entities_path)
-            with open(scanned_entities_path, "w") as f:
-                f.write(self.scanned_entities.model_dump_json())
+        with self._lock:
+            try:
+                os.makedirs(self.path, exist_ok=True)
+                scanned_entities_path = os.path.join(self.path, "scanned_entities.json")
+                logger.debug("Saving scanned entities to: %s", scanned_entities_path)
+                with open(scanned_entities_path, "w") as f:
+                    f.write(self.scanned_entities.model_dump_json())
 
-            whitelist_path = os.path.join(self.path, "whitelist.json")
-            logger.debug("Saving whitelist to: %s", whitelist_path)
-            with open(whitelist_path, "w") as f:
-                json.dump(self.whitelist, f)
-            logger.info("Successfully saved storage files")
-        except Exception as e:
-            logger.exception("Error saving storage files: %s", e)
+                whitelist_path = os.path.join(self.path, "whitelist.json")
+                logger.debug("Saving whitelist to: %s", whitelist_path)
+                with open(whitelist_path, "w") as f:
+                    json.dump(self.whitelist, f)
+                logger.info("Successfully saved storage files")
+            except Exception as e:
+                logger.exception("Error saving storage files: %s", e)

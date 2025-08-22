@@ -3,6 +3,7 @@ import asyncio
 import json
 import logging
 import sys
+import os
 
 import psutil
 import rich
@@ -13,10 +14,11 @@ from mcp_scan.gateway import MCPGatewayConfig, MCPGatewayInstaller
 from mcp_scan.upload import upload
 from mcp_scan_server.server import MCPScanServer
 
+
 from .MCPScanner import MCPScanner
 from .well_known_clients import WELL_KNOWN_MCP_PATHS, client_shorthands_to_paths
 from .printer import print_scan_result
-from .StorageFile import StorageFile
+from .Storage import Storage
 from .version import version_info
 
 # Configure logging to suppress all output by default
@@ -25,7 +27,7 @@ logging.getLogger().setLevel(logging.CRITICAL + 1)  # Higher than any standard l
 logging.getLogger().addHandler(logging.NullHandler())
 
 
-def setup_logging(verbose=False):
+def setup_logging(verbose=False, log_to_stderr=False):
     """Configure logging based on the verbose flag."""
     if verbose:
         # Configure the root logger
@@ -33,16 +35,27 @@ def setup_logging(verbose=False):
         # Remove any existing handlers (including the NullHandler)
         for hdlr in root_logger.handlers:
             root_logger.removeHandler(hdlr)
-        logging.basicConfig(
-            format="%(message)s",
-            datefmt="[%X]",
-            force=True,
-            level=logging.DEBUG,
-            handlers=[RichHandler(markup=True, rich_tracebacks=True)],
-        )
-
-        # Log that verbose mode is enabled
-        root_logger.debug("Verbose mode enabled, logging initialized")
+        if log_to_stderr:
+            # stderr logging
+            stderr_console = rich.Console(stderr=True)
+            logging.basicConfig(
+                format="%(message)s",
+                datefmt="[%X]",
+                force=True,
+                level=logging.DEBUG,
+                handlers=[RichHandler(markup=True, rich_tracebacks=True, console=stderr_console)],
+            )
+            root_logger.debug("Verbose mode enabled, logging initialized to stderr")
+        else: # stdout logging
+            logging.basicConfig(
+                format="%(message)s",
+                datefmt="[%X]",
+                force=True,
+                level=logging.DEBUG,
+                handlers=[RichHandler(markup=True, rich_tracebacks=True)],
+            )
+            root_logger.debug("Logging initialized to stdout")
+        root_logger.debug("Logging initialized")
 
 
 def get_invoking_name():
@@ -179,83 +192,7 @@ def add_install_arguments(parser):
         metavar="PORT",
     )
 
-
-def add_uninstall_arguments(parser):
-    parser.add_argument(
-        "files",
-        type=str,
-        nargs="*",
-        default=WELL_KNOWN_MCP_PATHS,
-        help=(
-            "Different file locations to scan. "
-            "This can include custom file locations as long as "
-            "they are in an expected format, including Claude, Cursor or VSCode format."
-        ),
-    )
-
-
-def check_install_args(args):
-    if args.command == "install" and not args.local_only and not args.api_key:
-        # prompt for api key
-        print(
-            "To install mcp-scan with remote logging, you need an Invariant API key (https://explorer.invariantlabs.ai/settings).\n"
-        )
-        args.api_key = input("API key (or just press enter to install with --local-only): ")
-        if not args.api_key:
-            args.local_only = True
-
-
-def install_extras(args):
-    if hasattr(args, "install_extras") and args.install_extras:
-        add_extra(*args.install_extras, "-y")
-
-
-def main():
-    # Create main parser with description
-    program_name = get_invoking_name()
-    parser = argparse.ArgumentParser(
-        prog=program_name,
-        description="MCP-scan: Security scanner for Model Context Protocol servers and tools",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=(
-            "Examples:\n"
-            f"  {program_name}                     # Scan all known MCP configs\n"
-            f"  {program_name} ~/custom/config.json # Scan a specific config file\n"
-            f"  {program_name} inspect             # Just inspect tools without verification\n"
-            f"  {program_name} whitelist           # View whitelisted tools\n"
-            f'  {program_name} whitelist tool "add" "a1b2c3..." # Whitelist the \'add\' tool\n'
-            f"  {program_name} --verbose           # Enable detailed logging output\n"
-            f"  {program_name} --print-errors      # Show error details and tracebacks\n"
-            f"  {program_name} --json              # Output results in JSON format\n"
-        ),
-    )
-
-    # Create subparsers for commands
-    subparsers = parser.add_subparsers(
-        dest="command",
-        title="Commands",
-        description="Available commands (default: scan)",
-        metavar="COMMAND",
-    )
-
-    # SCAN command
-    scan_parser = subparsers.add_parser(
-        "scan",
-        help="Scan one or more MCP config files [default]",
-        description=(
-            "Scan one or more MCP configuration files for security issues. "
-            "If no files are specified, well-known config locations will be checked."
-        ),
-    )
-    scan_parser.add_argument(
-        "files",
-        nargs="*",
-        default=WELL_KNOWN_MCP_PATHS,
-        help="Path(s) to MCP config file(s). If not provided, well-known paths will be checked",
-        metavar="CONFIG_FILE",
-    )
-    add_common_arguments(scan_parser)
-    add_server_arguments(scan_parser)
+def add_scan_arguments(scan_parser):
     scan_parser.add_argument(
         "--checks-per-server",
         type=int,
@@ -296,7 +233,90 @@ def main():
         action="store_true",
         help="Also include built-in IDE tools.",
     )
+   
 
+
+def add_uninstall_arguments(parser):
+    parser.add_argument(
+        "files",
+        type=str,
+        nargs="*",
+        default=WELL_KNOWN_MCP_PATHS,
+        help=(
+            "Different file locations to scan. "
+            "This can include custom file locations as long as "
+            "they are in an expected format, including Claude, Cursor or VSCode format."
+        ),
+    )
+
+
+def check_install_args(args):
+    if args.command == "install" and not args.local_only and not args.api_key:
+        # prompt for api key
+        print(
+            "To install mcp-scan with remote logging, you need an Invariant API key (https://explorer.invariantlabs.ai/settings).\n"
+        )
+        args.api_key = input("API key (or just press enter to install with --local-only): ")
+        if not args.api_key:
+            args.local_only = True
+
+
+def install_extras(args):
+    if hasattr(args, "install_extras") and args.install_extras:
+        add_extra(*args.install_extras, "-y")
+
+def setup_scan_parser(scan_parser, add_files=True):
+    if add_files:
+        scan_parser.add_argument(
+            "files",
+            nargs="*",
+            default=WELL_KNOWN_MCP_PATHS,
+            help="Path(s) to MCP config file(s). If not provided, well-known paths will be checked",
+            metavar="CONFIG_FILE",
+        )
+    add_common_arguments(scan_parser)
+    add_server_arguments(scan_parser)
+    add_scan_arguments(scan_parser)
+   
+
+def main():
+    # Create main parser with description
+    program_name = get_invoking_name()
+    parser = argparse.ArgumentParser(
+        prog=program_name,
+        description="MCP-scan: Security scanner for Model Context Protocol servers and tools",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "Examples:\n"
+            f"  {program_name}                     # Scan all known MCP configs\n"
+            f"  {program_name} ~/custom/config.json # Scan a specific config file\n"
+            f"  {program_name} inspect             # Just inspect tools without verification\n"
+            f"  {program_name} whitelist           # View whitelisted tools\n"
+            f'  {program_name} whitelist tool "add" "a1b2c3..." # Whitelist the \'add\' tool\n'
+            f"  {program_name} --verbose           # Enable detailed logging output\n"
+            f"  {program_name} --print-errors      # Show error details and tracebacks\n"
+            f"  {program_name} --json              # Output results in JSON format\n"
+        ),
+    )
+
+    # Create subparsers for commands
+    subparsers = parser.add_subparsers(
+        dest="command",
+        title="Commands",
+        description="Available commands (default: scan)",
+        metavar="COMMAND",
+    )
+
+    # SCAN command
+    scan_parser = subparsers.add_parser(
+        "scan",
+        help="Scan one or more MCP config files [default]",
+        description=(
+            "Scan one or more MCP configuration files for security issues. "
+            "If no files are specified, well-known config locations will be checked."
+        ),
+    )
+    setup_scan_parser(scan_parser)
 
     # INSPECT command
     inspect_parser = subparsers.add_parser(
@@ -365,12 +385,34 @@ def main():
         metavar="HASH",
     )
     # install
-    install_parser = subparsers.add_parser("install", help="Install Invariant Gateway")
+    install_parser = subparsers.add_parser("install", help="Install Invariant Gateway (deprecated)")
+    add_install_arguments(install_parser)
+    install_parser = subparsers.add_parser("install-proxy", help="Install Invariant Gateway")
     add_install_arguments(install_parser)
 
     # uninstall
-    uninstall_parser = subparsers.add_parser("uninstall", help="Uninstall Invariant Gateway")
+    uninstall_parser = subparsers.add_parser("uninstall", help="Uninstall Invariant Gateway (deprecated)")
     add_uninstall_arguments(uninstall_parser)
+    uninstall_parser = subparsers.add_parser("uninstall-proxy", help="Uninstall Invariant Gateway")
+    add_uninstall_arguments(uninstall_parser)
+    
+    # install 
+    install_autoscan_parser = subparsers.add_parser("install-mcp-server", help="Install itself as a MCP server for automatic scanning (experimental)")
+    install_autoscan_parser.add_argument("file", type=str, default=None, help="File to install the MCP server in")
+    install_autoscan_parser.add_argument("--tool", action="store_true", default=False, help="Expose a tool for scanning")
+    install_autoscan_parser.add_argument("--background", action="store_true", default=False, help="Periodically run the scan in the background")
+    install_autoscan_parser.add_argument("--scan-interval", type=int, default=60*30, help="Scan interval in seconds (default: 1800 seconds = 30 minutes)")
+    install_autoscan_parser.add_argument("--client-name", type=str, default=None, help="Name of the client issuing the scan")
+    setup_scan_parser(install_autoscan_parser, add_files=False)
+    
+    # mcp server mode
+    mcp_server_parser = subparsers.add_parser("mcp-server", help="Start an MCP server (experimental)")
+    mcp_server_parser.add_argument("--tool", action="store_true", default=False, help="Expose a tool for scanning")
+    mcp_server_parser.add_argument("--background", action="store_true", default=False, help="Periodically run the scan in the background")
+    mcp_server_parser.add_argument("--scan-interval", type=int, default=60*30, help="Scan interval in seconds (default: 1800 seconds = 30 minutes)")
+    mcp_server_parser.add_argument("--client-name", type=str, default=None, help="Name of the client issuing the scan")
+    setup_scan_parser(mcp_server_parser)
+
 
     # HELP command
     help_parser = subparsers.add_parser(  # noqa: F841
@@ -406,7 +448,8 @@ def main():
 
     # Parse arguments (default to 'scan' if no command provided)
     if len(sys.argv) == 1 or sys.argv[1] not in subparsers.choices:
-        sys.argv.insert(1, "scan")
+        if sys.argv[1] != '--help':
+            sys.argv.insert(1, "scan")
     args = parser.parse_args()
 
     # postprocess the files argument (if shorthands are used)
@@ -414,7 +457,7 @@ def main():
         args.files = client_shorthands_to_paths(args.files)
 
     # Display version banner
-    if not (hasattr(args, "json") and args.json):
+    if not ((hasattr(args, "json") and args.json) or (args.command == "mcp-server")):
         rich.print(f"[bold blue]Invariant MCP-scan v{version_info}[/bold blue]\n")
 
     async def install():
@@ -442,7 +485,7 @@ def main():
         await installer.uninstall(verbose=True)
 
     def server(on_exit=None):
-        sf = StorageFile(args.storage_file)
+        sf = Storage(args.storage_file)
         guardrails_config_path = sf.create_guardrails_config()
         mcp_scan_server = MCPScanServer(
             port=args.port, config_file_path=guardrails_config_path, on_exit=on_exit, pretty=args.pretty
@@ -451,14 +494,14 @@ def main():
 
     # Set up logging if verbose flag is enabled
     do_log = hasattr(args, "verbose") and args.verbose
-    setup_logging(do_log)
+    setup_logging(do_log, log_to_stderr=(args.command != "mcp-server"))
 
     # Handle commands
-    if args.command == "help":
+    if args.command == "help" or (args.command is None and args.help):
         parser.print_help()
         sys.exit(0)
     elif args.command == "whitelist":
-        sf = StorageFile(args.storage_file)
+        sf = Storage(args.storage_file)
         if args.reset:
             sf.reset_whitelist()
             rich.print("[bold]Whitelist reset[/bold]")
@@ -480,16 +523,16 @@ def main():
             whitelist_parser.print_help()
             sys.exit(1)
     elif args.command == "inspect":
-        asyncio.run(run_scan_inspect(mode="inspect", args=args))
+        asyncio.run(print_scan_inspect(mode="inspect", args=args))
         sys.exit(0)
-    elif args.command == "install":
+    elif args.command == "install-proxy" or args.command == "install":
         asyncio.run(install())
         sys.exit(0)
-    elif args.command == "uninstall":
+    elif args.command == "uninstall-proxy" or args.command == "uninstall":
         asyncio.run(uninstall())
         sys.exit(0)
     elif args.command == "scan" or args.command is None:  # default to scan
-        asyncio.run(run_scan_inspect(args=args))
+        asyncio.run(print_scan_inspect(args=args))
         sys.exit(0)
     elif args.command == "server":
         install_extras(args)
@@ -499,9 +542,15 @@ def main():
         args.local_only = True
         install_extras(args)
         asyncio.run(install())
-        print("[Proxy installed, you may need to restart/reload your MCP clients to use it]")
+        rich.print("[Proxy installed, you may need to restart/reload your MCP clients to use it]")
         server(on_exit=uninstall)
         sys.exit(0)
+    elif args.command == "mcp-server":
+        from mcp_scan.mcp_server import mcp_server
+        sys.exit(mcp_server(args))
+    elif args.command == "install-mcp-server":
+        from mcp_scan.mcp_server import install_mcp_server
+        sys.exit(install_mcp_server(args))
     else:
         # This shouldn't happen due to argparse's handling
         rich.print(f"[bold red]Unknown command: {args.command}[/bold red]")
@@ -529,7 +578,10 @@ async def run_scan_inspect(mode="scan", args=None):
         and hasattr(args, "opt_out")
     ):
         await upload(result, args.control_server, args.push_key, args.email, args.opt_out)
+    return result
 
+async def print_scan_inspect(mode="scan", args=None):
+    result = await run_scan_inspect(mode, args)
     if args.json:
         result = {r.path: r.model_dump(mode="json") for r in result}
         print(json.dumps(result, indent=2))
