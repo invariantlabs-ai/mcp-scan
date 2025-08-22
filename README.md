@@ -12,7 +12,6 @@
   <a href="https://pypi.python.org/pypi/mcp-scan"><img src="https://img.shields.io/pypi/v/mcp-scan.svg" alt="mcp-scan"/></a>
   <!-- disabled until license is available on PyPI release <a href="https://pypi.python.org/pypi/mcp-scan"><img src="https://img.shields.io/pypi/l/mcp-scan.svg" alt="mcp-scan license"/></a> -->
   <a href="https://pypi.python.org/pypi/mcp-scan"><img src="https://img.shields.io/pypi/pyversions/mcp-scan.svg" alt="mcp-scan python version requirements"/></a>
-  <a href="https://discord.gg/dZuZfhKnJ4"><img src="https://img.shields.io/badge/Discord-%235865F2.svg?logo=discord&logoColor=white" alt="MCP-Scan Discord Support"/></a>
 </p>
 
 <div align="center">
@@ -260,9 +259,10 @@ mcp-scan whitelist
 mcp-scan whitelist tool "add" "a1b2c3..."
 ```
 
-## Contributing
+## MCP-Scan is closed to contributions
 
-We welcome suggestions, bug reports, or feature requests as GitHub issues. However, we currently can not directly accept pull requests.
+MCP-Scan can currently no longer accept external contributions. We are focused on stabilizing releases.
+We welcome suggestions, bug reports, or feature requests as GitHub issues.
 
 ## Development Setup
 
