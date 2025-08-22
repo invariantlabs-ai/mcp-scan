@@ -445,10 +445,11 @@ def main():
     add_common_arguments(proxy_parser)
     add_server_arguments(proxy_parser)
     add_install_arguments(proxy_parser)
+    
 
     # Parse arguments (default to 'scan' if no command provided)
     if len(sys.argv) == 1 or sys.argv[1] not in subparsers.choices:
-        if sys.argv[1] != '--help':
+        if not (len(sys.argv) == 2 and sys.argv[1] == '--help'):
             sys.argv.insert(1, "scan")
     args = parser.parse_args()
 
@@ -497,7 +498,7 @@ def main():
     setup_logging(do_log, log_to_stderr=(args.command != "mcp-server"))
 
     # Handle commands
-    if args.command == "help" or (args.command is None and args.help):
+    if args.command == "help" or (args.command is None and hasattr(args, "help") and args.help):
         parser.print_help()
         sys.exit(0)
     elif args.command == "whitelist":
