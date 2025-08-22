@@ -27,3 +27,4 @@
 - `0.3.4` Various fixes. Scanning of built-in IDE tools.
 - `0.3.5` Improving description of some built-in IDE tools.
 - `0.3.6` Bug fix: tools without description were not working.
+- `0.3.7` Added (experimental) feature to run mcp-scan as a mcp-server.
