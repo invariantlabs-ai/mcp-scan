@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCP Server Install Link Generator</title>
+    <script src="https://unpkg.com/monaco-editor@0.45.0/min/vs/loader.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #ffffff;
+            color: #1a1a1a;
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, #1a1a1a 0%, #555555 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header p {
+            color: #666666;
+            font-size: 1.1rem;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            align-items: start;
+        }
+
+        .editor-section {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 1.5rem;
+            border: 1px solid #e0e0e0;
+        }
+
+        .editor-section h2 {
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            color: #1a1a1a;
+        }
+
+        .editor-container {
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid #e0e0e0;
+            height: 400px;
+        }
+
+        .output-section {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 1.5rem;
+            border: 1px solid #e0e0e0;
+        }
+
+        .output-section h2 {
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            color: #1a1a1a;
+        }
+
+        .checkbox-group {
+            margin-bottom: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            font-size: 0.95rem;
+        }
+
+        .checkbox {
+            width: 16px;
+            height: 16px;
+            margin-right: 0.5rem;
+            accent-color: #007acc;
+            cursor: pointer;
+        }
+
+        .checkbox-text {
+            color: #1a1a1a;
+            user-select: none;
+        }
+
+        .button-group {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .link-preview {
+            margin-top: 1rem;
+            padding: 0.75rem;
+            background: #f0f0f0;
+            border: 1px solid #d0d0d0;
+            border-radius: 6px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.8rem;
+            color: #555;
+            word-break: break-all;
+            line-height: 1.4;
+            display: none;
+        }
+
+        .link-preview.visible {
+            display: block;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #007acc 0%, #005999 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #0088dd 0%, #0066aa 100%);
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: #ffffff;
+            color: #1a1a1a;
+            border: 1px solid #d0d0d0;
+        }
+
+        .btn-secondary:hover {
+            background: #f5f5f5;
+            border-color: #c0c0c0;
+            transform: translateY(-1px);
+        }
+
+        .example-section {
+            grid-column: 1 / -1;
+            margin-top: 2rem;
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 1.5rem;
+            border: 1px solid #e0e0e0;
+        }
+
+        .example-section h3 {
+            color: #1a1a1a;
+            margin-bottom: 1rem;
+        }
+
+        .code-block {
+            background: #ffffff;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 1rem;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.9rem;
+            overflow-x: auto;
+            color: #333333;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .container {
+                padding: 1rem;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>MCP Server Install Link Generator</h1>
+        </div>
+
+        <div class="main-content">
+            <div class="editor-section">
+                <h2>JSON Configuration</h2>
+                <div class="editor-container" id="editor"></div>
+            </div>
+
+            <div class="output-section">
+                <h2>Install to IDE</h2>
+                
+                <div class="checkbox-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="backgroundCheck" class="checkbox">
+                        <span class="checkbox-text">Run mcp-scan in background</span>
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="toolCheck" class="checkbox">
+                        <span class="checkbox-text">Add mcp tool</span>
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="devModeCheck" class="checkbox">
+                        <span class="checkbox-text">Development mode</span>
+                    </label>
+                </div>
+
+                <div class="button-group">
+                    <button class="btn btn-secondary" id="cursorBtn">
+                        Install to Cursor
+                    </button>
+                    <button class="btn btn-secondary" id="windsurfBtn">
+                        Install to Windsurf
+                    </button>
+                    <button class="btn btn-secondary" id="vscodeBtn">
+                        Install to VS Code
+                    </button>
+                    <button class="btn btn-secondary" id="vscodeInsidersBtn">
+                        Install to VS Code Insiders
+                    </button>
+                </div>
+                
+                <div class="link-preview" id="linkPreview">
+                    <!-- Deeplink will be shown here on hover -->
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // Initialize Monaco Editor
+        require.config({ paths: { vs: 'https://unpkg.com/monaco-editor@0.45.0/min/vs' } });
+        
+        require(['vs/editor/editor.main'], function () {
+            const editor = monaco.editor.create(document.getElementById('editor'), {
+                value: JSON.stringify({
+                    "mcp-scan": {
+                        "command": "uvx",
+                        "args": ["mcp-scan@latest", "mcp-server"]
+                    }
+                }, null, 2),
+                language: 'json',
+                theme: 'vs',
+                automaticLayout: true,
+                minimap: { enabled: false },
+                fontSize: 14,
+                lineNumbers: 'on',
+                roundedSelection: false,
+                scrollBeyondLastLine: false,
+                wordWrap: 'on'
+            });
+
+            // Helper function to modify config based on checkboxes
+            function updateConfigFlags() {
+                try {
+                    const currentConfig = JSON.parse(editor.getValue());
+                    const backgroundChecked = document.getElementById('backgroundCheck').checked;
+                    const toolChecked = document.getElementById('toolCheck').checked;
+                    const devModeChecked = document.getElementById('devModeCheck').checked;
+                    
+                    // Clone the config to avoid modifying the original
+                    const modifiedConfig = JSON.parse(JSON.stringify(currentConfig));
+                    
+                    // Modify each server config
+                    Object.keys(modifiedConfig).forEach(serverName => {
+                        const serverConfig = modifiedConfig[serverName];
+                        
+                        // Handle dev mode - changes command and args completely
+                        if (devModeChecked) {
+                            // Get the actual directory path where this HTML file is located
+                            const currentPath = window.location.pathname;
+                            let directory;
+                            
+                            if (window.location.protocol === 'file:') {
+                                // Local file, extract the directory path
+                                directory = currentPath.substring(0, currentPath.lastIndexOf('/'));
+                                // Remove the '/installer' part to get the project root
+                                if (directory.endsWith('/installer')) {
+                                    directory = directory.substring(0, directory.lastIndexOf('/installer'));
+                                }
+                            } else {
+                                // Served over HTTP, use the current directory
+                                directory = currentPath.substring(0, currentPath.lastIndexOf('/'));
+                                if (directory.endsWith('/installer')) {
+                                    directory = directory.substring(0, directory.lastIndexOf('/installer'));
+                                }
+                                directory = window.location.origin + directory;
+                            }
+                            
+                            serverConfig.command = "uv";
+                            serverConfig.args = ["run", "--directory", directory, "-m", "src.mcp_scan.run", "mcp-server"];
+                        } else {
+                            // Reset to production command
+                            serverConfig.command = "uvx";
+                            serverConfig.args = ["mcp-scan@latest", "mcp-server"];
+                        }
+                        
+                        // Handle --background flag
+                        const backgroundIndex = serverConfig.args.indexOf('--background');
+                        if (backgroundChecked && backgroundIndex === -1) {
+                            serverConfig.args.push('--background');
+                        } else if (!backgroundChecked && backgroundIndex !== -1) {
+                            serverConfig.args.splice(backgroundIndex, 1);
+                        }
+                        
+                        // Handle --tool flag
+                        const toolIndex = serverConfig.args.indexOf('--tool');
+                        if (toolChecked && toolIndex === -1) {
+                            serverConfig.args.push('--tool');
+                        } else if (!toolChecked && toolIndex !== -1) {
+                            serverConfig.args.splice(toolIndex, 1);
+                        }
+                    });
+                    
+                    // Update the editor with the modified config
+                    editor.setValue(JSON.stringify(modifiedConfig, null, 2));
+                } catch (e) {
+                    console.error('Error parsing JSON:', e);
+                }
+            }
+
+            // Helper function to generate deeplink
+            function generateCursorDeeplink() {
+                try {
+                    const config = editor.getValue();
+                    const parsedConfig = JSON.parse(config);
+                    
+                    // Get the first server config (assuming single server for now)
+                    const serverName = Object.keys(parsedConfig)[0];
+                    const serverConfig = parsedConfig[serverName];
+                    
+                    // Create the config object for the deeplink
+                    const deeplinkConfig = {
+                        command: serverConfig.command,
+                        args: serverConfig.args || []
+                    };
+                    
+                    // JSON stringify and base64 encode
+                    const configString = JSON.stringify(deeplinkConfig);
+                    const base64Config = btoa(configString);
+                    
+                    // Generate the deeplink
+                    return `cursor://anysphere.cursor-deeplink/mcp/install?name=mcp-scan&config=${base64Config}`;
+                } catch (error) {
+                    return 'Invalid JSON configuration';
+                }
+            }
+
+            // Add event listeners for checkboxes
+            document.getElementById('backgroundCheck').addEventListener('change', updateConfigFlags);
+            document.getElementById('toolCheck').addEventListener('change', updateConfigFlags);
+            document.getElementById('devModeCheck').addEventListener('change', updateConfigFlags);
+
+            // Helper functions to generate links/instructions for other IDEs
+            function generateWindsurfInstructions() {
+                try {
+                    const config = editor.getValue();
+                    const parsedConfig = JSON.parse(config);
+                    const serverName = Object.keys(parsedConfig)[0];
+                    const serverConfig = parsedConfig[serverName];
+                    
+                    // Create the JSON configuration to be added to Windsurf settings
+                    const windsurfConfig = {};
+                    windsurfConfig[serverName] = {
+                        command: serverConfig.command,
+                        args: serverConfig.args || []
+                    };
+                    
+                    return JSON.stringify(windsurfConfig, null, 2);
+                } catch (error) {
+                    return 'Invalid JSON configuration';
+                }
+            }
+
+            function generateVSCodeInstructions() {
+                try {
+                    const config = editor.getValue();
+                    const parsedConfig = JSON.parse(config);
+                    const serverName = Object.keys(parsedConfig)[0];
+                    const serverConfig = parsedConfig[serverName];
+                    
+                    // Create flat object structure for VS Code URL handler
+                    const obj = {
+                        name: serverName,
+                        command: serverConfig.command,
+                        args: serverConfig.args || []
+                    };
+                    
+                    return `vscode:mcp/install?${encodeURIComponent(JSON.stringify(obj))}`;
+                } catch (error) {
+                    return 'Invalid JSON configuration';
+                }
+            }
+
+            function generateVSCodeInsidersInstructions() {
+                try {
+                    const config = editor.getValue();
+                    const parsedConfig = JSON.parse(config);
+                    const serverName = Object.keys(parsedConfig)[0];
+                    const serverConfig = parsedConfig[serverName];
+                    
+                    // Create flat object structure for VS Code Insiders URL handler
+                    const obj = {
+                        name: serverName,
+                        command: serverConfig.command,
+                        args: serverConfig.args || []
+                    };
+                    
+                    return `vscode-insiders:mcp/install?${encodeURIComponent(JSON.stringify(obj))}`;
+                } catch (error) {
+                    return 'Invalid JSON configuration';
+                }
+            }
+
+            // Add hover event listeners for all buttons
+            const cursorBtn = document.getElementById('cursorBtn');
+            const windsurfBtn = document.getElementById('windsurfBtn');
+            const vscodeBtn = document.getElementById('vscodeBtn');
+            const vscodeInsidersBtn = document.getElementById('vscodeInsidersBtn');
+            const linkPreview = document.getElementById('linkPreview');
+
+            // Cursor button hover
+            cursorBtn.addEventListener('mouseenter', function() {
+                const deeplink = generateCursorDeeplink();
+                linkPreview.textContent = deeplink;
+                linkPreview.classList.add('visible');
+            });
+
+            cursorBtn.addEventListener('mouseleave', function() {
+                linkPreview.classList.remove('visible');
+            });
+
+            // Windsurf button hover
+            windsurfBtn.addEventListener('mouseenter', function() {
+                const jsonConfig = generateWindsurfInstructions();
+                linkPreview.textContent = `Add to Windsurf MCP settings:\n${jsonConfig}`;
+                linkPreview.classList.add('visible');
+            });
+
+            windsurfBtn.addEventListener('mouseleave', function() {
+                linkPreview.classList.remove('visible');
+            });
+
+            // VS Code button hover
+            vscodeBtn.addEventListener('mouseenter', function() {
+                const deeplink = generateVSCodeInstructions();
+                linkPreview.textContent = deeplink;
+                linkPreview.classList.add('visible');
+            });
+
+            vscodeBtn.addEventListener('mouseleave', function() {
+                linkPreview.classList.remove('visible');
+            });
+
+            // VS Code Insiders button hover
+            vscodeInsidersBtn.addEventListener('mouseenter', function() {
+                const deeplink = generateVSCodeInsidersInstructions();
+                linkPreview.textContent = deeplink;
+                linkPreview.classList.add('visible');
+            });
+
+            vscodeInsidersBtn.addEventListener('mouseleave', function() {
+                linkPreview.classList.remove('visible');
+            });
+
+            // Button event handlers
+            document.getElementById('cursorBtn').addEventListener('click', function() {
+                const deeplink = generateCursorDeeplink();
+                if (deeplink !== 'Invalid JSON configuration') {
+                    console.log('Generated deeplink:', deeplink);
+                    // Open the deeplink
+                    window.open(deeplink, '_self');
+                } else {
+                    alert('Error: Please ensure the JSON configuration is valid.');
+                }
+            });
+
+            document.getElementById('windsurfBtn').addEventListener('click', function() {
+                const jsonConfig = generateWindsurfInstructions();
+                if (jsonConfig !== 'Invalid JSON configuration') {
+                    console.log('Windsurf config:', jsonConfig);
+                    
+                    // Copy to clipboard
+                    navigator.clipboard.writeText(jsonConfig).then(function() {
+                        alert(`Configuration copied to clipboard!\n\nAdd this to your Windsurf MCP settings:\n\n${jsonConfig}`);
+                    }).catch(function() {
+                        // Fallback if clipboard API fails
+                        alert(`Add this to your Windsurf MCP settings:\n\n${jsonConfig}\n\n(Note: Could not copy to clipboard automatically)`);
+                    });
+                } else {
+                    alert('Error: Please ensure the JSON configuration is valid.');
+                }
+            });
+
+            document.getElementById('vscodeBtn').addEventListener('click', function() {
+                const deeplink = generateVSCodeInstructions();
+                if (deeplink !== 'Invalid JSON configuration') {
+                    console.log('VS Code deeplink:', deeplink);
+                    // Try to open the deeplink
+                    window.open(deeplink, '_self');
+                } else {
+                    alert('Error: Please ensure the JSON configuration is valid.');
+                }
+            });
+
+            document.getElementById('vscodeInsidersBtn').addEventListener('click', function() {
+                const deeplink = generateVSCodeInsidersInstructions();
+                if (deeplink !== 'Invalid JSON configuration') {
+                    console.log('VS Code Insiders deeplink:', deeplink);
+                    // Try to open the deeplink
+                    window.open(deeplink, '_self');
+                } else {
+                    alert('Error: Please ensure the JSON configuration is valid.');
+                }
+            });
+
+        });
+    </script>
+</body>
+</html>

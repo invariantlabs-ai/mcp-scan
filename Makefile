@@ -46,7 +46,7 @@ reset-uv:
 	uv venv
 
 install-dev-server-cursor:
-	uv run --directory $PWD -m src.mcp_scan.run install-mcp-server ~/.cursor/mcp.json --background --tool --client-name Cursor
+	uv run --directory ${PWD} -m src.mcp_scan.run install-mcp-server ~/.cursor/mcp.json --background --tool --client-name Cursor
 
 install-dev-server-windsurf:
-	uv run --directory $PWD -m src.mcp_scan.run install-mcp-server ~/.codeium/windsurf/mcp_config.json --background --tool --client-name Windsurf
+	uv run --directory ${PWD} -m src.mcp_scan.run install-mcp-server ~/.codeium/windsurf/mcp_config.json --background --tool --client-name Windsurf
