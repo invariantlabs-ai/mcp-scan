@@ -132,7 +132,7 @@ async def perform_and_schedule_scan(path, args):
 
             # set background variable ENVIRONMENT
             if "MCP_SCAN_ENVIRONMENT" in os.environ:
-                os.environ['MCP_SCAN_ENVIRONMENT'] = 'background ' + os.environ['MCP_SCAN_ENVIRONMENT']
+                os.environ['MCP_SCAN_ENVIRONMENT'] = os.environ['MCP_SCAN_ENVIRONMENT'] + '_background'
             os.environ['MCP_SCAN_ENVIRONMENT'] = 'background'
             result = await run_scan_inspect(mode="scan", args=args)
 
