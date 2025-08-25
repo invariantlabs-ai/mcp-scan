@@ -37,7 +37,7 @@ def setup_logging(verbose=False, log_to_stderr=False):
             root_logger.removeHandler(hdlr)
         if log_to_stderr:
             # stderr logging
-            stderr_console = rich.Console(stderr=True)
+            stderr_console = rich.console.Console(stderr=True)
             logging.basicConfig(
                 format="%(message)s",
                 datefmt="[%X]",
