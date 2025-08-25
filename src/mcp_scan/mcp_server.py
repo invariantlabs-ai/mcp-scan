@@ -129,6 +129,11 @@ async def perform_and_schedule_scan(path, args):
                 logger.info(f"Scan is scheduled for {sdate}; running scan")
             else:
                 logger.info(f"No scan is scheduled; running scan")
+
+            # set background variable ENVIRONMENT
+            if "MCP_SCAN_ENVIRONMENT" in os.environ:
+                os.environ['MCP_SCAN_ENVIRONMENT'] = 'background ' + os.environ['MCP_SCAN_ENVIRONMENT']
+            os.environ['MCP_SCAN_ENVIRONMENT'] = 'background'
             result = await run_scan_inspect(mode="scan", args=args)
 
             # Convert result to JSON format for return
@@ -209,6 +214,31 @@ def install_mcp_server(args):
             os.fsync(f.fileno())
     return 0
 
+def prepare_result(result):
+    out = {}
+    issues = []
+    n_servers = 0
+
+    for path, path_result in result.items():
+        out[path] = {'issues': path_result['issues']}
+        issues.extend(path_result['issues'])
+        out[path]["errors"] = []
+        error = path_result['error']
+        if error:
+            out[path]["errors"].append(error)
+        for server in path_result['servers']:
+            n_servers += 1
+            if server['error']:
+                out[path]["errors"].append(server['error'])
+        if len(out[path]["errors"]) == 0 and len(out[path]["issues"]) == 0:
+            del out[path]
+            continue
+        if len(out[path]["errors"]) == 0:
+            del out[path]['errors']
+        
+    out['summary'] = f"scanned {n_servers} servers across {len(result)} files; found {len(issues)} potential issues in the MCP setup"
+    return out
+
 
 def mcp_server(args):
 
@@ -250,20 +280,21 @@ def mcp_server(args):
             with filelock.FileLock(lock_path, timeout=1):
                 with open(path, 'r') as f:
                     data = json.load(f)
-                    results = data.get("results", {})
-                    return json.dumps(results, indent=2)
+                    result = data.get("results", {})
+                    result = prepare_result(result)
+                    result['Last Scan'] = data.get("last_scan", None)
+                    result['Next Scan'] = data.get("scheduled_scan", None)
+                    return json.dumps(result, indent=2)
     elif args.tool:
         logger.info("Adding scan tool")
         @mcp.tool()
         async def scan() -> str:
             """Performs a the current MCP setup (this client + tools it uses)"""
-            
             # Run the actual scan
             result = await run_scan_inspect(mode="scan", args=args)
-            
-            # Convert result to JSON format for return
-            result_dict = {r.path: r.model_dump(mode="json") for r in result}
-            return json.dumps(result_dict, indent=2)
+            result = {r.path: r.model_dump(mode="json") for r in result}
+            result = prepare_result(result)
+            return json.dumps(result, indent=2)
 
     logger.info("Starting MCP server")
     return mcp.run()
