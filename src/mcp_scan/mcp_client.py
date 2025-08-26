@@ -1,23 +1,24 @@
 import asyncio
+from ctypes import LibraryLoader
 import logging
 import os
 import subprocess
 from contextlib import asynccontextmanager
-from typing import AsyncContextManager  # noqa: UP035
+from typing import AsyncContextManager, Literal  # noqa: UP035
 
 import pyjson5
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.sse import sse_client
 from mcp.client.stdio import stdio_client
 from mcp.client.streamable_http import streamablehttp_client
+from trio import TrioDeprecationWarning
 
 from mcp_scan.models import (
     ClaudeConfigFile,
     MCPConfig,
     ServerSignature,
-    SSEServer,
     StdioServer,
-    StreamableHTTPServer,
+    RemoteServer,
     VSCodeConfigFile,
     VSCodeMCPConfig,
 )
@@ -35,9 +36,9 @@ async def streamablehttp_client_without_session(*args, **kwargs):
 
 
 def get_client(
-    server_config: SSEServer | StdioServer | StreamableHTTPServer, timeout: int | None = None, verbose: bool = False
+    server_config: StdioServer | RemoteServer, protocol: Literal["sse", "http", "stdio"], timeout: int | None = None, verbose: bool = False
 ) -> AsyncContextManager:
-    if isinstance(server_config, SSEServer):
+    if protocol == "sse":
         logger.debug("Creating SSE client with URL: %s", server_config.url)
         return sse_client(
             url=server_config.url,
@@ -45,7 +46,7 @@ def get_client(
             # env=server_config.env, #Not supported by MCP yet, but present in vscode
             timeout=timeout,
         )
-    elif isinstance(server_config, StreamableHTTPServer):
+    elif protocol == "http":
         logger.debug(
             "Creating Streamable HTTP client with URL: %s with headers %s", server_config.url, server_config.headers
         )
@@ -53,8 +54,9 @@ def get_client(
         return streamablehttp_client_without_session(
             url=server_config.url,
             headers=server_config.headers,
+            timeout=timeout,
         )
-    else:
+    elif protocol == "stdio":
         logger.debug("Creating stdio client")
         # handle complex configs
         command, args = rebalance_command_args(server_config.command, server_config.args)
@@ -65,16 +67,18 @@ def get_client(
             env=server_config.env,
         )
         return stdio_client(server_params, errlog=subprocess.DEVNULL if not verbose else None)
+    else:
+        raise ValueError(f"Invalid protocol: {protocol}")
 
 
 async def check_server(
-    server_config: SSEServer | StdioServer | StreamableHTTPServer, timeout: int, suppress_mcpserver_io: bool
+    server_config: StdioServer | RemoteServer, protocol: Literal["sse", "http", "stdio"], timeout: int, suppress_mcpserver_io: bool
 ) -> ServerSignature:
     logger.info("Checking server with config: %s, timeout: %s", server_config, timeout)
 
     async def _check_server(verbose: bool) -> ServerSignature:
         logger.info("Initializing server connection")
-        async with get_client(server_config, timeout=timeout, verbose=verbose) as (read, write):
+        async with get_client(server_config, protocol, timeout=timeout, verbose=verbose) as (read, write):
             async with ClientSession(read, write) as session:
                 meta = await session.initialize()
                 logger.debug("Server initialized with metadata: %s", meta)
@@ -129,18 +133,37 @@ async def check_server(
 
 
 async def check_server_with_timeout(
-    server_config: SSEServer | StdioServer | StreamableHTTPServer,
+    server_config: StdioServer | RemoteServer,
     timeout: int,
     suppress_mcpserver_io: bool,
 ) -> ServerSignature:
     logger.debug("Checking server with timeout: %s seconds", timeout)
-    try:
-        result = await asyncio.wait_for(check_server(server_config, timeout, suppress_mcpserver_io), timeout)
-        logger.debug("Server check completed within timeout")
-        return result
-    except asyncio.TimeoutError:
-        logger.exception("Server check timed out after %s seconds", timeout)
-        raise
+    retry = True
+    protocols_tried = []
+    while retry:
+        retry = False
+        try:
+            if isinstance(server_config, StdioServer) or (isinstance(server_config, RemoteServer) and server_config.type is not None):
+                protocol = server_config.type
+            elif isinstance(server_config, RemoteServer) and server_config.type is None:
+                if "http" not in protocols_tried:
+                    protocol = "http"
+                    logger.debug("Remote server with no type, trying http")
+                else:
+                    protocol = "sse"
+                    logger.debug("Remote server with no type, trying sse")
+            protocols_tried.append(protocol)
+
+            result = await asyncio.wait_for(check_server(server_config, protocol, timeout, suppress_mcpserver_io), timeout)
+            logger.debug("Server check completed within timeout")
+            return result
+        except asyncio.TimeoutError:
+            logger.exception("Server check timed out after %s seconds", timeout)
+            if isinstance(server_config, RemoteServer) and server_config.type is None and "http" in protocols_tried and "sse" not in protocols_tried:
+                logger.debug("Scan with HTTP failed, retrying with SSE")
+                retry = True
+            else:
+                raise
 
 
 async def scan_mcp_config_file(path: str) -> MCPConfig:

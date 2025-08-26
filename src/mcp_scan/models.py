@@ -63,19 +63,11 @@ class ScannedEntity(BaseModel):
 ScannedEntities = RootModel[dict[str, ScannedEntity]]
 
 
-class SSEServer(BaseModel):
+class RemoteServer(BaseModel):
     model_config = ConfigDict()
     url: str
-    type: Literal["sse"] | None = "sse"
+    type: Literal["sse"] | Literal["http"] | None
     headers: dict[str, str] = {}
-
-
-class StreamableHTTPServer(BaseModel):
-    model_config = ConfigDict()
-    url: str
-    type: Literal["http"] | None = "http"
-    headers: dict[str, str] = {}
-
 
 class StdioServer(BaseModel):
     model_config = ConfigDict()
@@ -86,21 +78,21 @@ class StdioServer(BaseModel):
 
 
 class MCPConfig(BaseModel):
-    def get_servers(self) -> dict[str, SSEServer | StdioServer | StreamableHTTPServer]:
+    def get_servers(self) -> dict[str, StdioServer |  RemoteServer]:
         raise NotImplementedError("Subclasses must implement this method")
 
-    def set_servers(self, servers: dict[str, SSEServer | StdioServer | StreamableHTTPServer]) -> None:
+    def set_servers(self, servers: dict[str, StdioServer | RemoteServer]) -> None:
         raise NotImplementedError("Subclasses must implement this method")
 
 
 class ClaudeConfigFile(MCPConfig):
     model_config = ConfigDict()
-    mcpServers: dict[str, SSEServer | StdioServer | StreamableHTTPServer]
+    mcpServers: dict[str, StdioServer | RemoteServer]
 
-    def get_servers(self) -> dict[str, SSEServer | StdioServer | StreamableHTTPServer]:
+    def get_servers(self) -> dict[str, StdioServer | RemoteServer]:
         return self.mcpServers
 
-    def set_servers(self, servers: dict[str, SSEServer | StdioServer | StreamableHTTPServer]) -> None:
+    def set_servers(self, servers: dict[str, StdioServer | RemoteServer]) -> None:
         self.mcpServers = servers
 
 
@@ -108,12 +100,12 @@ class VSCodeMCPConfig(MCPConfig):
     # see https://code.visualstudio.com/docs/copilot/chat/mcp-servers
     model_config = ConfigDict()
     inputs: list[Any] | None = None
-    servers: dict[str, SSEServer | StdioServer | StreamableHTTPServer]
+    servers: dict[str, StdioServer | RemoteServer]
 
-    def get_servers(self) -> dict[str, SSEServer | StdioServer | StreamableHTTPServer]:
+    def get_servers(self) -> dict[str, StdioServer | RemoteServer]:
         return self.servers
 
-    def set_servers(self, servers: dict[str, SSEServer | StdioServer | StreamableHTTPServer]) -> None:
+    def set_servers(self, servers: dict[str, StdioServer | RemoteServer]) -> None:
         self.servers = servers
 
 
@@ -121,10 +113,10 @@ class VSCodeConfigFile(MCPConfig):
     model_config = ConfigDict()
     mcp: VSCodeMCPConfig
 
-    def get_servers(self) -> dict[str, SSEServer | StdioServer | StreamableHTTPServer]:
+    def get_servers(self) -> dict[str, StdioServer | RemoteServer]:
         return self.mcp.servers
 
-    def set_servers(self, servers: dict[str, SSEServer | StdioServer | StreamableHTTPServer]) -> None:
+    def set_servers(self, servers: dict[str, StdioServer | RemoteServer]) -> None:
         self.mcp.servers = servers
 
 
@@ -184,7 +176,7 @@ class VerifyServerRequest(RootModel[list[ServerSignature | None]]):
 class ServerScanResult(BaseModel):
     model_config = ConfigDict()
     name: str | None = None
-    server: SSEServer | StdioServer | StreamableHTTPServer
+    server: StdioServer | RemoteServer
     signature: ServerSignature | None = None
     error: ScanError | None = None
 
