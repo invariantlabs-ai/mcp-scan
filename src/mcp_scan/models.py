@@ -66,7 +66,7 @@ ScannedEntities = RootModel[dict[str, ScannedEntity]]
 class RemoteServer(BaseModel):
     model_config = ConfigDict()
     url: str
-    type: Literal["sse"] | Literal["http"] | None
+    type: Literal["sse", "http"] | None
     headers: dict[str, str] = {}
 
 class StdioServer(BaseModel):
