@@ -87,6 +87,9 @@ async def upload(
 
     # Convert all scan results to server data
     for result in results:
+        if not result.servers:
+            logger.info(f"No servers found for path {result.path}. Skipping upload.")
+            continue
         try:
             # include user and client information in the upload data
             payload = PushScanPathResult(
@@ -112,7 +115,6 @@ async def upload(
                         logger.info(
                             f"Successfully uploaded scan results. Server responded with {len(response_data)} results"
                         )
-                        print(f"✅ Successfully uploaded scan results to {control_server}")
                     else:
                         error_text = await response.text()
                         logger.error(f"Failed to upload scan results. Status: {response.status}, Error: {error_text}")
