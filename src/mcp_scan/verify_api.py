@@ -25,12 +25,15 @@ async def analyze_scan_path(
         "X-User": identity_manager.get_identity(opt_out_of_identity),
         "X-Environment": os.getenv("MCP_SCAN_ENVIRONMENT", "production")
     }
+    logger.debug("Analyzing scan path with URL: %s and headers: %s", url, headers)
     payload = VerifyServerRequest(
         root=[
             server.signature.model_dump() if server.signature else None
             for server in scan_path.servers
         ]
     )
+    logger.debug("Analyzing scan path with URL: %s and headers: %s", url, headers)
+    logger.debug("Payload: %s", payload.model_dump_json())
 
     # Server signatures do not contain any information about the user setup. Only about the server itself.
     try:
@@ -39,11 +42,13 @@ async def analyze_scan_path(
                 if response.status == 200:
                     results = AnalysisServerResponse.model_validate_json(await response.read())
                 else:
+                    logger.debug("Error: %s - %s", response.status, await response.text())
                     raise Exception(f"Error: {response.status} - {await response.text()}")
 
         scan_path.issues += results.issues
 
     except Exception as e:
+        logger.exception("Error analyzing scan path")
         try:
             errstr = str(e.args[0])
             errstr = errstr.splitlines()[0]

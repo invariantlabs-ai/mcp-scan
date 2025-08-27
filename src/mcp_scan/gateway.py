@@ -7,7 +7,7 @@ from rich.text import Text
 from rich.tree import Tree
 
 from mcp_scan.mcp_client import scan_mcp_config_file
-from mcp_scan.models import MCPConfig, SSEServer, StdioServer, StreamableHTTPServer
+from mcp_scan.models import MCPConfig, StdioServer, RemoteServer 
 from mcp_scan.well_known_clients import get_client_from_path
 from mcp_scan.printer import format_path_line
 
@@ -158,7 +158,7 @@ class MCPGatewayInstaller:
                 continue
 
             path_print_tree = Tree("│")
-            new_servers: dict[str, SSEServer | StdioServer | StreamableHTTPServer] = {}
+            new_servers: dict[str, StdioServer | RemoteServer] = {}
             for name, server in config.get_servers().items():
                 if isinstance(server, StdioServer):
                     try:
@@ -180,7 +180,7 @@ class MCPGatewayInstaller:
                 else:
                     new_servers[name] = server
                     path_print_tree.add(
-                        format_install_line(server=name, status="sse servers not supported yet", success=False)
+                        format_install_line(server=name, status="remote servers not supported yet", success=False)
                     )
 
             if verbose:
@@ -209,7 +209,7 @@ class MCPGatewayInstaller:
 
             path_print_tree = Tree("│")
             config = await scan_mcp_config_file(path)
-            new_servers: dict[str, SSEServer | StdioServer | StreamableHTTPServer] = {}
+            new_servers: dict[str, StdioServer | RemoteServer] = {}
             for name, server in config.get_servers().items():
                 if isinstance(server, StdioServer):
                     try:
@@ -228,7 +228,7 @@ class MCPGatewayInstaller:
                 else:
                     new_servers[name] = server
                     path_print_tree.add(
-                        format_install_line(server=name, status="sse servers not supported yet", success=None)
+                        format_install_line(server=name, status="remoteservers not supported yet", success=None)
                     )
             config.set_servers(new_servers)
             if verbose:
