@@ -90,7 +90,11 @@ async def upload(
         try:
             # include user and client information in the upload data
             payload = PushScanPathResult(
-                **result.model_dump(),
+                path=result.path,
+                servers=result.servers,
+                issues=result.issues,
+                labels=result.labels,
+                error=result.error,
                 push_key=push_key,
                 client=get_client_from_path(result.path) or result.path,
                 scan_user_info=user_info,
