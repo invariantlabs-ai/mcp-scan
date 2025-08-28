@@ -26,7 +26,7 @@ dependencies = [
     "aiohttp>=3.11.16",
     "rapidfuzz>=3.13.0",
     "invariant-ai>=0.3.3",
-    "filelock>=3.18.0",
+    "filelock>=3.18.0"
 ]
 
 [project.scripts]
@@ -49,6 +49,8 @@ test = [
 dev = [
     "shiv>=1.0.4",
     "ruff>=0.11.8",
+    "pyinstaller>=6.15.0",
+    "trio>=0.30.0"
 ]
 
 [tool.pytest.ini_options]

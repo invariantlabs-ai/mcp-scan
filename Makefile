@@ -21,6 +21,13 @@ clean:
 	rm -rf ./dist
 	rm -rf ./mcp_scan/mcp_scan.egg-info
 	rm -rf ./npm/dist
+	rm -rf ./ame.spec
+	rm -rf ./mcp-scan.spec
+
+binary:
+	uv sync
+	uv pip install -e .[dev]
+	uv run pyinstaller --hidden-import trio --onefile --name mcp-scan src/mcp_scan/run.py
 
 build: clean
 	uv build --no-sources
