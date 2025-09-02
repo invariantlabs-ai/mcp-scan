@@ -91,12 +91,11 @@ async def upload(
             logger.info(f"No servers found for path {result.path}. Skipping upload.")
             continue
         try:
-            # include user and client information in the upload data
             payload = PushScanPathResult(
                 path=result.path,
                 servers=result.servers,
-                issues=result.issues,
-                labels=result.labels,
+                issues=[issue.model_dump() for issue in result.issues],
+                labels=[[label.model_dump() for label in labels] for labels in result.labels],
                 error=result.error,
                 push_key=push_key,
                 client=get_client_from_path(result.path) or result.path,
