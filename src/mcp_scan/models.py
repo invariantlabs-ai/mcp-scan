@@ -3,7 +3,7 @@ from datetime import datetime
 from hashlib import md5
 from itertools import chain
 from typing import Any, Literal, TypeAlias
-
+import re
 from mcp.types import InitializeResult, Prompt, Resource, Tool, ResourceTemplate, Completion
 from pydantic import BaseModel, ConfigDict, Field, RootModel, field_serializer, field_validator
 
@@ -253,7 +253,26 @@ def entity_to_tool(
             inputSchema={},
             annotations=None,
         )
-    elif isinstance(entity, (Prompt, ResourceTemplate)):
+    elif isinstance(entity, ResourceTemplate):
+        # get parameters from uriTemplate
+        params = re.findall(r'\{(\w+)\}', entity.uriTemplate)
+        return Tool(
+            name=entity.name,
+            description=entity.description,
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    param: {
+                        "type": "string",
+                        "description": param,
+                    }
+                    for param in params
+                },
+                "required": params,
+            },
+            annotations=None,
+        )
+    elif isinstance(entity, Prompt):
         return Tool(
             name=entity.name,
             description=entity.description,
