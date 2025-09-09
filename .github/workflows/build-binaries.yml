@@ -1,0 +1,108 @@
+name: Build Binaries
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+            arch: x86_64
+          - os: macos-latest  # ARM64 macOS (Mx)
+            platform: macos
+            arch: arm64
+
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install the latest version of uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Create venv and install dependencies
+        run: |
+          uv sync
+          uv pip install -e .[dev]
+
+      - name: Run tests
+        run: make test
+
+      - name: Build binary with PyInstaller
+        run: |
+          # Build using the existing spec file or make target, which already has the right configuration
+	        uv run pyinstaller \
+            --hidden-import trio \
+            --onefile \
+            --name mcp-scan src/mcp_scan/run.py
+
+      - name: Get version
+        id: get_version
+        run: |
+          version=$(uv run python -c "import sys; sys.path.insert(0, 'src'); import mcp_scan; print(mcp_scan.__version__)")
+          echo "version=$version" >> $GITHUB_OUTPUT
+
+      - name: Prepare binary for upload
+        run: |
+          if [ "${{ matrix.platform }}" = "macos" ]; then
+            mv dist/mcp-scan dist/mcp-scan-${{ steps.get_version.outputs.version }}-macos-arm64
+          else
+            mv dist/mcp-scan dist/mcp-scan-${{ steps.get_version.outputs.version }}-linux-x86_64
+          fi
+
+      - name: Upload binary as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mcp-scan-${{ matrix.platform }}-${{ matrix.arch }}
+          path: dist/mcp-scan-*
+          retention-days: 7
+
+  upload-to-release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release' || startsWith(github.ref, 'refs/tags/v')
+    
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Organize binaries and generate checksums
+        run: |
+          mkdir -p release-assets
+          
+          # Move all binaries to release-assets directory
+          find artifacts -name "mcp-scan-*" -type f -exec cp {} release-assets/ \;
+          
+          # Generate checksums
+          cd release-assets
+          sha256sum mcp-scan-* > checksums.txt
+          cd ..
+          
+          # List what we have
+          ls -la release-assets/
+
+      - name: Upload binaries and checksums to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-assets/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
