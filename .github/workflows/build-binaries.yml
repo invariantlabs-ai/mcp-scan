@@ -48,7 +48,7 @@ jobs:
       - name: Build binary with PyInstaller
         run: |
           # Build using the existing spec file or make target, which already has the right configuration
-	        uv run pyinstaller \
+          uv run pyinstaller \
             --hidden-import trio \
             --onefile \
             --name mcp-scan src/mcp_scan/run.py
