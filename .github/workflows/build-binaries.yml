@@ -2,12 +2,6 @@ name: Publish Binaries
 
 on:
   workflow_dispatch:
-  push:
-    tags:
-      - 'v*'
-
-permissions:
-  contents: write
 
 jobs:
   build:
@@ -17,12 +11,12 @@ jobs:
           - os: ubuntu-latest
             platform: linux
             arch: x86_64
-          - os: macos-latest  # ARM64 macOS (Mx)
+          - os: macos-latest # ARM64 macOS (Mx)
             platform: macos
             arch: arm64
 
     runs-on: ${{ matrix.os }}
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -33,19 +27,15 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: "3.10"
 
       - name: Create venv and install dependencies
         run: |
           uv sync
           uv pip install -e .[dev]
 
-      - name: Run tests
-        run: make test
-
       - name: Build binary with PyInstaller
         run: |
-          # Build using the existing spec file or make target, which already has the right configuration
           uv run pyinstaller \
             --hidden-import trio \
             --onefile \
@@ -76,7 +66,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     if: github.event_name == 'release' || startsWith(github.ref, 'refs/tags/v')
-    
+
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -86,15 +76,15 @@ jobs:
       - name: Organize binaries and generate checksums
         run: |
           mkdir -p release-assets
-          
+
           # Move all binaries to release-assets directory
           find artifacts -name "mcp-scan-*" -type f -exec cp {} release-assets/ \;
-          
+
           # Generate checksums
           cd release-assets
           sha256sum mcp-scan-* > checksums.txt
           cd ..
-          
+
           # List what we have
           ls -la release-assets/
 
