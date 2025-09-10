@@ -28,6 +28,12 @@ jobs:
         make build
         mkdir -p ${{ github.workspace }}/artifacts
         cp dist/*.whl ${{ github.workspace }}/artifacts/
+    - name: Build and store binary
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        make binary
+        mkdir -p ${{ github.workspace }}/artifacts
+        cp dist/mcp-scan ${{ github.workspace }}/artifacts/
     - name: Upload whl artifact for this build
       if: matrix.os == 'ubuntu-latest'
       uses: actions/upload-artifact@v4
