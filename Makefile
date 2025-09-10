@@ -27,7 +27,7 @@ clean:
 binary:
 	uv sync
 	uv pip install -e .[dev]
-	uv run pyinstaller --hidden-import trio --onefile --name mcp-scan src/mcp_scan/run.py
+	uv run pyinstaller --onefile --name mcp-scan src/mcp_scan/run.py
 
 build: clean
 	uv build --no-sources

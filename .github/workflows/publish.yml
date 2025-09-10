@@ -30,17 +30,9 @@ jobs:
         with:
           python-version: "3.10"
 
-      - name: Create venv and install dependencies
+      - name: Build binary
         run: |
-          uv sync
-          uv pip install -e .[dev]
-
-      - name: Build binary with PyInstaller
-        run: |
-          uv run pyinstaller \
-            --hidden-import trio \
-            --onefile \
-            --name mcp-scan src/mcp_scan/run.py
+          make binary
 
       - name: Get version
         id: get_version

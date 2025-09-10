@@ -48,8 +48,7 @@ test = [
 dev = [
     "shiv>=1.0.4",
     "ruff>=0.11.8",
-    "pyinstaller>=6.15.0",
-    "trio>=0.30.0"
+    "pyinstaller>=6.15.0"
 ]
 
 [tool.pytest.ini_options]
