@@ -31,3 +31,4 @@
 - `0.3.8` Argument Handling fix
 - `0.3.9` Fixed bug in `entity_to_tool`, function exposed only when `mcp-scan` is used as a library
 - `0.3.10` Remove Trio dependency.
+- `0.3.11` Binary builds.
