@@ -68,6 +68,25 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install the latest version of uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Get version
+        id: get_version
+        run: |
+          version=$(uv run python -c "import sys; sys.path.insert(0, 'src'); import mcp_scan; print(mcp_scan.__version__)")
+          echo "version=$version" >> $GITHUB_OUTPUT
+
+      - name: Create and push tag
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git tag test-v${{ steps.get_version.outputs.version }}
+          git push origin test-v${{ steps.get_version.outputs.version }}
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
@@ -87,6 +106,8 @@ jobs:
 
           # List what we have
           ls -la release-assets/
+
+          
 
       - name: Upload binaries and checksums to release
         uses: softprops/action-gh-release@v2
