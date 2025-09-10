@@ -11,7 +11,6 @@ from mcp import ClientSession, StdioServerParameters
 from mcp.client.sse import sse_client
 from mcp.client.stdio import stdio_client
 from mcp.client.streamable_http import streamablehttp_client
-from trio import TrioDeprecationWarning
 
 from mcp_scan.models import (
     ClaudeConfigFile,

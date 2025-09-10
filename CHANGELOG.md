@@ -29,3 +29,5 @@
 - `0.3.6` Bug fix: tools without description were not working.
 - `0.3.7` Added (experimental) feature to run mcp-scan as a mcp-server.
 - `0.3.8` Argument Handling fix
+- `0.3.9` Fixed bug in `entity_to_tool`, function exposed only when `mcp-scan` is used as a library
+- `0.3.10` Remove Trio dependency.
