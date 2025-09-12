@@ -67,7 +67,7 @@ def get_user_info(email: str | None = None, opt_out: bool = False) -> ScanUserIn
 
 
 async def upload(
-    results: list[ScanPathResult], control_server: str, push_key: str, email: str | None = None, opt_out: bool = False
+    results: list[ScanPathResult], control_server: str, push_key: str, email: str | None = None, opt_out: bool = False, additional_headers: dict = {}
 ) -> None:
     """
     Upload the scan results to the control server.
@@ -99,6 +99,7 @@ async def upload(
 
             async with aiohttp.ClientSession() as session:
                 headers = {"Content-Type": "application/json", "User-Agent": "mcp-scan/1.0"}
+                headers.update(additional_headers)
 
                 async with session.post(
                     upload_url, json=payload, headers=headers, timeout=aiohttp.ClientTimeout(total=30)
