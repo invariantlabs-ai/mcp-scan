@@ -18,7 +18,6 @@ def calculate_distance(responses: list[str], reference: str):
 # Cache the Lark parser to avoid recreation on every call
 _command_parser = None
 
-
 def rebalance_command_args(command, args):
     # create a parser that splits on whitespace,
     # unless it is inside "." or '.'
@@ -79,3 +78,13 @@ class TempFile:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.file.close()
         os.unlink(self.file.name)
+
+def parse_headers(headers: list[str]|None) -> dict:
+    if headers is None:
+        return {}
+    headers = [header.strip() for header in headers]
+    for header in headers:
+        if ":" not in header:
+            raise ValueError(f"Invalid header: {header}")
+    return {header.split(":")[0]: header.split(":")[1] for header in headers}
+

@@ -20,6 +20,7 @@ from .well_known_clients import WELL_KNOWN_MCP_PATHS, client_shorthands_to_paths
 from .printer import print_scan_result
 from .Storage import Storage
 from .version import version_info
+from .utils import parse_headers
 
 # Configure logging to suppress all output by default
 logging.getLogger().setLevel(logging.CRITICAL + 1)  # Higher than any standard level
@@ -95,6 +96,13 @@ def add_common_arguments(parser):
         help="Base URL for the verification server",
         metavar="URL",
     )
+    parser.add_argument(
+        "--verification-H",
+        nargs="*",
+        action="append",
+        help="Additional headers for the verification server",
+    )
+
     parser.add_argument(
         "--verbose",
         default=False,
@@ -210,6 +218,12 @@ def add_scan_arguments(scan_parser):
         "--control-server",
         default=False,
         help="Upload the scan results to the provided control server URL (default: Do not upload)",
+    )
+    scan_parser.add_argument(
+        "--control-server-H",
+        nargs="*",
+        action="append",
+        help="Additional headers for the control server",
     )
     scan_parser.add_argument(
         "--push-key",
@@ -560,7 +574,7 @@ def main():
 
 
 async def run_scan_inspect(mode="scan", args=None):
-    async with MCPScanner(**vars(args)) as scanner:
+    async with MCPScanner(additional_headers=parse_headers(args.verification_H), **vars(args)) as scanner:
         # scanner.hook('path_scanned', print_path_scanned)
         if mode == "scan":
             result = await scanner.scan()
@@ -578,7 +592,7 @@ async def run_scan_inspect(mode="scan", args=None):
         and hasattr(args, "email")
         and hasattr(args, "opt_out")
     ):
-        await upload(result, args.control_server, args.push_key, args.email, args.opt_out)
+        await upload(result, args.control_server, args.push_key, args.email, args.opt_out, additional_headers=parse_headers(args.control_server_H))
     return result
 
 async def print_scan_inspect(mode="scan", args=None):
