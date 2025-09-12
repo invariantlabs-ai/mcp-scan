@@ -1,3 +1,4 @@
+.DS_Store
 __pycache__
 uv.lock
 *.pyc
@@ -26,6 +27,14 @@ npm/node_modules/
 npm/package-lock.json
 npm/.npm/
 npm/*.tgz
+
+# pyinstaller artifacts
+*.spec
+dist/
+*.exe
+*.dll
+*.lib
+*.exp
 
 # Virtual environments
 .venv/

@@ -60,6 +60,7 @@ class MCPScanner:
         suppress_mcpserver_io: bool = True,
         opt_out: bool = False,
         include_built_in: bool = False,
+        verbose: bool = False,
         **kwargs: Any,
     ):
         logger.info("Initializing MCPScanner")
@@ -75,6 +76,7 @@ class MCPScanner:
         self.context_manager = None
         self.opt_out_of_identity = opt_out
         self.include_built_in = include_built_in
+        self.verbose = verbose
         logger.debug(
             "MCPScanner initialized with timeout: %d, checks_per_server: %d", server_timeout, checks_per_server
         )
@@ -220,7 +222,7 @@ class MCPScanner:
         path_result.issues += self.check_server_changed(path_result)
         logger.debug(f"Verifying server path: {path_result.path}, {path_result.path is None}")
         path_result = await analyze_scan_path(
-            path_result, base_url=self.base_url, opt_out_of_identity=self.opt_out_of_identity
+            path_result, base_url=self.base_url, opt_out_of_identity=self.opt_out_of_identity, verbose=self.verbose
         )
         await self.emit("path_scanned", path_result)
         return path_result
