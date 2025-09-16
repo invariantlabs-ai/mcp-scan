@@ -7,7 +7,7 @@ import aiohttp
 import psutil
 
 from mcp_scan.identity import IdentityManager
-from mcp_scan.models import ScanPathResult, ScanUserInfo
+from mcp_scan.models import ScanPathResult, ScanUserInfo, PushScanPathResult
 from mcp_scan.well_known_clients import get_client_from_path
 
 logger = logging.getLogger(__name__)
@@ -80,7 +80,6 @@ async def upload(
     if not results:
         logger.info("No scan results to upload")
         return
-
     # Normalize control server URL
     base_url = control_server.rstrip("/")
     upload_url = f"{base_url}/api/scans/push"
@@ -88,28 +87,33 @@ async def upload(
 
     # Convert all scan results to server data
     for result in results:
+        if not result.servers:
+            logger.info(f"No servers found for path {result.path}. Skipping upload.")
+            continue
         try:
-            # include user and client information in the upload data
-            payload = {
-                **(result.model_dump()),
-                "push_key": push_key,
-                "client": get_client_from_path(result.path) or result.path,
-                "scan_user_info": user_info.model_dump(),
-            }
+            payload = PushScanPathResult(
+                path=result.path,
+                servers=result.servers,
+                issues=[issue.model_dump() for issue in result.issues],
+                labels=[[label.model_dump() for label in labels] for labels in result.labels],
+                error=result.error,
+                push_key=push_key,
+                client=get_client_from_path(result.path) or result.path,
+                scan_user_info=user_info,
+            )
 
             async with aiohttp.ClientSession() as session:
-                headers = {"Content-Type": "application/json", "User-Agent": "mcp-scan/1.0"}
+                headers = {"Content-Type": "application/json"}
                 headers.update(additional_headers)
 
                 async with session.post(
-                    upload_url, json=payload, headers=headers, timeout=aiohttp.ClientTimeout(total=30)
+                    upload_url, data=payload.model_dump_json(), headers=headers, timeout=aiohttp.ClientTimeout(total=30)
                 ) as response:
                     if response.status == 200:
                         response_data = await response.json()
                         logger.info(
                             f"Successfully uploaded scan results. Server responded with {len(response_data)} results"
                         )
-                        print(f"✅ Successfully uploaded scan results to {control_server}")
                     else:
                         error_text = await response.text()
                         logger.error(f"Failed to upload scan results. Status: {response.status}, Error: {error_text}")

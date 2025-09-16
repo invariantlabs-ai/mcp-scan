@@ -60,6 +60,13 @@ class ScannedEntity(BaseModel):
             raise ValueError(f"Unrecognized datetime format: {value}") from e
 
 
+class ScalarToolLabels(BaseModel):
+    is_public_sink: int | float
+    destructive: int | float
+    untrusted_content: int | float
+    private_data: int | float
+
+
 ScannedEntities = RootModel[dict[str, ScannedEntity]]
 
 
@@ -211,6 +218,7 @@ class ScanPathResult(BaseModel):
     path: str
     servers: list[ServerScanResult] = Field(default_factory=list)
     issues: list[Issue] = Field(default_factory=list)
+    labels: list[list[ScalarToolLabels]] = Field(default_factory=list)
     error: ScanError | None = None
 
     @property
@@ -226,6 +234,7 @@ class ScanPathResult(BaseModel):
             path=self.path,
             servers=[server.clone() for server in self.servers],
             issues=[issue.model_copy(deep=True) for issue in self.issues],
+            labels=[[label.model_copy(deep=True) for label in labels] for labels in self.labels],
             error=self.error.clone() if self.error else None,
         )
         return output
@@ -304,3 +313,10 @@ class ToxicFlowExtraData(RootModel[dict[str, list[ToolReferenceWithLabel]]]):
 
 class AnalysisServerResponse(BaseModel):
     issues: list[Issue]
+    labels: list[list[ScalarToolLabels]]
+
+
+class PushScanPathResult(ScanPathResult):
+    push_key: str
+    client: str | None
+    scan_user_info: ScanUserInfo
