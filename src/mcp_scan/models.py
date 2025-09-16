@@ -69,19 +69,6 @@ class RemoteServer(BaseModel):
     type: Literal["sse", "http"] | None = None
     headers: dict[str, str] = Field(default_factory=dict)
 
-    @model_validator(mode='after')
-    def infer_type_from_url(self):
-        # If type is already provided, use it
-        if self.type is not None:
-            return self
-        # Try to infer from url
-        if self.url.endswith("/mcp"):
-            self.type = "http"
-        elif self.url.endswith("/sse"):
-            self.type = "sse"
-        else:
-            raise ValidationError("Type not specified and could not be inferred from url")
-        return self
 
 class StdioServer(BaseModel):
     model_config = ConfigDict()
