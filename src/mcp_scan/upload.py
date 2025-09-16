@@ -103,7 +103,7 @@ async def upload(
             )
 
             async with aiohttp.ClientSession() as session:
-                headers = {"Content-Type": "application/json", "User-Agent": "mcp-scan/1.0"}
+                headers = {"Content-Type": "application/json"}
                 headers.update(additional_headers)
 
                 async with session.post(
