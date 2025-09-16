@@ -5,7 +5,7 @@ from itertools import chain
 from typing import Any, Literal, TypeAlias
 import re
 from mcp.types import InitializeResult, Prompt, Resource, Tool, ResourceTemplate, Completion
-from pydantic import BaseModel, ConfigDict, Field, RootModel, field_serializer, field_validator
+from pydantic import BaseModel, ConfigDict, Field, RootModel, field_serializer, field_validator, model_validator, ValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -66,8 +66,22 @@ ScannedEntities = RootModel[dict[str, ScannedEntity]]
 class RemoteServer(BaseModel):
     model_config = ConfigDict()
     url: str
-    type: Literal["sse", "http"] | None
+    type: Literal["sse", "http"] | None = None
     headers: dict[str, str] = {}
+
+    @model_validator(mode='after')
+    def infer_type_from_url(self):
+        # If type is already provided, use it
+        if self.type is not None:
+            return self
+        # Try to infer from url
+        if self.url.endswith("/mcp"):
+            self.type = "http"
+        elif self.url.endswith("/sse"):
+            self.type = "sse"
+        else:
+            raise ValidationError("Type not specified and could not be inferred from url")
+        return self
 
 class StdioServer(BaseModel):
     model_config = ConfigDict()
