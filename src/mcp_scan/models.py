@@ -5,7 +5,7 @@ from itertools import chain
 from typing import Any, Literal, TypeAlias
 import re
 from mcp.types import InitializeResult, Prompt, Resource, Tool, ResourceTemplate, Completion
-from pydantic import BaseModel, ConfigDict, Field, RootModel, field_serializer, field_validator
+from pydantic import BaseModel, ConfigDict, Field, RootModel, field_serializer, field_validator, model_validator, ValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -66,8 +66,9 @@ ScannedEntities = RootModel[dict[str, ScannedEntity]]
 class RemoteServer(BaseModel):
     model_config = ConfigDict()
     url: str
-    type: Literal["sse", "http"] | None
-    headers: dict[str, str] = {}
+    type: Literal["sse", "http"] | None = None
+    headers: dict[str, str] = Field(default_factory=dict)
+
 
 class StdioServer(BaseModel):
     model_config = ConfigDict()
