@@ -67,7 +67,7 @@ class RemoteServer(BaseModel):
     model_config = ConfigDict()
     url: str
     type: Literal["sse", "http"] | None = None
-    headers: dict[str, str] = {}
+    headers: dict[str, str] = Field(default_factory=dict)
 
     @model_validator(mode='after')
     def infer_type_from_url(self):
