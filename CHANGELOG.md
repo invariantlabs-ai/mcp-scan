@@ -34,3 +34,4 @@
 - `0.3.11` Binary builds.
 - `0.3.12` Improved SSL handling; ability to pass headers for API interaction.
 - `0.3.13` Get TFA labels from api. Bug fixes
+- `0.3.14` Added new VS Code paths
