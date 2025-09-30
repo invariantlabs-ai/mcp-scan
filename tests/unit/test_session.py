@@ -153,9 +153,13 @@ async def test_to_session_function():
         {"role": "assistant", "content": "Hello, world!", "timestamp": "2021-01-01T12:00:01Z"},
     ]
     session = await to_session(messages, "server_name", "session_id")
+    timestamp = messages[0]["timestamp"]
+    if timestamp[-1] == "Z":
+        timestamp = timestamp[:-1] + "+00:00"
+    timestamp = datetime.datetime.fromisoformat(timestamp)
     assert session.nodes == [
         SessionNode(
-            timestamp=datetime.datetime.fromisoformat(messages[0]["timestamp"]),
+            timestamp=timestamp,
             message=messages[0],
             session_id="session_id",
             server_name="server_name",
