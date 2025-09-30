@@ -186,7 +186,10 @@ async def to_session(messages: list[dict[str, Any]], server_name: str, session_i
     """
     session_nodes: list[SessionNode] = []
     for i, message in enumerate(messages):
-        timestamp = datetime.fromisoformat(message["timestamp"])
+        timestamp = message["timestamp"]
+        if timestamp[-1] == "Z":
+            timestamp = timestamp[:-1] + "+00:00"
+        timestamp = datetime.fromisoformat(timestamp)
         session_nodes.append(
             SessionNode(
                 server_name=server_name,
