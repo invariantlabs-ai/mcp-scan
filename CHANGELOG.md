@@ -34,4 +34,4 @@
 - `0.3.12` Improved SSL handling; ability to pass headers for API interaction.
 - `0.3.13` Get TFA labels from api. Bug fixes
 - `0.3.14` Added new VS Code paths
-- `0.3.15-18` Signed macos releases
+- `0.3.15-19` Signed macos releases
