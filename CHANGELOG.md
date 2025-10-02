@@ -22,7 +22,6 @@
 - `0.3.0` Add Toxic Flow analysis.
 - `0.3.1` Add cosmetics. Now defaults to `scan` also with `--` parameters.
 - `0.3.2` Add user IDs, --control-server for managed use and --opt-out to disable tracking.
-- `0.3.2` Add user IDs, --control-server for managed use and --opt-out to disable tracking.
 - `0.3.3` Fix `inspect` mode, bug fixes.
 - `0.3.4` Various fixes. Scanning of built-in IDE tools.
 - `0.3.5` Improving description of some built-in IDE tools.
@@ -35,4 +34,4 @@
 - `0.3.12` Improved SSL handling; ability to pass headers for API interaction.
 - `0.3.13` Get TFA labels from api. Bug fixes
 - `0.3.14` Added new VS Code paths
-- `0.3.15-17` Signed macos releases
+- `0.3.15-18` Signed macos releases
