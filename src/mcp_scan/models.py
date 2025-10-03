@@ -215,6 +215,7 @@ class ServerScanResult(BaseModel):
 
 class ScanPathResult(BaseModel):
     model_config = ConfigDict()
+    client: str | None = None
     path: str
     servers: list[ServerScanResult] = Field(default_factory=list)
     issues: list[Issue] = Field(default_factory=list)
@@ -232,6 +233,7 @@ class ScanPathResult(BaseModel):
         """
         output = ScanPathResult(
             path=self.path,
+            client=self.client,
             servers=[server.clone() for server in self.servers],
             issues=[issue.model_copy(deep=True) for issue in self.issues],
             labels=[[label.model_copy(deep=True) for label in labels] for labels in self.labels],
@@ -315,7 +317,6 @@ class AnalysisServerResponse(BaseModel):
     issues: list[Issue]
     labels: list[list[ScalarToolLabels]]
 
-
-class PushScanPathResult(ScanPathResult):
-    client: str | None
+class ScanPathResultsCreate(BaseModel):
+    scan_path_results: list[ScanPathResult]
     scan_user_info: ScanUserInfo

@@ -242,7 +242,6 @@ def add_scan_arguments(scan_parser):
         action="store_true",
         help="Also include built-in IDE tools.",
     )
-   
 
 
 def add_uninstall_arguments(parser):
