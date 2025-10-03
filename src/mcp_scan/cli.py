@@ -226,14 +226,9 @@ def add_scan_arguments(scan_parser):
         help="Additional headers for the control server",
     )
     scan_parser.add_argument(
-        "--push-key",
-        default=False,
-        help="When uploading the scan results to the provided control server URL, pass the push key (default: Do not upload)",
-    )
-    scan_parser.add_argument(
-        "--email",
+        "--control-identifier",
         default=None,
-        help="When uploading the scan results to the provided control server URL, pass the email.",
+        help="Non-anonymous identifier used to identify the user to the control server, e.g. email or serial number",
     )
     scan_parser.add_argument(
         "--opt-out",
@@ -587,12 +582,9 @@ async def run_scan_inspect(mode="scan", args=None):
     if (
         hasattr(args, "control_server")
         and args.control_server
-        and hasattr(args, "push_key")
-        and args.push_key
-        and hasattr(args, "email")
         and hasattr(args, "opt_out")
     ):
-        await upload(result, args.control_server, args.push_key, args.email, args.opt_out, additional_headers=parse_headers(args.control_server_H))
+        await upload(result, args.control_server, args.control_identifier, args.opt_out, additional_headers=parse_headers(args.control_server_H))
     return result
 
 async def print_scan_inspect(mode="scan", args=None):

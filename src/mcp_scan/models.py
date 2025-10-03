@@ -317,6 +317,5 @@ class AnalysisServerResponse(BaseModel):
 
 
 class PushScanPathResult(ScanPathResult):
-    push_key: str
     client: str | None
     scan_user_info: ScanUserInfo
