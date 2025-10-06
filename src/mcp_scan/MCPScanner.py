@@ -1,14 +1,17 @@
 import asyncio
 import logging
 import os
+import re
 from collections import defaultdict
 from collections.abc import Callable
 from typing import Any
-import re
+
+from httpx import HTTPStatusError
 
 from mcp_scan.models import Issue, ScanError, ScanPathResult, ServerScanResult
-from mcp_scan.well_known_clients import get_client_from_path, get_builtin_tools
+from mcp_scan.well_known_clients import get_builtin_tools, get_client_from_path
 
+from .direct_scanner import direct_scan, is_direct_scan
 from .mcp_client import check_server_with_timeout, scan_mcp_config_file
 from .Storage import Storage
 from .verify_api import analyze_scan_path
@@ -118,7 +121,10 @@ class MCPScanner:
         logger.info("Getting servers from path: %s", path)
         result = ScanPathResult(path=path)
         try:
-            servers = (await scan_mcp_config_file(path)).get_servers()
+            if not os.path.exists(path) and is_direct_scan(path):
+                servers = (await direct_scan(path)).get_servers()
+            else:
+                servers = (await scan_mcp_config_file(path)).get_servers()
             logger.debug("Found %d servers in path: %s", len(servers), path)
             result.servers = [
                 ServerScanResult(name=server_name, server=server) for server_name, server in servers.items()
@@ -186,6 +192,10 @@ class MCPScanner:
                 len(result.signature.resource_templates),
                 len(result.signature.tools),
             )
+        except HTTPStatusError as e:
+            error_msg = "server returned HTTP status code"
+            logger.exception("%s: %s", error_msg, server.name)
+            result.error = ScanError(message=error_msg, exception=e)
         except Exception as e:
             error_msg = "could not start server"
             logger.exception("%s: %s", error_msg, server.name)

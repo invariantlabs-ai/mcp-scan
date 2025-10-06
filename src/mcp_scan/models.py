@@ -84,6 +84,12 @@ class StdioServer(BaseModel):
     type: Literal["stdio"] | None = "stdio"
     env: dict[str, str] | None = None
 
+class StaticToolsServer(BaseModel):
+    """A server with a static set of tools (e.g. if not scanning a MCP configuration but the set of tools directly)."""
+    model_config = ConfigDict()
+    name: str
+    signature: list[Tool]
+    type: Literal["tools"] | None = "tools"
 
 class MCPConfig(BaseModel):
     def get_servers(self) -> dict[str, StdioServer |  RemoteServer]:
@@ -91,6 +97,16 @@ class MCPConfig(BaseModel):
 
     def set_servers(self, servers: dict[str, StdioServer | RemoteServer]) -> None:
         raise NotImplementedError("Subclasses must implement this method")
+
+class StaticToolsConfig(MCPConfig):
+    model_config = ConfigDict()
+    signature: dict[str, StaticToolsServer]
+
+    def get_servers(self) -> dict[str, StdioServer | RemoteServer]:
+        return {server.name: server for server in self.signature.values()}
+
+    def set_servers(self, servers: dict[str, StdioServer | RemoteServer]) -> None:
+        raise NotImplementedError("StaticToolsConfig does not support setting servers")
 
 
 class ClaudeConfigFile(MCPConfig):
@@ -184,7 +200,7 @@ class VerifyServerRequest(RootModel[list[ServerSignature | None]]):
 class ServerScanResult(BaseModel):
     model_config = ConfigDict()
     name: str | None = None
-    server: StdioServer | RemoteServer
+    server: StdioServer | RemoteServer | StaticToolsServer
     signature: ServerSignature | None = None
     error: ScanError | None = None
 
