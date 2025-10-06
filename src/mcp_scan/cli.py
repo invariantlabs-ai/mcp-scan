@@ -98,7 +98,6 @@ def add_common_arguments(parser):
     )
     parser.add_argument(
         "--verification-H",
-        nargs="*",
         action="append",
         help="Additional headers for the verification server",
     )
@@ -221,7 +220,6 @@ def add_scan_arguments(scan_parser):
     )
     scan_parser.add_argument(
         "--control-server-H",
-        nargs="*",
         action="append",
         help="Additional headers for the control server",
     )
