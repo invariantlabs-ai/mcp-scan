@@ -2,7 +2,7 @@ import asyncio
 import json
 import logging
 
-from mcp_scan import inspect
+from mcp_scan import inspect, scan
 from mcp_scan.printer import print_scan_result
 
 # no logging by default
@@ -10,8 +10,8 @@ logging.getLogger().setLevel(logging.CRITICAL + 1)  # Higher than any standard l
 logging.getLogger().addHandler(logging.NullHandler())
 
 # scan PyPI package
-result = asyncio.run(inspect("pypi:arxiv-mcp-server"))
-print_scan_result(result, inspect_mode=True)
+result = asyncio.run(scan("pypi:arxiv-mcp-server"))
+print_scan_result(result)
 
 # scan oci package
 result = asyncio.run(inspect("oci:zenmldocker/mcp-zenml"))
