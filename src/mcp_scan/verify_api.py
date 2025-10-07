@@ -84,7 +84,10 @@ async def analyze_scan_path(
     scan_path: ScanPathResult, base_url: str, additional_headers: dict = {}, opt_out_of_identity: bool = False, verbose: bool = False
 ) -> ScanPathResult:
     url = base_url[:-1] if base_url.endswith("/") else base_url
-    url = url + "/api/v1/public/mcp-analysis"
+    if "snyk.io" not in base_url:
+        url = url + "/api/v1/public/mcp-analysis"
+    else:
+        url = url + "/hidden/mcp-scan/analysis?version=2025-09-02"
     headers = {
         "Content-Type": "application/json",
         "X-User": identity_manager.get_identity(opt_out_of_identity),

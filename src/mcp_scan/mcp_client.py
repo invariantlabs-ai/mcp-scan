@@ -1,9 +1,9 @@
 import asyncio
-from ctypes import LibraryLoader
 import logging
 import os
 import subprocess
 from contextlib import asynccontextmanager
+from ctypes import LibraryLoader
 from typing import AsyncContextManager, Literal  # noqa: UP035
 
 import pyjson5
@@ -11,13 +11,15 @@ from mcp import ClientSession, StdioServerParameters
 from mcp.client.sse import sse_client
 from mcp.client.stdio import stdio_client
 from mcp.client.streamable_http import streamablehttp_client
+from mcp.types import Implementation, InitializeResult, ServerCapabilities, ToolsCapability
 
 from mcp_scan.models import (
     ClaudeConfigFile,
     MCPConfig,
-    ServerSignature,
-    StdioServer,
     RemoteServer,
+    ServerSignature,
+    StaticToolsServer,
+    StdioServer,
     VSCodeConfigFile,
     VSCodeMCPConfig,
 )
@@ -77,6 +79,22 @@ async def check_server(
 
     async def _check_server(verbose: bool) -> ServerSignature:
         logger.info("Initializing server connection")
+
+        if isinstance(server_config, StaticToolsServer):
+            logger.debug("Creating static tools client")
+            return ServerSignature(
+                metadata=InitializeResult(
+                    protocolVersion="built-in",
+                    capabilities=ServerCapabilities(tools=ToolsCapability(listChanged=False)),
+                    serverInfo=Implementation(name="<tools>", version="built-in"),
+                    instructions="",
+                ),
+                prompts=[],
+                resources=[],
+                resource_templates=[],
+                tools=server_config.signature,
+            )
+
         async with get_client(server_config, protocol, timeout=timeout, verbose=verbose) as (read, write):
             async with ClientSession(read, write) as session:
                 meta = await session.initialize()
@@ -151,6 +169,8 @@ async def check_server_with_timeout(
                 else:
                     protocol = "sse"
                     logger.debug("Remote server with no type, trying sse")
+            elif isinstance(server_config, StaticToolsServer):
+                protocol = "tools"
             protocols_tried.append(protocol)
 
             result = await asyncio.wait_for(check_server(server_config, protocol, timeout, suppress_mcpserver_io), timeout)
