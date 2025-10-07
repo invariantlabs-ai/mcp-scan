@@ -35,3 +35,4 @@
 - `0.3.13` Get TFA labels from api. Bug fixes
 - `0.3.14` Added new VS Code paths
 - `0.3.15-19` Signed macos releases
+- `0.3.20` Direct scanning, improved URL handling for other endpoints
