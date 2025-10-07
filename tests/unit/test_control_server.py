@@ -2,7 +2,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from mcp_scan.models import ScanPathResult
+from mcp_scan.models import ScanPathResult, ScanUserInfo
 from mcp_scan.upload import (
     get_user_info,
     upload,  # Make sure this import is correct
@@ -77,6 +77,8 @@ async def test_upload_function_calls_get_user_info_with_correct_parameters():
 
     # Mock the get_user_info function
     with patch("mcp_scan.upload.get_user_info") as mock_get_user_info:
+        mock_get_user_info.return_value = ScanUserInfo()
+
         # 1. Create a mock for the HTTP response object.
         mock_http_response = AsyncMock(status=200)
         mock_http_response.json.return_value = []
@@ -108,6 +110,8 @@ async def test_upload_function_calls_get_user_info_with_opt_out_false():
 
     # Mock the get_user_info function
     with patch("mcp_scan.upload.get_user_info") as mock_get_user_info:
+        mock_get_user_info.return_value = ScanUserInfo()
+
         # 1. Create a mock for the HTTP response object.
         mock_http_response = AsyncMock(status=200)
         mock_http_response.json.return_value = []
