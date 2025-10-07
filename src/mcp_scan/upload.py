@@ -1,32 +1,16 @@
 import getpass
 import logging
 import os
-import socket
 
 import aiohttp
-import psutil
 
 from mcp_scan.identity import IdentityManager
-from mcp_scan.models import ScanPathResult, ScanUserInfo, PushScanPathResult
+from mcp_scan.models import ScanPathResult, ScanUserInfo, ScanPathResultsCreate
 from mcp_scan.well_known_clients import get_client_from_path
 
 logger = logging.getLogger(__name__)
 
 identity = IdentityManager()
-
-
-def get_ip_address() -> str:
-    try:
-        # Get network interfaces, excluding loopback
-        for interface, addrs in psutil.net_if_addrs().items():
-            if interface.startswith("lo"):  # Skip loopback
-                continue
-            for addr in addrs:
-                if addr.family == socket.AF_INET and not addr.address.startswith("127."):
-                    return addr.address
-        return "unknown"
-    except Exception:
-        return "unknown"
 
 
 def get_hostname() -> str:
@@ -43,11 +27,11 @@ def get_username() -> str:
         return "unknown"
 
 
-def get_user_info(email: str | None = None, opt_out: bool = False) -> ScanUserInfo:
+def get_user_info(identifier: str | None = None, opt_out: bool = False) -> ScanUserInfo:
     """
     Get the user info for the scan.
 
-    email: The email of the user (command line argument).
+    identifier: A non-anonymous identifier used to identify the user to the control server, e.g. email or serial number
     opt_out: If True, a new identity is created and saved.
     """
     user_identifier = identity.get_identity(regenerate=opt_out)
@@ -60,14 +44,14 @@ def get_user_info(email: str | None = None, opt_out: bool = False) -> ScanUserIn
     return ScanUserInfo(
         hostname=get_hostname() if not opt_out else None,
         username=get_username() if not opt_out else None,
-        email=email if not opt_out else None,
-        ip_address=get_ip_address() if not opt_out else None,
+        identifier=identifier if not opt_out else None,
+        ip_address=None, # don't report local ip address
         anonymous_identifier=user_identifier,
     )
 
 
 async def upload(
-    results: list[ScanPathResult], control_server: str, push_key: str, email: str | None = None, opt_out: bool = False, additional_headers: dict = {}
+    results: list[ScanPathResult], control_server: str, identifier: str | None = None, opt_out: bool = False, additional_headers: dict = {}
 ) -> None:
     """
     Upload the scan results to the control server.
@@ -75,54 +59,48 @@ async def upload(
     Args:
         results: List of scan path results to upload
         control_server: Base URL of the control server
-        push_key: Push key for authentication
     """
     if not results:
         logger.info("No scan results to upload")
         return
     # Normalize control server URL
-    base_url = control_server.rstrip("/")
-    upload_url = f"{base_url}/api/scans/push"
-    user_info = get_user_info(email=email, opt_out=opt_out)
+    user_info = get_user_info(identifier=identifier, opt_out=opt_out)
 
-    # Convert all scan results to server data
+    results_with_servers = []
     for result in results:
         if not result.servers:
             logger.info(f"No servers found for path {result.path}. Skipping upload.")
             continue
-        try:
-            payload = PushScanPathResult(
-                path=result.path,
-                servers=result.servers,
-                issues=[issue.model_dump() for issue in result.issues],
-                labels=[[label.model_dump() for label in labels] for labels in result.labels],
-                error=result.error,
-                push_key=push_key,
-                client=get_client_from_path(result.path) or result.path,
-                scan_user_info=user_info,
-            )
+        result.client = get_client_from_path(result.path) or result.client or result.path
+        results_with_servers.append(result)
 
-            async with aiohttp.ClientSession() as session:
-                headers = {"Content-Type": "application/json"}
-                headers.update(additional_headers)
+    payload = ScanPathResultsCreate(
+        scan_path_results=results_with_servers,
+        scan_user_info=user_info
+    )
 
-                async with session.post(
-                    upload_url, data=payload.model_dump_json(), headers=headers, timeout=aiohttp.ClientTimeout(total=30)
-                ) as response:
-                    if response.status == 200:
-                        response_data = await response.json()
-                        logger.info(
-                            f"Successfully uploaded scan results. Server responded with {len(response_data)} results"
-                        )
-                    else:
-                        error_text = await response.text()
-                        logger.error(f"Failed to upload scan results. Status: {response.status}, Error: {error_text}")
-                        print(f"❌ Failed to upload scan results: {response.status} - {error_text}")
+    try:
+        async with aiohttp.ClientSession() as session:
+            headers = {"Content-Type": "application/json"}
+            headers.update(additional_headers)
 
-        except aiohttp.ClientError as e:
-            logger.error(f"Network error while uploading scan results: {e}")
-            print(f"❌ Network error while uploading scan results: {e}")
-        except Exception as e:
-            logger.error(f"Unexpected error while uploading scan results: {e}")
-            print(f"❌ Unexpected error while uploading scan results: {e}")
-            raise e
+            async with session.post(
+                control_server, data=payload.model_dump_json(), headers=headers, timeout=aiohttp.ClientTimeout(total=30)
+            ) as response:
+                if response.status == 200:
+                    response_data = await response.json()
+                    logger.info(
+                        f"Successfully uploaded scan results. Server responded with {len(response_data)} results"
+                    )
+                else:
+                    error_text = await response.text()
+                    logger.error(f"Failed to upload scan results. Status: {response.status}, Error: {error_text}")
+                    print(f"❌ Failed to upload scan results: {response.status} - {error_text}")
+
+    except aiohttp.ClientError as e:
+        logger.error(f"Network error while uploading scan results: {e}")
+        print(f"❌ Network error while uploading scan results: {e}")
+    except Exception as e:
+        logger.error(f"Unexpected error while uploading scan results: {e}")
+        print(f"❌ Unexpected error while uploading scan results: {e}")
+        raise e

@@ -2,7 +2,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from mcp_scan.models import ScanPathResult
+from mcp_scan.models import ScanPathResult, ScanUserInfo
 from mcp_scan.upload import (
     get_user_info,
     upload,  # Make sure this import is correct
@@ -14,12 +14,12 @@ def test_opt_out_does_not_create_identity():
     Test that opt_out does not create an identity.
     """
     # Get user info with opt_out=True
-    user_info = get_user_info(email="test@example.com", opt_out=True)
+    user_info = get_user_info(identifier="test@example.com", opt_out=True)
 
     # Check that personal information is not included in the identity
     assert user_info.hostname is None
     assert user_info.username is None
-    assert user_info.email is None
+    assert user_info.identifier is None
     assert user_info.ip_address is None
 
     # But anonymous_identifier should be present
@@ -31,8 +31,8 @@ def test_get_identity_maintains_identity_when_opt_out_is_false():
     Test that get_identity maintains the same identity when opt_out is False.
     """
     # Get user info with opt_out=False
-    user_info_1 = get_user_info(email="test@example.com", opt_out=False)
-    user_info_2 = get_user_info(email="test@example.com", opt_out=False)
+    user_info_1 = get_user_info(identifier="test@example.com", opt_out=False)
+    user_info_2 = get_user_info(identifier="test@example.com", opt_out=False)
 
     # The anonymous_identifier should be the same
     assert user_info_1.anonymous_identifier == user_info_2.anonymous_identifier
@@ -43,8 +43,8 @@ def test_get_identity_regenerates_identity_when_opt_out_is_true():
     Test that get_identity regenerates identity when opt_out is True.
     """
     # Get user info with opt_out=True
-    user_info_1 = get_user_info(email="test@example.com", opt_out=True)
-    user_info_2 = get_user_info(email="test@example.com", opt_out=True)
+    user_info_1 = get_user_info(identifier="test@example.com", opt_out=True)
+    user_info_2 = get_user_info(identifier="test@example.com", opt_out=True)
 
     # The anonymous_identifier should be different (new identity generated each time)
     assert user_info_1.anonymous_identifier != user_info_2.anonymous_identifier
@@ -55,12 +55,12 @@ def test_opt_out_does_not_return_personal_information():
     Test that opt_out does not return personal information.
     """
     # Get user info with opt_out=True
-    user_info = get_user_info(email="test@example.com", opt_out=True)
+    user_info = get_user_info(identifier="test@example.com", opt_out=True)
 
     # Check that personal information is not included in the identity
     assert user_info.hostname is None
     assert user_info.username is None
-    assert user_info.email is None
+    assert user_info.identifier is None
     assert user_info.ip_address is None
 
     # But anonymous_identifier should be present
@@ -77,6 +77,8 @@ async def test_upload_function_calls_get_user_info_with_correct_parameters():
 
     # Mock the get_user_info function
     with patch("mcp_scan.upload.get_user_info") as mock_get_user_info:
+        mock_get_user_info.return_value = ScanUserInfo()
+
         # 1. Create a mock for the HTTP response object.
         mock_http_response = AsyncMock(status=200)
         mock_http_response.json.return_value = []
@@ -92,10 +94,10 @@ async def test_upload_function_calls_get_user_info_with_correct_parameters():
             mock_post_method.return_value = mock_post_context_manager
 
             # Call upload with opt_out=True
-            await upload([mock_result], "https://control.mcp.scan", "push_key", "email", True)
+            await upload([mock_result], "https://control.mcp.scan", "email", True)
 
             # Verify that get_user_info was called with the correct parameters
-            mock_get_user_info.assert_called_once_with(email="email", opt_out=True)
+            mock_get_user_info.assert_called_once_with(identifier="email", opt_out=True)
 
 
 @pytest.mark.asyncio
@@ -108,6 +110,8 @@ async def test_upload_function_calls_get_user_info_with_opt_out_false():
 
     # Mock the get_user_info function
     with patch("mcp_scan.upload.get_user_info") as mock_get_user_info:
+        mock_get_user_info.return_value = ScanUserInfo()
+
         # 1. Create a mock for the HTTP response object.
         mock_http_response = AsyncMock(status=200)
         mock_http_response.json.return_value = []
@@ -123,7 +127,7 @@ async def test_upload_function_calls_get_user_info_with_opt_out_false():
             mock_post_method.return_value = mock_post_context_manager
 
             # Call upload with opt_out=False
-            await upload([mock_result], "https://control.mcp.scan", "push_key", "email", False)
+            await upload([mock_result], "https://control.mcp.scan", "email", False)
 
             # Verify that get_user_info was called with the correct parameters
-            mock_get_user_info.assert_called_once_with(email="email", opt_out=False)
+            mock_get_user_info.assert_called_once_with(identifier="email", opt_out=False)
