@@ -567,7 +567,6 @@ def main():
 
 async def run_scan_inspect(mode="scan", args=None):
     async with MCPScanner(additional_headers=parse_headers(args.verification_H), **vars(args)) as scanner:
-        # scanner.hook('path_scanned', print_path_scanned)
         if mode == "scan":
             result = await scanner.scan()
         elif mode == "inspect":
