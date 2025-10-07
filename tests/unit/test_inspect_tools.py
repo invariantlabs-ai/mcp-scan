@@ -64,6 +64,6 @@ async def test_inspect_with_direct_tools_json():
     tool_names = {t.name for t in server_result.signature.tools}
     assert tool_names == {"search", "fetch_content"}
 
-    # Metadata is the built-in placeholder from tools protocolz
+    # Metadata is the built-in placeholder from tools protocols
     assert server_result.signature.metadata.protocolVersion == "built-in"
     assert server_result.signature.metadata.serverInfo.name == "<tools>"
