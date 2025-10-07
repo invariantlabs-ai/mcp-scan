@@ -68,8 +68,9 @@ async def upload(
 
     results_with_servers = []
     for result in results:
-        if not result.servers:
-            logger.info(f"No servers found for path {result.path}. Skipping upload.")
+        # If there are no servers but there is a path-level error, still include the result
+        if not result.servers and result.error is None:
+            logger.info(f"No servers and no error for path {result.path}. Skipping upload.")
             continue
         result.client = get_client_from_path(result.path) or result.client or result.path
         results_with_servers.append(result)
