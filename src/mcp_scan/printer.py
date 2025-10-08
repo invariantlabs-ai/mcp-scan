@@ -165,9 +165,9 @@ def format_global_issue(result: ScanPathResult, issue: Issue, show_all: bool = F
     Format issues about the whole scan.
     """
     assert issue.reference is None, "Global issues should not have a reference"
-    assert issue.code.startswith("TF"), (
-        "Global issues should start with 'TF'. Only Toxic Flows are supported as global issues."
-    )
+    # assert issue.code in ["TF001", "TF002", "W002"] , (
+    #     f"Only issues with code TF001, TF002 or W002 can be global issues. {issue.code}"
+    # )
     tree = Tree(f"[yellow]\n⚠️ [{issue.code}]: {issue.message}[/yellow]")
 
     def _format_tool_kind_name(tool_kind_name: str) -> str:
@@ -185,6 +185,9 @@ def format_global_issue(result: ScanPathResult, issue: Issue, show_all: bool = F
         else:
             severity = "[bold][red]Critical[/red][/bold]"
         return f"{tool_string} {severity}"
+
+    if not issue.code.startswith("TF"):
+        return tree
 
     try:
         extra_data = ToxicFlowExtraData.model_validate(issue.extra_data)
