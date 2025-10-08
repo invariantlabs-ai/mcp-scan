@@ -1,6 +1,7 @@
 from unittest.mock import AsyncMock, patch
 
 import json
+import sys
 
 import pytest
 
@@ -202,7 +203,7 @@ async def test_get_servers_from_path_sets_file_not_found_error_and_uploads_paylo
     Patch MCPScanner.get_servers_from_path dependencies so that scan_mcp_config_file raises FileNotFoundError
     and ensure the resulting ScanPathResult has error message "file does not exist" and is uploaded.
     """
-    with patch("mcp_scan.MCPScanner.scan_mcp_config_file", side_effect=FileNotFoundError("missing")), \
+    with patch.object(sys.modules['mcp_scan.MCPScanner'], "scan_mcp_config_file", side_effect=FileNotFoundError("missing")), \
          patch("mcp_scan.upload.get_user_info") as mock_get_user_info:
         mock_get_user_info.return_value = ScanUserInfo()
 
