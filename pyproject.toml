@@ -10,7 +10,7 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "mcp[cli]==1.12.2",
+    "mcp[cli]==1.16.0",
     "rich>=14.0.0",
     "pyjson5>=1.6.8",
     "aiofiles>=23.1.0",
@@ -26,7 +26,7 @@ dependencies = [
     "aiohttp>=3.11.16",
     "rapidfuzz>=3.13.0",
     "invariant-ai>=0.3.3",
-    "filelock>=3.18.0"
+    "filelock>=3.18.0",
 ]
 
 [project.scripts]

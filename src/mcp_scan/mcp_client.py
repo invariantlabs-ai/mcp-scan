@@ -5,7 +5,8 @@ import subprocess
 from contextlib import asynccontextmanager
 from ctypes import LibraryLoader
 from typing import AsyncContextManager, Literal  # noqa: UP035
-
+from pathlib import Path
+import shutil
 import pyjson5
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.sse import sse_client
@@ -35,6 +36,9 @@ async def streamablehttp_client_without_session(*args, **kwargs):
     async with streamablehttp_client(*args, **kwargs) as (read, write, _):
         yield read, write
 
+def check_executable_exists(command: str) -> bool:
+    path = Path(command)
+    return path.exists() or shutil.which(command) is not None
 
 def get_client(
     server_config: StdioServer | RemoteServer, protocol: Literal["sse", "http", "stdio"], timeout: int | None = None, verbose: bool = False
@@ -59,8 +63,20 @@ def get_client(
         )
     elif protocol == "stdio":
         logger.debug("Creating stdio client")
-        # handle complex configs
-        command, args = rebalance_command_args(server_config.command, server_config.args)
+
+        # check if command points to an executable and wether it exists absolute or on the path
+        if not check_executable_exists(server_config.command):
+            # attempt to rebalance the command/arg structure
+            logger.debug(f"Command does not exist: {server_config.command}, attempting to rebalance")
+            command, args = rebalance_command_args(server_config.command, server_config.args)
+            if not check_executable_exists(command):
+                logger.warning(f"Path does not exist: {command}")
+                raise ValueError(f"Path does not exist: {command}")
+        else:
+            logger.debug(f"Command exists: {server_config.command}")
+            command = server_config.command
+            args = server_config.args
+
         logger.debug("Using command: %s, args: %s", command, args)
         server_params = StdioServerParameters(
             command=command,
