@@ -202,8 +202,7 @@ async def test_get_servers_from_path_sets_file_not_found_error_and_uploads_paylo
     Patch MCPScanner.get_servers_from_path dependencies so that scan_mcp_config_file raises FileNotFoundError
     and ensure the resulting ScanPathResult has error message "file does not exist" and is uploaded.
     """
-    with patch("mcp_scan.MCPScanner.is_direct_scan", return_value=False), \
-         patch("mcp_scan.MCPScanner.scan_mcp_config_file", side_effect=FileNotFoundError("missing")), \
+    with patch("mcp_scan.MCPScanner.scan_mcp_config_file", side_effect=FileNotFoundError("missing")), \
          patch("mcp_scan.upload.get_user_info") as mock_get_user_info:
         mock_get_user_info.return_value = ScanUserInfo()
 
@@ -235,8 +234,7 @@ async def test_get_servers_from_path_sets_parse_error_and_uploads_payload():
     Patch MCPScanner.get_servers_from_path dependencies so that scan_mcp_config_file raises a generic Exception
     and ensure the resulting ScanPathResult has error message "could not parse file" and is uploaded.
     """
-    with patch("mcp_scan.MCPScanner.is_direct_scan", return_value=False), \
-         patch("mcp_scan.MCPScanner.scan_mcp_config_file", side_effect=Exception("parse failure")), \
+    with patch("mcp_scan.MCPScanner.scan_mcp_config_file", side_effect=Exception("parse failure")), \
          patch("mcp_scan.upload.get_user_info") as mock_get_user_info:
         mock_get_user_info.return_value = ScanUserInfo()
 
@@ -272,8 +270,7 @@ async def test_scan_server_sets_http_status_error_and_uploads_payload():
         def get_servers(self):
             return {"srv": StdioServer(command="echo")}
 
-    with patch("mcp_scan.MCPScanner.is_direct_scan", return_value=False), \
-         patch("mcp_scan.MCPScanner.scan_mcp_config_file", return_value=DummyCfg()), \
+    with patch("mcp_scan.MCPScanner.scan_mcp_config_file", return_value=DummyCfg()), \
          patch("mcp_scan.MCPScanner.check_server_with_timeout", side_effect=httpx.HTTPStatusError("bad", request=None, response=None)), \
          patch("mcp_scan.upload.get_user_info") as mock_get_user_info:
         mock_get_user_info.return_value = ScanUserInfo()
@@ -309,8 +306,7 @@ async def test_scan_server_sets_could_not_start_error_and_uploads_payload():
         def get_servers(self):
             return {"srv": StdioServer(command="echo")}
 
-    with patch("mcp_scan.MCPScanner.is_direct_scan", return_value=False), \
-         patch("mcp_scan.MCPScanner.scan_mcp_config_file", return_value=DummyCfg()), \
+    with patch("mcp_scan.MCPScanner.scan_mcp_config_file", return_value=DummyCfg()), \
          patch("mcp_scan.MCPScanner.check_server_with_timeout", side_effect=Exception("spawn failed")), \
          patch("mcp_scan.upload.get_user_info") as mock_get_user_info:
         mock_get_user_info.return_value = ScanUserInfo()
