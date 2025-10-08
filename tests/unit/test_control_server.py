@@ -1,12 +1,22 @@
 from unittest.mock import AsyncMock, patch
 
+import json
+
 import pytest
 
-from mcp_scan.models import ScanPathResult, ScanUserInfo
+from mcp_scan.models import (
+    ScanError,
+    ScanPathResult,
+    ServerScanResult,
+    StdioServer,
+    ScanUserInfo
+)
 from mcp_scan.upload import (
     get_user_info,
     upload,  # Make sure this import is correct
 )
+from mcp_scan.MCPScanner import MCPScanner
+import httpx
 
 
 def test_opt_out_does_not_create_identity():
@@ -131,3 +141,195 @@ async def test_upload_function_calls_get_user_info_with_opt_out_false():
 
             # Verify that get_user_info was called with the correct parameters
             mock_get_user_info.assert_called_once_with(identifier="email", opt_out=False)
+
+
+@pytest.mark.asyncio
+async def test_upload_includes_scan_error_in_payload():
+    """
+    Ensure that when a ScanPathResult has an error, it is serialized
+    and included in the payload sent by upload().
+    """
+
+    # Prepare a ScanPathResult with at least one server (so it isn't skipped) and an error
+    server = ServerScanResult(name="server1", server=StdioServer(command="echo"))
+    scan_error_message = "something went wrong"
+    exception_message = "could not start server"
+    path_result_with_error = ScanPathResult(
+        path="/test/path",
+        servers=[server],
+        error=ScanError(message=scan_error_message, exception=Exception(exception_message)),
+    )
+
+    with patch("mcp_scan.upload.get_user_info") as mock_get_user_info:
+        mock_get_user_info.return_value = ScanUserInfo()
+
+        # Mock HTTP response
+        mock_http_response = AsyncMock(status=200)
+        mock_http_response.json.return_value = []
+        mock_http_response.text.return_value = ""
+
+        # Async context manager for session.post
+        mock_post_context_manager = AsyncMock()
+        mock_post_context_manager.__aenter__.return_value = mock_http_response
+
+        # Patch aiohttp ClientSession.post
+        with patch("mcp_scan.upload.aiohttp.ClientSession.post") as mock_post_method:
+            mock_post_method.return_value = mock_post_context_manager
+
+            # Execute upload
+            await upload([path_result_with_error], "https://control.mcp.scan", "email", False)
+
+            # Capture payload
+            assert mock_post_method.call_args is not None, "upload did not call ClientSession.post"
+            sent_kwargs = mock_post_method.call_args.kwargs
+            assert "data" in sent_kwargs, "upload did not send JSON payload in 'data'"
+
+            payload = json.loads(sent_kwargs["data"])
+            # Validate structure and error propagation
+            assert "scan_path_results" in payload and isinstance(payload["scan_path_results"], list)
+            assert len(payload["scan_path_results"]) == 1
+            sent_result = payload["scan_path_results"][0]
+
+            # Error must be present and correctly serialized
+            assert "error" in sent_result and sent_result["error"] is not None
+            assert scan_error_message in sent_result["error"].get("message")
+            assert exception_message in sent_result["error"].get("exception")
+
+
+@pytest.mark.asyncio
+async def test_get_servers_from_path_sets_file_not_found_error_and_uploads_payload():
+    """
+    Patch MCPScanner.get_servers_from_path dependencies so that scan_mcp_config_file raises FileNotFoundError
+    and ensure the resulting ScanPathResult has error message "file does not exist" and is uploaded.
+    """
+    with patch("mcp_scan.MCPScanner.is_direct_scan", return_value=False), \
+         patch("mcp_scan.MCPScanner.scan_mcp_config_file", side_effect=FileNotFoundError("missing")), \
+         patch("mcp_scan.upload.get_user_info") as mock_get_user_info:
+        mock_get_user_info.return_value = ScanUserInfo()
+
+        mock_http_response = AsyncMock(status=200)
+        mock_http_response.json.return_value = []
+        mock_http_response.text.return_value = ""
+
+        mock_post_context_manager = AsyncMock()
+        mock_post_context_manager.__aenter__.return_value = mock_http_response
+
+        with patch("mcp_scan.upload.aiohttp.ClientSession.post") as mock_post_method:
+            mock_post_method.return_value = mock_post_context_manager
+
+            async with MCPScanner(files=["/nonexistent/path"]) as scanner:
+                result = await scanner.get_servers_from_path("/nonexistent/path")
+
+            await upload([result], "https://control.mcp.scan", None, False)
+
+            payload = json.loads(mock_post_method.call_args.kwargs["data"])
+            sent_result = payload["scan_path_results"][0]
+            assert sent_result["path"] == "/nonexistent/path"
+            assert sent_result["error"]["message"] == "file does not exist"
+            assert "missing" in (sent_result["error"].get("exception") or "")
+
+
+@pytest.mark.asyncio
+async def test_get_servers_from_path_sets_parse_error_and_uploads_payload():
+    """
+    Patch MCPScanner.get_servers_from_path dependencies so that scan_mcp_config_file raises a generic Exception
+    and ensure the resulting ScanPathResult has error message "could not parse file" and is uploaded.
+    """
+    with patch("mcp_scan.MCPScanner.is_direct_scan", return_value=False), \
+         patch("mcp_scan.MCPScanner.scan_mcp_config_file", side_effect=Exception("parse failure")), \
+         patch("mcp_scan.upload.get_user_info") as mock_get_user_info:
+        mock_get_user_info.return_value = ScanUserInfo()
+
+        mock_http_response = AsyncMock(status=200)
+        mock_http_response.json.return_value = []
+        mock_http_response.text.return_value = ""
+
+        mock_post_context_manager = AsyncMock()
+        mock_post_context_manager.__aenter__.return_value = mock_http_response
+
+        with patch("mcp_scan.upload.aiohttp.ClientSession.post") as mock_post_method:
+            mock_post_method.return_value = mock_post_context_manager
+
+            async with MCPScanner(files=["/bad/config"]) as scanner:
+                result = await scanner.get_servers_from_path("/bad/config")
+
+            await upload([result], "https://control.mcp.scan", None, False)
+
+            payload = json.loads(mock_post_method.call_args.kwargs["data"])
+            sent_result = payload["scan_path_results"][0]
+            assert sent_result["path"] == "/bad/config"
+            assert sent_result["error"]["message"] == "could not parse file"
+            assert "parse failure" in (sent_result["error"].get("exception") or "")
+
+
+@pytest.mark.asyncio
+async def test_scan_server_sets_http_status_error_and_uploads_payload():
+    """
+    Patch MCPScanner to return a server, then make check_server_with_timeout raise HTTPStatusError and
+    ensure the server-level error message "server returned HTTP status code" is included on upload.
+    """
+    class DummyCfg:
+        def get_servers(self):
+            return {"srv": StdioServer(command="echo")}
+
+    with patch("mcp_scan.MCPScanner.is_direct_scan", return_value=False), \
+         patch("mcp_scan.MCPScanner.scan_mcp_config_file", return_value=DummyCfg()), \
+         patch("mcp_scan.MCPScanner.check_server_with_timeout", side_effect=httpx.HTTPStatusError("bad", request=None, response=None)), \
+         patch("mcp_scan.upload.get_user_info") as mock_get_user_info:
+        mock_get_user_info.return_value = ScanUserInfo()
+
+        mock_http_response = AsyncMock(status=200)
+        mock_http_response.json.return_value = []
+        mock_http_response.text.return_value = ""
+
+        mock_post_context_manager = AsyncMock()
+        mock_post_context_manager.__aenter__.return_value = mock_http_response
+
+        with patch("mcp_scan.upload.aiohttp.ClientSession.post") as mock_post_method:
+            mock_post_method.return_value = mock_post_context_manager
+
+            async with MCPScanner(files=["/ok/path"]) as scanner:
+                # inspect_only to avoid verification path
+                result = await scanner.scan_path("/ok/path", inspect_only=True)
+
+            await upload([result], "https://control.mcp.scan", None, False)
+
+            payload = json.loads(mock_post_method.call_args.kwargs["data"])
+            sent_result = payload["scan_path_results"][0]
+            assert sent_result["servers"][0]["error"]["message"] == "server returned HTTP status code"
+
+
+@pytest.mark.asyncio
+async def test_scan_server_sets_could_not_start_error_and_uploads_payload():
+    """
+    Patch MCPScanner to return a server, then make check_server_with_timeout raise a generic Exception and
+    ensure the server-level error message "could not start server" is included on upload.
+    """
+    class DummyCfg:
+        def get_servers(self):
+            return {"srv": StdioServer(command="echo")}
+
+    with patch("mcp_scan.MCPScanner.is_direct_scan", return_value=False), \
+         patch("mcp_scan.MCPScanner.scan_mcp_config_file", return_value=DummyCfg()), \
+         patch("mcp_scan.MCPScanner.check_server_with_timeout", side_effect=Exception("spawn failed")), \
+         patch("mcp_scan.upload.get_user_info") as mock_get_user_info:
+        mock_get_user_info.return_value = ScanUserInfo()
+
+        mock_http_response = AsyncMock(status=200)
+        mock_http_response.json.return_value = []
+        mock_http_response.text.return_value = ""
+
+        mock_post_context_manager = AsyncMock()
+        mock_post_context_manager.__aenter__.return_value = mock_http_response
+
+        with patch("mcp_scan.upload.aiohttp.ClientSession.post") as mock_post_method:
+            mock_post_method.return_value = mock_post_context_manager
+
+            async with MCPScanner(files=["/ok/path"]) as scanner:
+                result = await scanner.scan_path("/ok/path", inspect_only=True)
+
+            await upload([result], "https://control.mcp.scan", None, False)
+
+            payload = json.loads(mock_post_method.call_args.kwargs["data"])
+            sent_result = payload["scan_path_results"][0]
+            assert sent_result["servers"][0]["error"]["message"] == "could not start server"
