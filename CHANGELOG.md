@@ -36,3 +36,4 @@
 - `0.3.14` Added new VS Code paths
 - `0.3.15-19` Signed macos releases
 - `0.3.20` Direct scanning, improved URL handling for other endpoints
+- `0.3.21` Fix: handle paths with spaces; updated mcp library dependency
