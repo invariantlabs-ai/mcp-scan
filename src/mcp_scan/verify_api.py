@@ -114,6 +114,7 @@ async def analyze_scan_path(
 
         # explicitly creating the ssl context sidesepts SSL issues 
         ssl_context = ssl.create_default_context(cafile=certifi.where())
+        ssl_context.minimum_version = ssl.TLSVersion.TLSv1_2
         
         if verbose:
             logger.debug("aiohttp: SSL context created - verify_mode=%s, check_hostname=%s", 
