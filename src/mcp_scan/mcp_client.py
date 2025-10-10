@@ -73,11 +73,9 @@ def get_client(
                 logger.warning(f"Path does not exist: {command}")
                 raise ValueError(f"Path does not exist: {command}")
         else:
-            logger.debug(f"Command exists: {server_config.command}")
             command = server_config.command
             args = server_config.args
 
-        logger.debug("Using command: %s, args: %s", command, args)
         server_params = StdioServerParameters(
             command=command,
             args=args,
@@ -91,11 +89,7 @@ def get_client(
 async def check_server(
     server_config: StdioServer | RemoteServer, protocol: Literal["sse", "http", "stdio"], timeout: int, suppress_mcpserver_io: bool
 ) -> ServerSignature:
-    logger.info("Checking server with config: %s, timeout: %s", server_config, timeout)
-
     async def _check_server(verbose: bool) -> ServerSignature:
-        logger.info("Initializing server connection")
-
         if isinstance(server_config, StaticToolsServer):
             logger.debug("Creating static tools client")
             return ServerSignature(
