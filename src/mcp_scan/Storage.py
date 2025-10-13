@@ -13,7 +13,6 @@ from pydantic import ValidationError
 from mcp_scan_server.models import DEFAULT_GUARDRAIL_CONFIG, GuardrailConfigFile
 
 from .models import Entity, ScannedEntities, ScannedEntity, entity_type_to_str, hash_entity
-from .utils import upload_whitelist_entry
 
 # Set up logger for this module
 logger = logging.getLogger(__name__)
@@ -167,19 +166,11 @@ class Storage:
             rich.print(entity_type, name, self.whitelist[key])
         rich.print(f"[bold]{len(whitelist_keys)} entries in whitelist[/bold]")
 
-    def add_to_whitelist(self, entity_type: str, name: str, hash: str, base_url: str | None = None) -> None:
+    def add_to_whitelist(self, entity_type: str, name: str, hash: str) -> None:
         key = f"{entity_type}.{name}"
         logger.info("Adding to whitelist: %s with hash: %s", key, hash)
         self.whitelist[key] = hash
         self.save()
-        if base_url is not None:
-            logger.debug("Uploading whitelist entry to base URL: %s", base_url)
-            with contextlib.suppress(Exception):
-                try:
-                    asyncio.run(upload_whitelist_entry(name, hash, base_url))
-                    logger.info("Successfully uploaded whitelist entry to remote server")
-                except Exception as e:
-                    logger.warning("Failed to upload whitelist entry: %s", e)
 
     def is_whitelisted(self, entity: Entity) -> bool:
         hash = hash_entity(entity)

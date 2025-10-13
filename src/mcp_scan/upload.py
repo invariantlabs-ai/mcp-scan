@@ -7,6 +7,7 @@ import aiohttp
 from mcp_scan.identity import IdentityManager
 from mcp_scan.models import ScanPathResult, ScanUserInfo, ScanPathResultsCreate
 from mcp_scan.well_known_clients import get_client_from_path
+from mcp_scan.verify_api import setup_aiohttp_debug_logging, setup_tcp_connector
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +52,12 @@ def get_user_info(identifier: str | None = None, opt_out: bool = False) -> ScanU
 
 
 async def upload(
-    results: list[ScanPathResult], control_server: str, identifier: str | None = None, opt_out: bool = False, additional_headers: dict = {}
+    results: list[ScanPathResult],
+    control_server: str,
+    identifier: str | None = None,
+    opt_out: bool = False,
+    verbose: bool = False,
+    additional_headers: dict | None = None,
 ) -> None:
     """
     Upload the scan results to the control server.
@@ -80,8 +86,12 @@ async def upload(
         scan_user_info=user_info
     )
 
+    trace_configs = setup_aiohttp_debug_logging(verbose=verbose)
+    tcp_connector = setup_tcp_connector()
+    additional_headers = additional_headers or {}
+
     try:
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(trace_configs=trace_configs, connector=tcp_connector) as session:
             headers = {"Content-Type": "application/json"}
             headers.update(additional_headers)
 
