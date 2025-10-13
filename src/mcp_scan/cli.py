@@ -517,12 +517,7 @@ def main():
             sf.print_whitelist()
             sys.exit(0)
         elif all(x is not None for x in [args.type, args.name, args.hash]):
-            sf.add_to_whitelist(
-                args.type,
-                args.name,
-                args.hash,
-                base_url=args.base_url if not args.local_only else None,
-            )
+            sf.add_to_whitelist(args.type, args.name, args.hash)
             sf.print_whitelist()
             sys.exit(0)
         else:
@@ -580,7 +575,14 @@ async def run_scan_inspect(mode="scan", args=None):
         and args.control_server
         and hasattr(args, "opt_out")
     ):
-        await upload(result, args.control_server, args.control_identifier, args.opt_out, additional_headers=parse_headers(args.control_server_H))
+        await upload(
+            result,
+            args.control_server,
+            args.control_identifier,
+            args.opt_out,
+            verbose=args.verbose,
+            additional_headers=parse_headers(args.control_server_H),
+        )
     return result
 
 async def print_scan_inspect(mode="scan", args=None):
