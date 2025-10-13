@@ -97,13 +97,9 @@ def setup_tcp_connector() -> aiohttp.TCPConnector:
 
 
 async def analyze_scan_path(
-    scan_path: ScanPathResult, base_url: str, additional_headers: dict = {}, opt_out_of_identity: bool = False, verbose: bool = False
+    scan_path: ScanPathResult, analysis_url: str, additional_headers: dict = {}, opt_out_of_identity: bool = False, verbose: bool = False
 ) -> ScanPathResult:
-    url = base_url[:-1] if base_url.endswith("/") else base_url
-    if "snyk.io" not in base_url:
-        url = url + "/api/v1/public/mcp-analysis"
-    else:
-        url = url + "/hidden/mcp-scan/analysis?version=2025-09-02"
+    url = analysis_url[:-1] if analysis_url.endswith("/") else analysis_url
     headers = {
         "Content-Type": "application/json",
         "X-User": identity_manager.get_identity(opt_out_of_identity),

@@ -146,10 +146,10 @@ def add_common_arguments(parser):
         metavar="FILE",
     )
     parser.add_argument(
-        "--base-url",
+        "--analysis-url",
         type=str,
-        default="https://mcp.invariantlabs.ai/",
-        help="Base URL for the verification server",
+        default="https://mcp.invariantlabs.ai/api/v1/public/mcp-analysis",
+        help="URL endpoint for the verification server",
         metavar="URL",
     )
     parser.add_argument(
