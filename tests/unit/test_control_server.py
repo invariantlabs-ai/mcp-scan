@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock, patch
 import json
 import sys
 
+import aiohttp
 import pytest
 
 from mcp_scan.models import (
@@ -330,3 +331,231 @@ async def test_scan_server_sets_could_not_start_error_and_uploads_payload():
             payload = json.loads(mock_post_method.call_args.kwargs["data"])
             sent_result = payload["scan_path_results"][0]
             assert sent_result["servers"][0]["error"]["message"] == "could not start server"
+
+
+@pytest.mark.asyncio
+async def test_upload_retries_on_network_error():
+    """
+    Test that upload retries up to 3 times on network errors.
+    """
+    mock_result = ScanPathResult(path="/test/path")
+
+    with patch("mcp_scan.upload.get_user_info") as mock_get_user_info, \
+         patch("mcp_scan.upload.asyncio.sleep") as mock_sleep:
+        
+        mock_get_user_info.return_value = ScanUserInfo()
+        mock_sleep.return_value = None  # Speed up tests by not actually sleeping
+
+        # Mock HTTP response to always fail with network error
+        mock_post_context_manager = AsyncMock()
+        mock_post_context_manager.__aenter__.side_effect = aiohttp.ClientError("Connection refused")
+
+        with patch("mcp_scan.upload.aiohttp.ClientSession.post") as mock_post_method:
+            mock_post_method.return_value = mock_post_context_manager
+
+            # Execute upload
+            await upload([mock_result], "https://control.mcp.scan", "email", False)
+
+            # Verify that post was attempted 3 times
+            assert mock_post_method.call_count == 3
+            
+            # Verify that sleep was called between retries (2 times for 3 attempts)
+            assert mock_sleep.call_count == 2
+            # Verify exponential backoff: 1s, 2s
+            mock_sleep.assert_any_call(1)
+            mock_sleep.assert_any_call(2)
+
+
+@pytest.mark.asyncio
+async def test_upload_retries_on_server_error():
+    """
+    Test that upload retries on 5xx server errors but not on 4xx client errors.
+    """
+    mock_result = ScanPathResult(path="/test/path")
+
+    with patch("mcp_scan.upload.get_user_info") as mock_get_user_info, \
+         patch("mcp_scan.upload.asyncio.sleep") as mock_sleep:
+        
+        mock_get_user_info.return_value = ScanUserInfo()
+        mock_sleep.return_value = None
+
+        # Mock HTTP response with 503 Service Unavailable
+        mock_http_response = AsyncMock(status=503)
+        mock_http_response.json.return_value = []
+        mock_http_response.text.return_value = "Service Unavailable"
+
+        mock_post_context_manager = AsyncMock()
+        mock_post_context_manager.__aenter__.return_value = mock_http_response
+
+        with patch("mcp_scan.upload.aiohttp.ClientSession.post") as mock_post_method:
+            mock_post_method.return_value = mock_post_context_manager
+
+            # Execute upload
+            await upload([mock_result], "https://control.mcp.scan", "email", False)
+
+            # Verify that post was attempted 3 times
+            assert mock_post_method.call_count == 3
+            
+            # Verify that sleep was called between retries
+            assert mock_sleep.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_upload_does_not_retry_on_client_error():
+    """
+    Test that upload does NOT retry on 4xx client errors (like 400, 404).
+    """
+    mock_result = ScanPathResult(path="/test/path")
+
+    with patch("mcp_scan.upload.get_user_info") as mock_get_user_info, \
+         patch("mcp_scan.upload.asyncio.sleep") as mock_sleep:
+        
+        mock_get_user_info.return_value = ScanUserInfo()
+        mock_sleep.return_value = None
+
+        # Mock HTTP response with 400 Bad Request
+        mock_http_response = AsyncMock(status=400)
+        mock_http_response.json.return_value = []
+        mock_http_response.text.return_value = "Bad Request"
+
+        mock_post_context_manager = AsyncMock()
+        mock_post_context_manager.__aenter__.return_value = mock_http_response
+
+        with patch("mcp_scan.upload.aiohttp.ClientSession.post") as mock_post_method:
+            mock_post_method.return_value = mock_post_context_manager
+
+            # Execute upload
+            await upload([mock_result], "https://control.mcp.scan", "email", False)
+
+            # Verify that post was attempted only once (no retries on 4xx)
+            assert mock_post_method.call_count == 1
+            
+            # Verify that sleep was NOT called
+            mock_sleep.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_upload_succeeds_on_second_attempt():
+    """
+    Test that upload succeeds if it fails first but succeeds on retry.
+    """
+    mock_result = ScanPathResult(path="/test/path")
+
+    with patch("mcp_scan.upload.get_user_info") as mock_get_user_info, \
+         patch("mcp_scan.upload.asyncio.sleep") as mock_sleep:
+        
+        mock_get_user_info.return_value = ScanUserInfo()
+        mock_sleep.return_value = None
+
+        # First attempt fails, second succeeds
+        mock_error_context = AsyncMock()
+        mock_error_context.__aenter__.side_effect = aiohttp.ClientError("Connection refused")
+        
+        mock_success_response = AsyncMock(status=200)
+        mock_success_response.json.return_value = []
+        mock_success_context = AsyncMock()
+        mock_success_context.__aenter__.return_value = mock_success_response
+
+        with patch("mcp_scan.upload.aiohttp.ClientSession.post") as mock_post_method:
+            # First call fails, second succeeds
+            mock_post_method.side_effect = [mock_error_context, mock_success_context]
+
+            # Execute upload
+            await upload([mock_result], "https://control.mcp.scan", "email", False)
+
+            # Verify that post was attempted twice (failed once, succeeded on retry)
+            assert mock_post_method.call_count == 2
+            
+            # Verify that sleep was called once
+            assert mock_sleep.call_count == 1
+            mock_sleep.assert_called_once_with(1)  # First backoff is 1 second
+
+
+@pytest.mark.asyncio
+async def test_upload_custom_max_retries():
+    """
+    Test that upload respects custom max_retries parameter.
+    """
+    mock_result = ScanPathResult(path="/test/path")
+
+    with patch("mcp_scan.upload.get_user_info") as mock_get_user_info, \
+         patch("mcp_scan.upload.asyncio.sleep") as mock_sleep:
+        
+        mock_get_user_info.return_value = ScanUserInfo()
+        mock_sleep.return_value = None
+
+        # Mock to always fail
+        mock_post_context_manager = AsyncMock()
+        mock_post_context_manager.__aenter__.side_effect = aiohttp.ClientError("Connection refused")
+
+        with patch("mcp_scan.upload.aiohttp.ClientSession.post") as mock_post_method:
+            mock_post_method.return_value = mock_post_context_manager
+
+            # Execute upload with custom max_retries=5
+            await upload([mock_result], "https://control.mcp.scan", "email", False, max_retries=5)
+
+            # Verify that post was attempted 5 times
+            assert mock_post_method.call_count == 5
+            
+            # Verify that sleep was called 4 times (between 5 attempts)
+            assert mock_sleep.call_count == 4
+
+
+@pytest.mark.asyncio
+async def test_upload_exponential_backoff():
+    """
+    Test that upload uses exponential backoff between retries.
+    """
+    mock_result = ScanPathResult(path="/test/path")
+
+    with patch("mcp_scan.upload.get_user_info") as mock_get_user_info, \
+         patch("mcp_scan.upload.asyncio.sleep") as mock_sleep:
+        
+        mock_get_user_info.return_value = ScanUserInfo()
+        mock_sleep.return_value = None
+
+        # Mock to always fail
+        mock_post_context_manager = AsyncMock()
+        mock_post_context_manager.__aenter__.side_effect = aiohttp.ClientError("Connection refused")
+
+        with patch("mcp_scan.upload.aiohttp.ClientSession.post") as mock_post_method:
+            mock_post_method.return_value = mock_post_context_manager
+
+            # Execute upload
+            await upload([mock_result], "https://control.mcp.scan", "email", False, max_retries=3)
+
+            # Verify exponential backoff: 2^0=1, 2^1=2
+            assert mock_sleep.call_count == 2
+            sleep_calls = [call[0][0] for call in mock_sleep.call_args_list]
+            assert sleep_calls == [1, 2]  # Exponential: 1s, 2s
+
+
+@pytest.mark.asyncio
+async def test_upload_does_not_retry_on_unexpected_error():
+    """
+    Test that upload does NOT retry on unexpected (non-network) errors and re-raises them.
+    """
+    mock_result = ScanPathResult(path="/test/path")
+
+    with patch("mcp_scan.upload.get_user_info") as mock_get_user_info, \
+         patch("mcp_scan.upload.asyncio.sleep") as mock_sleep:
+        
+        mock_get_user_info.return_value = ScanUserInfo()
+        mock_sleep.return_value = None
+
+        # Mock to raise unexpected error
+        mock_post_context_manager = AsyncMock()
+        mock_post_context_manager.__aenter__.side_effect = ValueError("Unexpected error")
+
+        with patch("mcp_scan.upload.aiohttp.ClientSession.post") as mock_post_method:
+            mock_post_method.return_value = mock_post_context_manager
+
+            # Execute upload and expect ValueError to be raised
+            with pytest.raises(ValueError, match="Unexpected error"):
+                await upload([mock_result], "https://control.mcp.scan", "email", False)
+
+            # Verify that post was attempted only once (no retry on unexpected errors)
+            assert mock_post_method.call_count == 1
+            
+            # Verify that sleep was NOT called
+            mock_sleep.assert_not_called()

@@ -80,6 +80,62 @@ def str2bool(v: str) -> bool:
     return v.lower() in ("true", "1", "t", "y", "yes")
 
 
+def parse_control_servers(argv):
+    """
+    Parse control server arguments from sys.argv.
+    Returns a list of control server configurations, where each config is a dict with:
+    - url: the control server URL
+    - headers: list of additional headers
+    - identifier: the control identifier (or None)
+    - opt_out: boolean indicating if opt-out is enabled
+    """
+    control_servers = []
+    current_server = None
+    
+    i = 0
+    while i < len(argv):
+        arg = argv[i]
+        
+        if arg == "--control-server":
+            # Save previous server if exists
+            if current_server is not None:
+                control_servers.append(current_server)
+            
+            # Start new server config
+            if i + 1 < len(argv) and not argv[i + 1].startswith("--"):
+                current_server = {
+                    "url": argv[i + 1],
+                    "headers": [],
+                    "identifier": None,
+                    "opt_out": False,
+                }
+                i += 1  # Skip the URL value
+            else:
+                current_server = None
+        
+        elif current_server is not None:
+            if arg == "--control-server-H":
+                if i + 1 < len(argv) and not argv[i + 1].startswith("--"):
+                    current_server["headers"].append(argv[i + 1])
+                    i += 1
+            
+            elif arg == "--control-identifier":
+                if i + 1 < len(argv) and not argv[i + 1].startswith("--"):
+                    current_server["identifier"] = argv[i + 1]
+                    i += 1
+            
+            elif arg == "--opt-out":
+                current_server["opt_out"] = True
+        
+        i += 1
+    
+    # Don't forget the last server
+    if current_server is not None:
+        control_servers.append(current_server)
+    
+    return control_servers
+
+
 def add_common_arguments(parser):
     """Add arguments that are common to multiple commands."""
     parser.add_argument(
@@ -215,24 +271,24 @@ def add_scan_arguments(scan_parser):
     )
     scan_parser.add_argument(
         "--control-server",
-        default=False,
-        help="Upload the scan results to the provided control server URL (default: Do not upload)",
+        action="append",
+        help="Upload the scan results to the provided control server URL. Can be specified multiple times for multiple control servers.",
     )
     scan_parser.add_argument(
         "--control-server-H",
         action="append",
-        help="Additional headers for the control server",
+        help="Additional headers for the preceding control server",
     )
     scan_parser.add_argument(
         "--control-identifier",
-        default=None,
-        help="Non-anonymous identifier used to identify the user to the control server, e.g. email or serial number",
+        action="append",
+        help="Non-anonymous identifier used to identify the user to the preceding control server, e.g. email or serial number",
     )
     scan_parser.add_argument(
         "--opt-out",
-        default=False,
-        action="store_true",
-        help="Opts out of sending unique a unique user identifier with every scan.",
+        action="append_const",
+        const=True,
+        help="Opts out of sending a unique user identifier with every scan to the preceding control server.",
     )
     scan_parser.add_argument(
         "--include-built-in",
@@ -302,6 +358,11 @@ def main():
             f"  {program_name} --verbose           # Enable detailed logging output\n"
             f"  {program_name} --print-errors      # Show error details and tracebacks\n"
             f"  {program_name} --json              # Output results in JSON format\n"
+            f"  # Multiple control servers with individual options:\n"
+            f'  {program_name} --control-server https://server1.com --control-server-H "Auth: token1" \\\n'
+            f'    --control-identifier user@example.com --opt-out \\\n'
+            f'    --control-server https://server2.com --control-server-H "Auth: token2" \\\n'
+            f'    --control-identifier serial-123\n'
         ),
     )
 
@@ -457,11 +518,18 @@ def main():
     if len(sys.argv) == 1 or sys.argv[1] not in subparsers.choices:
         if not (len(sys.argv) == 2 and sys.argv[1] == '--help'):
             sys.argv.insert(1, "scan")
+    
+    # Parse control servers before argparse to preserve their grouping
+    control_servers = parse_control_servers(sys.argv)
+    
     args = parser.parse_args()
 
     # postprocess the files argument (if shorthands are used)
     if hasattr(args, "files") and args.files is None:
         args.files = client_shorthands_to_paths(args.files)
+    
+    # Attach parsed control servers to args
+    args.control_servers = control_servers
 
     # Display version banner
     if not ((hasattr(args, "json") and args.json) or (args.command == "mcp-server")):
@@ -569,20 +637,17 @@ async def run_scan_inspect(mode="scan", args=None):
         else:
             raise ValueError(f"Unknown mode: {mode}, expected 'scan' or 'inspect'")
 
-    # upload scan result to control server if specified
-    if (
-        hasattr(args, "control_server")
-        and args.control_server
-        and hasattr(args, "opt_out")
-    ):
-        await upload(
-            result,
-            args.control_server,
-            args.control_identifier,
-            args.opt_out,
-            verbose=args.verbose,
-            additional_headers=parse_headers(args.control_server_H),
-        )
+    # upload scan result to control servers if specified
+    if hasattr(args, "control_servers") and args.control_servers:
+        for server_config in args.control_servers:
+            await upload(
+                result,
+                server_config["url"],
+                server_config["identifier"],
+                server_config["opt_out"],
+                verbose=hasattr(args, "verbose") and args.verbose,
+                additional_headers=parse_headers(server_config["headers"])
+            )
     return result
 
 async def print_scan_inspect(mode="scan", args=None):
