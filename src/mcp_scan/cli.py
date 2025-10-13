@@ -585,12 +585,7 @@ def main():
             sf.print_whitelist()
             sys.exit(0)
         elif all(x is not None for x in [args.type, args.name, args.hash]):
-            sf.add_to_whitelist(
-                args.type,
-                args.name,
-                args.hash,
-                base_url=args.base_url if not args.local_only else None,
-            )
+            sf.add_to_whitelist(args.type, args.name, args.hash)
             sf.print_whitelist()
             sys.exit(0)
         else:
@@ -650,6 +645,7 @@ async def run_scan_inspect(mode="scan", args=None):
                 server_config["url"],
                 server_config["identifier"],
                 server_config["opt_out"],
+                verbose=hasattr(args, "verbose") and args.verbose,
                 additional_headers=parse_headers(server_config["headers"])
             )
     return result

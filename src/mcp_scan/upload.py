@@ -2,13 +2,13 @@ import asyncio
 import getpass
 import logging
 import os
-
+import rich
 import aiohttp
 
 from mcp_scan.identity import IdentityManager
 from mcp_scan.models import ScanPathResult, ScanUserInfo, ScanPathResultsCreate
 from mcp_scan.well_known_clients import get_client_from_path
-import rich
+from mcp_scan.verify_api import setup_aiohttp_debug_logging, setup_tcp_connector
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +57,7 @@ async def upload(
     control_server: str, 
     identifier: str | None = None, 
     opt_out: bool = False, 
+    verbose: bool = False,
     additional_headers: dict = {},
     max_retries: int = 3
 ) -> None:
@@ -93,10 +94,13 @@ async def upload(
     )
 
     last_exception = None
-    
+    trace_configs = setup_aiohttp_debug_logging(verbose=verbose)
+    tcp_connector = setup_tcp_connector()
+    additional_headers = additional_headers or {}
+
     for attempt in range(max_retries):
         try:
-            async with aiohttp.ClientSession() as session:
+            async with aiohttp.ClientSession(trace_configs=trace_configs, connector=tcp_connector) as session:
                 headers = {"Content-Type": "application/json"}
                 headers.update(additional_headers)
 
