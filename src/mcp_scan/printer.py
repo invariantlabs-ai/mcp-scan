@@ -243,7 +243,7 @@ def print_scan_path_result(
                 issues = [issue for issue in result.issues if issue.reference == (server_idx, entity_idx)]
                 server_print.add(format_entity_line(entity, issues, inspect_mode))
 
-    if len(result.servers) > 0:
+    if result.servers is not None and len(result.servers) > 0:
         rich.print(path_print_tree)
 
     # print global issues
