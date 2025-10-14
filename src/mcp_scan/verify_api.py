@@ -99,6 +99,8 @@ def setup_tcp_connector() -> aiohttp.TCPConnector:
 async def analyze_scan_path(
     scan_path: ScanPathResult, base_url: str, additional_headers: dict = {}, opt_out_of_identity: bool = False, verbose: bool = False
 ) -> ScanPathResult:
+    if scan_path.servers is None:
+        return scan_path
     url = base_url[:-1] if base_url.endswith("/") else base_url
     if "snyk.io" not in base_url:
         url = url + "/api/v1/public/mcp-analysis"
