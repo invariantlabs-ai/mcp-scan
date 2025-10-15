@@ -148,6 +148,7 @@ class ScanError(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
     message: str | None = None
     exception: Exception | None = None
+    is_failure: bool = True
 
     @field_serializer("exception")
     def serialize_exception(self, exception: Exception | None, _info) -> str | None:
@@ -165,6 +166,7 @@ class ScanError(BaseModel):
         return ScanError(
             message=self.message,
             exception=self.exception,
+            is_failure=self.is_failure,
         )
 
 
@@ -233,14 +235,16 @@ class ScanPathResult(BaseModel):
     model_config = ConfigDict()
     client: str | None = None
     path: str
-    servers: list[ServerScanResult] = Field(default_factory=list)
+    # servers is None if the MCP configuration file was missing or unparseable
+    # which prevented server discovery.
+    servers: list[ServerScanResult] | None = None
     issues: list[Issue] = Field(default_factory=list)
     labels: list[list[ScalarToolLabels]] = Field(default_factory=list)
     error: ScanError | None = None
 
     @property
     def entities(self) -> list[Entity]:
-        return list(chain.from_iterable(server.entities for server in self.servers))
+        return list(chain.from_iterable(server.entities for server in self.servers)) if self.servers else []
 
     def clone(self) -> "ScanPathResult":
         """
@@ -250,7 +254,7 @@ class ScanPathResult(BaseModel):
         output = ScanPathResult(
             path=self.path,
             client=self.client,
-            servers=[server.clone() for server in self.servers],
+            servers=[server.clone() for server in self.servers] if self.servers else None,
             issues=[issue.model_copy(deep=True) for issue in self.issues],
             labels=[[label.model_copy(deep=True) for label in labels] for labels in self.labels],
             error=self.error.clone() if self.error else None,

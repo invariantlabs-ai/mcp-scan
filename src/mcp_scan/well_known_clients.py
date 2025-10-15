@@ -180,7 +180,8 @@ def get_builtin_tools(path_result: ScanPathResult) -> ScanPathResult:
                     meta={},
                 )
             )
-
+        if output.servers is None:
+            output.servers = []
         output.servers.append(
             ServerScanResult(name=f"{client_display_name} (built-in)", server=server, signature=signature)
         )
