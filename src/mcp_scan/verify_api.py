@@ -111,7 +111,7 @@ async def analyze_scan_path(
     }
     headers.update(additional_headers)
 
-    logger.debug("Analyzing scan path with URL: %s and headers: %s", url, headers)
+    logger.debug(f"Analyzing scan path with URL: {url}")
     payload = VerifyServerRequest(
         root=[
             server.signature.model_dump() if server.signature else None
