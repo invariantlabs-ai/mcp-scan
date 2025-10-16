@@ -82,7 +82,7 @@ async def scan(files: str | Sequence[str] | None = None, **options: Any):
     The options map to `MCPScanner` kwargs and CLI flags where applicable, e.g.:
     - checks_per_server: int (default 1)
     - storage_file: str (default "~/.mcp-scan")
-    - base_url: str (default "https://mcp.invariantlabs.ai/")
+    - analysis_url: str (default "https://mcp.invariantlabs.ai/api/v1/public/mcp-analysis")
     - server_timeout: int (default 10)
     - suppress_mcpserver_io: bool (default True)
     - opt_out: bool (default False)

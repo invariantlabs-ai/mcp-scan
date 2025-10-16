@@ -56,7 +56,7 @@ class MCPScanner:
     def __init__(
         self,
         files: list[str] | None = None,
-        base_url: str = "https://mcp.invariantlabs.ai/",
+        analysis_url: str = "https://mcp.invariantlabs.ai/api/v1/public/mcp-analysis",
         checks_per_server: int = 1,
         storage_file: str = "~/.mcp-scan",
         server_timeout: int = 10,
@@ -70,7 +70,7 @@ class MCPScanner:
         logger.info("Initializing MCPScanner")
         self.paths = files or []
         logger.debug("Paths to scan: %s", self.paths)
-        self.base_url = base_url
+        self.analysis_url = analysis_url
         self.additional_headers = additional_headers
         self.checks_per_server = checks_per_server
         self.storage_file_path = os.path.expanduser(storage_file)
@@ -240,7 +240,7 @@ class MCPScanner:
         path_result.issues += self.check_server_changed(path_result)
         logger.debug(f"Verifying server path: {path_result.path}, {path_result.path is None}")
         path_result = await analyze_scan_path(
-            path_result, base_url=self.base_url, additional_headers=self.additional_headers, opt_out_of_identity=self.opt_out_of_identity, verbose=self.verbose
+            path_result, analysis_url=self.analysis_url, additional_headers=self.additional_headers, opt_out_of_identity=self.opt_out_of_identity, verbose=self.verbose
         )
         await self.emit("path_scanned", path_result)
         return path_result
