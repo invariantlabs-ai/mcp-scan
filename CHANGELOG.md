@@ -38,3 +38,4 @@
 - `0.3.20` Direct scanning, improved URL handling for other endpoints
 - `0.3.21` Fix: handle paths with spaces; updated mcp library dependency
 - `0.3.22` Fix: support more than 100 tools; allow specifying a version when scanning a package
+- `0.3.23` Maintainace to ensure continued server compatability
