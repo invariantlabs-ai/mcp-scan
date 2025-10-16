@@ -159,7 +159,7 @@ async def test_upload_includes_scan_error_in_payload():
     path_result_with_error = ScanPathResult(
         path="/test/path",
         servers=[server],
-        error=ScanError(message=scan_error_message, exception=Exception(exception_message)),
+        error=ScanError(message=scan_error_message, exception=Exception(exception_message), is_failure=True),
     )
 
     with patch("mcp_scan.upload.get_user_info") as mock_get_user_info:
@@ -196,6 +196,7 @@ async def test_upload_includes_scan_error_in_payload():
             assert "error" in sent_result and sent_result["error"] is not None
             assert scan_error_message in sent_result["error"].get("message")
             assert exception_message in sent_result["error"].get("exception")
+            assert sent_result["error"]["is_failure"] is True
 
 
 @pytest.mark.asyncio
@@ -225,8 +226,10 @@ async def test_get_servers_from_path_sets_file_not_found_error_and_uploads_paylo
 
             payload = json.loads(mock_post_method.call_args.kwargs["data"])
             sent_result = payload["scan_path_results"][0]
+            assert sent_result["servers"] is None
             assert sent_result["path"] == "/nonexistent/path"
             assert sent_result["error"]["message"] == "file does not exist"
+            assert sent_result["error"]["is_failure"] is False
             assert "missing" in (sent_result["error"].get("exception") or "")
 
 
@@ -257,8 +260,10 @@ async def test_get_servers_from_path_sets_parse_error_and_uploads_payload():
 
             payload = json.loads(mock_post_method.call_args.kwargs["data"])
             sent_result = payload["scan_path_results"][0]
+            assert sent_result["servers"] is None
             assert sent_result["path"] == "/bad/config"
             assert sent_result["error"]["message"] == "could not parse file"
+            assert sent_result["error"]["is_failure"] is True
             assert "parse failure" in (sent_result["error"].get("exception") or "")
 
 
@@ -294,8 +299,10 @@ async def test_scan_server_sets_http_status_error_and_uploads_payload():
             await upload([result], "https://control.mcp.scan", None, False)
 
             payload = json.loads(mock_post_method.call_args.kwargs["data"])
+            assert payload["scan_path_results"][0]["servers"] is not None
             sent_result = payload["scan_path_results"][0]
             assert sent_result["servers"][0]["error"]["message"] == "server returned HTTP status code"
+            assert sent_result["servers"][0]["error"]["is_failure"] is True
 
 
 @pytest.mark.asyncio
@@ -329,8 +336,10 @@ async def test_scan_server_sets_could_not_start_error_and_uploads_payload():
             await upload([result], "https://control.mcp.scan", None, False)
 
             payload = json.loads(mock_post_method.call_args.kwargs["data"])
+            assert payload["scan_path_results"][0]["servers"] is not None
             sent_result = payload["scan_path_results"][0]
             assert sent_result["servers"][0]["error"]["message"] == "could not start server"
+            assert sent_result["servers"][0]["error"]["is_failure"] is True
 
 
 @pytest.mark.asyncio

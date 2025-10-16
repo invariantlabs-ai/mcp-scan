@@ -99,6 +99,8 @@ def setup_tcp_connector() -> aiohttp.TCPConnector:
 async def analyze_scan_path(
     scan_path: ScanPathResult, analysis_url: str, additional_headers: dict = {}, opt_out_of_identity: bool = False, verbose: bool = False
 ) -> ScanPathResult:
+    if scan_path.servers is None:
+        return scan_path
     headers = {
         "Content-Type": "application/json",
         "X-User": identity_manager.get_identity(opt_out_of_identity),
@@ -106,7 +108,7 @@ async def analyze_scan_path(
     }
     headers.update(additional_headers)
 
-    logger.debug("Analyzing scan path with URL: %s and headers: %s", analysis_url, headers)
+    logger.debug(f"Analyzing scan path with URL: {url}")
     payload = VerifyServerRequest(
         root=[
             server.signature.model_dump() if server.signature else None

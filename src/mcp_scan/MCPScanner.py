@@ -132,16 +132,19 @@ class MCPScanner:
         except FileNotFoundError as e:
             error_msg = "file does not exist"
             logger.exception("%s: %s", error_msg, path)
-            result.error = ScanError(message=error_msg, exception=e)
+            # This is a non failing error, so we set is_failure to False.
+            result.error = ScanError(message=error_msg, exception=e, is_failure=False)
         except Exception as e:
             error_msg = "could not parse file"
             logger.exception("%s: %s", error_msg, path)
-            result.error = ScanError(message=error_msg, exception=e)
+            result.error = ScanError(message=error_msg, exception=e, is_failure=True)
         return result
 
     def check_server_changed(self, path_result: ScanPathResult) -> list[Issue]:
         logger.debug("Checking server changed: %s", path_result.path)
         issues: list[Issue] = []
+        if path_result.servers is None:
+            return issues
         for server_idx, server in enumerate(path_result.servers):
             logger.debug(
                 "Checking for changes in server %d/%d: %s", server_idx + 1, len(path_result.servers), server.name
@@ -162,6 +165,8 @@ class MCPScanner:
     def check_whitelist(self, path_result: ScanPathResult) -> list[Issue]:
         logger.debug("Checking whitelist for path: %s", path_result.path)
         issues: list[Issue] = []
+        if path_result.servers is None:
+            return issues
         for server_idx, server in enumerate(path_result.servers):
             for entity_idx, entity in enumerate(server.entities):
                 if self.storage_file.is_whitelisted(entity):
@@ -195,11 +200,11 @@ class MCPScanner:
         except HTTPStatusError as e:
             error_msg = "server returned HTTP status code"
             logger.exception("%s: %s", error_msg, server.name)
-            result.error = ScanError(message=error_msg, exception=e)
+            result.error = ScanError(message=error_msg, exception=e, is_failure=True)
         except Exception as e:
             error_msg = "could not start server"
             logger.exception("%s: %s", error_msg, server.name)
-            result.error = ScanError(message=error_msg, exception=e)
+            result.error = ScanError(message=error_msg, exception=e, is_failure=True)
         await self.emit("server_scanned", result)
         return result
     
@@ -209,15 +214,16 @@ class MCPScanner:
         logger.info("Scanning path: %s, inspect_only: %s", path, inspect_only)
         path_result = await self.get_servers_from_path(path)
 
-        for i, server in enumerate(path_result.servers):
-            if server.server.type == "stdio":
-                full_command = server.server.command + " " + " ".join(server.server.args or [])
-                # check if pattern is contained in full_command
-                if re.search(r"mcp[-_]scan.*mcp-server", full_command):
-                    logger.info("Skipping scan of server %d/%d: %s", i + 1, len(path_result.servers), server.name)
-                    continue
-            logger.debug("Scanning server %d/%d: %s", i + 1, len(path_result.servers), server.name)
-            path_result.servers[i] = await self.scan_server(server)
+        if path_result.servers is not None:
+            for i, server in enumerate(path_result.servers):
+                if server.server.type == "stdio":
+                    full_command = server.server.command + " " + " ".join(server.server.args or [])
+                    # check if pattern is contained in full_command
+                    if re.search(r"mcp[-_]scan.*mcp-server", full_command):
+                        logger.info("Skipping scan of server %d/%d: %s", i + 1, len(path_result.servers), server.name)
+                        continue
+                logger.debug("Scanning server %d/%d: %s", i + 1, len(path_result.servers), server.name)
+                path_result.servers[i] = await self.scan_server(server)
 
         # add built-in tools
         if self.include_built_in:
