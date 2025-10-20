@@ -38,6 +38,7 @@ class GuardrailMode(str, Enum):
     log = "log"
     block = "block"
     paused = "paused"
+    ask = "ask"
 
 
 class Policy(BaseModel):

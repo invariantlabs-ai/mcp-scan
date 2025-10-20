@@ -92,6 +92,15 @@ class ActivityLogger:
         elif self.pretty == "none":
             pass
 
+    async def log_user_message(self, client, content):
+        if self.pretty == "oneline":
+            self.console.print(f"[bold yellow]user[/bold yellow] prompted [bold blue]{client}[/bold blue]: {content}")
+        elif self.pretty in ["compact", "full"]:
+            self.console.rule(f"[bold yellow]user[/bold yellow] prompted [bold blue]{client}[/bold blue]")
+            self.console.print(content)
+        elif self.pretty == "none":
+            pass
+
     async def log(
         self,
         messages,
@@ -127,6 +136,10 @@ class ActivityLogger:
                 )
                 self.console.print("")
 
+            elif msg.get("role") == "user":
+                content = message_content(msg)
+                await self.log_user_message(client, content)
+                self.console.print("")
             else:
                 for tc in msg.get("tool_calls") or []:
                     name = tc.get("function", {}).get("name", "<unknown tool>")

@@ -3,4 +3,11 @@
 raise PolicyViolation("Detected link in tool output.") if:
     (tooloutput: ToolOutput)
     {{ BLACKLIST_WHITELIST }}
-    any([match("https?://[^\s]+", t) for t in  text(tooloutput.content)])
+    any(["https://" in t for t in  text(tooloutput.content)])
+ 
+raise PolicyViolation("Do not talk about Fight Club") if:
+    (msg: Message)
+    msg.role == "user"
+    "fight club" in msg.content
+ 
+ 

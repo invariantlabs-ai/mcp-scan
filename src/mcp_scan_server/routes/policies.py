@@ -204,6 +204,9 @@ async def batch_check_policies(
     session_id = metadata.get("session_id", "<no session id>")
 
     messages = await get_messages_from_session(check_request, mcp_client, mcp_server, session_id)
+    import json
+    with open("messages.json", "w") as f:
+        json.dump(messages, f)
     last_analysis_index = session_store[mcp_client].last_analysis_index
 
     results = await asyncio.gather(
@@ -230,5 +233,6 @@ async def batch_check_policies(
     )
 
     return fastapi.responses.JSONResponse(
-        content={"result": [to_json_serializable_dict(result.to_dict()) for result in results]}
+        content={"result": [to_json_serializable_dict(result.to_dict()) for result in results]},
+        headers={"X-Session-Length": str(len(messages))},
     )
