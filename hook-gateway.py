@@ -65,8 +65,8 @@ def check_policies(
 def convert_to_hook_response(policy_result: dict, policies: list[dict], current_message_index: int) -> Any:
     # collect all violations
     ACTION_TO_PERMISSION_MAPPING = {
-        "log": "deny",
-        "paused": "deny",
+        "log": "approve",
+        "paused": "approve",
         "block": "deny",
         "ask": "ask"
     }
