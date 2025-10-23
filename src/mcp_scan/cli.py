@@ -22,6 +22,9 @@ from .Storage import Storage
 from .version import version_info
 from .utils import parse_headers
 
+# fix ssl certificates if custom certificates (i.e. ZScaler) are used
+import pip_system_certs.wrapt_requests; pip_system_certs.wrapt_requests.inject_truststore()
+
 # Configure logging to suppress all output by default
 logging.getLogger().setLevel(logging.CRITICAL + 1)  # Higher than any standard level
 # Add null handler to prevent "No handler found" warnings
