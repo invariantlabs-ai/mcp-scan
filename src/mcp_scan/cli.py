@@ -1,5 +1,6 @@
 # fix ssl certificates if custom certificates (i.e. ZScaler) are used
-import pip_system_certs.wrapt_requests; pip_system_certs.wrapt_requests.inject_truststore()
+import truststore
+truststore.inject_into_ssl()
 
 import argparse
 import asyncio

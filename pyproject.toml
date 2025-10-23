@@ -27,7 +27,7 @@ dependencies = [
     "rapidfuzz>=3.13.0",
     "invariant-ai>=0.3.3",
     "filelock>=3.18.0",
-    "pip-system-certs>=5.3",
+    "truststore>=0.10.4",
 ]
 
 [project.scripts]
