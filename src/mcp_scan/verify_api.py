@@ -1,14 +1,14 @@
 import logging
 import os
+import ssl
 
 import aiohttp
-import ssl
 import certifi
 
 from .identity import IdentityManager
 from .models import (
     AnalysisServerResponse,
-    Issue,
+    ScanError,
     ScanPathResult,
     VerifyServerRequest,
 )
@@ -20,9 +20,9 @@ identity_manager = IdentityManager()
 def setup_aiohttp_debug_logging(verbose: bool) -> list[aiohttp.TraceConfig]:
     """Setup detailed aiohttp logging and tracing for debugging purposes."""
     # Enable aiohttp internal logging
-    aiohttp_logger = logging.getLogger('aiohttp')
+    aiohttp_logger = logging.getLogger("aiohttp")
     aiohttp_logger.setLevel(logging.DEBUG)
-    aiohttp_client_logger = logging.getLogger('aiohttp.client')
+    aiohttp_client_logger = logging.getLogger("aiohttp.client")
     aiohttp_client_logger.setLevel(logging.DEBUG)
 
     # Create trace config for detailed aiohttp logging
@@ -35,8 +35,7 @@ def setup_aiohttp_debug_logging(verbose: bool) -> list[aiohttp.TraceConfig]:
         logger.debug("aiohttp: Starting request %s %s", params.method, params.url)
 
     async def on_request_end(session, trace_config_ctx, params):
-        logger.debug("aiohttp: Request completed %s %s -> %s",
-                    params.method, params.url, params.response.status)
+        logger.debug("aiohttp: Request completed %s %s -> %s", params.method, params.url, params.response.status)
 
     async def on_connection_create_start(session, trace_config_ctx, params):
         logger.debug("aiohttp: Creating connection")
@@ -57,17 +56,20 @@ def setup_aiohttp_debug_logging(verbose: bool) -> list[aiohttp.TraceConfig]:
         logger.debug("aiohttp: Connection dequeued")
 
     async def on_request_exception(session, trace_config_ctx, params):
-        logger.error("aiohttp: Request exception for %s %s: %s",
-                    params.method, params.url, params.exception)
+        logger.error("aiohttp: Request exception for %s %s: %s", params.method, params.url, params.exception)
         # Check if it's an SSL-related exception
-        if hasattr(params.exception, '__class__'):
+        if hasattr(params.exception, "__class__"):
             exc_name = params.exception.__class__.__name__
-            if 'ssl' in exc_name.lower() or 'certificate' in str(params.exception).lower():
+            if "ssl" in exc_name.lower() or "certificate" in str(params.exception).lower():
                 logger.error("aiohttp: SSL/Certificate error detected: %s", params.exception)
 
     async def on_request_redirect(session, trace_config_ctx, params):
-        logger.debug("aiohttp: Request redirected from %s %s to %s", 
-                    params.method, params.url, params.response.headers.get('Location', 'unknown'))
+        logger.debug(
+            "aiohttp: Request redirected from %s %s to %s",
+            params.method,
+            params.url,
+            params.response.headers.get("Location", "unknown"),
+        )
 
     trace_config.on_request_start.append(on_request_start)
     trace_config.on_request_end.append(on_request_end)
@@ -89,31 +91,31 @@ def setup_tcp_connector() -> aiohttp.TCPConnector:
     """
     ssl_context = ssl.create_default_context(cafile=certifi.where())
     ssl_context.minimum_version = ssl.TLSVersion.TLSv1_2
-    connector = aiohttp.TCPConnector(
-        ssl=ssl_context,
-        enable_cleanup_closed=True
-    )
+    connector = aiohttp.TCPConnector(ssl=ssl_context, enable_cleanup_closed=True)
     return connector
 
 
 async def analyze_scan_path(
-    scan_path: ScanPathResult, analysis_url: str, additional_headers: dict = {}, opt_out_of_identity: bool = False, verbose: bool = False
+    scan_path: ScanPathResult,
+    analysis_url: str,
+    additional_headers: dict | None = None,
+    opt_out_of_identity: bool = False,
+    verbose: bool = False,
 ) -> ScanPathResult:
     if scan_path.servers is None:
         return scan_path
+    if additional_headers is None:
+        additional_headers = {}
     headers = {
         "Content-Type": "application/json",
         "X-User": identity_manager.get_identity(opt_out_of_identity),
-        "X-Environment": os.getenv("MCP_SCAN_ENVIRONMENT", "production")
+        "X-Environment": os.getenv("MCP_SCAN_ENVIRONMENT", "production"),
     }
     headers.update(additional_headers)
 
     logger.debug(f"Analyzing scan path with URL: {analysis_url}")
     payload = VerifyServerRequest(
-        root=[
-            server.signature.model_dump() if server.signature else None
-            for server in scan_path.servers
-        ]
+        root=[server.signature.model_dump() if server.signature else None for server in scan_path.servers]
     )
     logger.debug("Payload: %s", payload.model_dump_json())
 
@@ -137,19 +139,5 @@ async def analyze_scan_path(
         scan_path.labels = results.labels
     except Exception as e:
         logger.exception("Error analyzing scan path")
-        try:
-            errstr = str(e.args[0])
-            errstr = errstr.splitlines()[0]
-        except Exception:
-            errstr = ""
-        for server_idx, server in enumerate(scan_path.servers):
-            if server.signature is not None:
-                for i, _ in enumerate(server.entities):
-                    scan_path.issues.append(
-                        Issue(
-                            code="X001",
-                            message=f"could not reach analysis server {errstr}",
-                            reference=(server_idx, i),
-                        )
-                    )
+        scan_path.error = ScanError(message="could not reach analysis server", exception=e, is_failure=True)
     return scan_path
