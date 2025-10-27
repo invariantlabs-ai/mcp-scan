@@ -2,14 +2,15 @@ import asyncio
 import logging
 import os
 import re
+from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
 from collections import defaultdict
 from collections.abc import Callable
 from typing import Any
 
 from httpx import HTTPStatusError
 
-from mcp_scan.models import Issue, ScanError, ScanPathResult, ServerScanResult
-from mcp_scan.well_known_clients import get_builtin_tools, get_client_from_path
+from mcp_scan.models import Issue, RemoteServer, ScanError, ScanPathResult, ServerScanResult, StdioServer
+from mcp_scan.well_known_clients import get_builtin_tools
 
 from .direct_scanner import direct_scan, is_direct_scan
 from .mcp_client import check_server_with_timeout, scan_mcp_config_file
@@ -19,6 +20,7 @@ from .verify_api import analyze_scan_path
 # Set up logger for this module
 logger = logging.getLogger(__name__)
 
+REDACTED = "**REDACTED**"
 
 class ContextManager:
     def __init__(
@@ -209,6 +211,35 @@ class MCPScanner:
         return result
     
 
+    def _redact_server(self, server_scan_result: ServerScanResult) -> ServerScanResult:
+        """
+        Redact sensitive information from the server scan result.
+        """
+        if isinstance(server_scan_result.server, StdioServer):
+            # Redact all environment variables
+            if server_scan_result.server.env:
+                server_scan_result.server.env = {
+                    k: REDACTED for k in server_scan_result.server.env
+                }
+        elif isinstance(server_scan_result.server, RemoteServer):
+            # Redact all headers
+            if server_scan_result.server.headers:
+                server_scan_result.server.headers = {
+                    k: REDACTED for k in server_scan_result.server.headers
+                }
+            # Redact all query parameter values in the URL
+            try:
+                parts = urlsplit(server_scan_result.server.url)
+                if parts.query:
+                    qs = parse_qsl(parts.query)
+                    redacted_qs = [(k, REDACTED) for k, _ in qs]
+                    new_query = urlencode(redacted_qs)
+                    server_scan_result.server.url = urlunsplit(
+                        (parts.scheme, parts.netloc, parts.path, new_query, parts.fragment)
+                    )
+            except Exception:
+                logger.error("Failed to redact URL: %s", server_scan_result.server.url)
+        return server_scan_result
 
     async def scan_path(self, path: str, inspect_only: bool = False) -> ScanPathResult:
         logger.info("Scanning path: %s, inspect_only: %s", path, inspect_only)
@@ -223,7 +254,7 @@ class MCPScanner:
                         logger.info("Skipping scan of server %d/%d: %s", i + 1, len(path_result.servers), server.name)
                         continue
                 logger.debug("Scanning server %d/%d: %s", i + 1, len(path_result.servers), server.name)
-                path_result.servers[i] = await self.scan_server(server)
+                path_result.servers[i] = self._redact_server(await self.scan_server(server))
 
         # add built-in tools
         if self.include_built_in:
