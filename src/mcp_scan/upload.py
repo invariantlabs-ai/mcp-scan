@@ -1,55 +1,13 @@
 import asyncio
-import getpass
 import logging
-import os
 import rich
 import aiohttp
 
-from mcp_scan.identity import IdentityManager
 from mcp_scan.models import ScanPathResult, ScanUserInfo, ScanPathResultsCreate
 from mcp_scan.well_known_clients import get_client_from_path
-from mcp_scan.verify_api import setup_aiohttp_debug_logging, setup_tcp_connector
+from mcp_scan.verify_api import setup_aiohttp_debug_logging, setup_tcp_connector, get_user_info
 
 logger = logging.getLogger(__name__)
-
-identity = IdentityManager()
-
-
-def get_hostname() -> str:
-    try:
-        return os.uname().nodename
-    except Exception:
-        return "unknown"
-
-
-def get_username() -> str:
-    try:
-        return getpass.getuser()
-    except Exception:
-        return "unknown"
-
-
-def get_user_info(identifier: str | None = None, opt_out: bool = False) -> ScanUserInfo:
-    """
-    Get the user info for the scan.
-
-    identifier: A non-anonymous identifier used to identify the user to the control server, e.g. email or serial number
-    opt_out: If True, a new identity is created and saved.
-    """
-    user_identifier = identity.get_identity(regenerate=opt_out)
-
-    # If opt_out is True, clear the identity, so next scan will have a new identity
-    # even if --opt-out is set to False on that scan.
-    if opt_out:
-        identity.clear()
-
-    return ScanUserInfo(
-        hostname=get_hostname() if not opt_out else None,
-        username=get_username() if not opt_out else None,
-        identifier=identifier if not opt_out else None,
-        ip_address=None, # don't report local ip address
-        anonymous_identifier=user_identifier,
-    )
 
 
 async def upload(
