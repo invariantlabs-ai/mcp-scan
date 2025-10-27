@@ -3,7 +3,10 @@ from unittest.mock import AsyncMock, patch
 import json
 import sys
 
+from urllib.parse import urlsplit, parse_qsl
+
 import aiohttp
+import httpx
 import pytest
 
 from mcp_scan.models import (
@@ -19,7 +22,6 @@ from mcp_scan.upload import (
     upload,  # Make sure this import is correct
 )
 from mcp_scan.MCPScanner import MCPScanner
-import httpx
 
 
 def test_opt_out_does_not_create_identity():
@@ -472,8 +474,10 @@ async def test_scan_path_redacts_remote_url_query_and_headers():
     assert srv.server.headers["Authorization"] == "**REDACTED**"
     assert srv.server.headers["X-Custom"] == "**REDACTED**"
     # URL query param values should be redacted (keys preserved)
-    assert "token=**REDACTED**" in srv.server.url
-    assert "api_key=**REDACTED**" in srv.server.url
+    parts = urlsplit(srv.server.url)
+    qs = dict(parse_qsl(parts.query, keep_blank_values=True))
+    assert qs.get("token") == "**REDACTED**"
+    assert qs.get("api_key") == "**REDACTED**"
 
 
 @pytest.mark.asyncio
