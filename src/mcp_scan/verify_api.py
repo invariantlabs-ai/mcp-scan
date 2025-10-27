@@ -168,17 +168,11 @@ async def analyze_machine(
     logger.debug(f"Analyzing scan path with URL: {analysis_url}")
     user_info = get_user_info(identifier=identifier, opt_out=opt_out_of_identity)
 
-    results_with_servers = []
     for result in scan_paths:
-        # If there are no servers but there is a path-level error, still include the result
-        if not result.servers and result.error is None:
-            logger.info(f"No servers and no error for path {result.path}. Skipping upload.")
-            continue
         result.client = get_client_from_path(result.path) or result.client or result.path
-        results_with_servers.append(result)
 
     payload = ScanPathResultsCreate(
-        scan_path_results=results_with_servers,
+        scan_path_results=scan_paths,
         scan_user_info=user_info
     )
     logger.debug("Payload: %s", payload.model_dump_json())
@@ -205,7 +199,10 @@ async def analyze_machine(
                         logger.info(
                             "Successfully analyzed scan results."
                         )
-                        return response_data.scan_path_results  # Success - exit the function
+                        for sent_scan_path_result, response_scan_path_result in zip(scan_paths, response_data.scan_path_results, strict=True):
+                            sent_scan_path_result.issues = response_scan_path_result.issues
+                            sent_scan_path_result.labels = response_scan_path_result.labels
+                        return scan_paths  # Success - exit the function
                     else:
                         error_text = await response.text()
                         logger.warning(

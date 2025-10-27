@@ -147,7 +147,7 @@ class VSCodeConfigFile(MCPConfig):
 class ScanError(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
     message: str | None = None
-    exception: Exception | None = None
+    exception: Exception | str | None = None
     is_failure: bool = True
 
     @field_serializer("exception")
