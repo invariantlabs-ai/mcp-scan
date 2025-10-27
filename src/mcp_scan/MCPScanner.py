@@ -15,7 +15,7 @@ from mcp_scan.well_known_clients import get_builtin_tools
 from .direct_scanner import direct_scan, is_direct_scan
 from .mcp_client import check_server_with_timeout, scan_mcp_config_file
 from .Storage import Storage
-from .verify_api import analyze_scan_path, analyze_machine
+from .verify_api import analyze_machine
 
 # Set up logger for this module
 logger = logging.getLogger(__name__)
