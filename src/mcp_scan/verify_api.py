@@ -139,5 +139,10 @@ async def analyze_scan_path(
         scan_path.labels = results.labels
     except Exception as e:
         logger.exception("Error analyzing scan path")
-        scan_path.error = ScanError(message="could not reach analysis server", exception=e, is_failure=True)
+        try:
+            errstr = str(e.args[0])
+            errstr = errstr.splitlines()[0]
+        except Exception:
+            errstr = ""
+        scan_path.error = ScanError(message=f"could not reach analysis server {errstr}", exception=e, is_failure=True)
     return scan_path
