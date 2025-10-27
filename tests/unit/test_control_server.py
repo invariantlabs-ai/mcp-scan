@@ -3,7 +3,10 @@ from unittest.mock import AsyncMock, patch
 import json
 import sys
 
+from urllib.parse import urlsplit, parse_qsl
+
 import aiohttp
+import httpx
 import pytest
 
 from mcp_scan.models import (
@@ -11,14 +14,14 @@ from mcp_scan.models import (
     ScanPathResult,
     ServerScanResult,
     StdioServer,
-    ScanUserInfo
+    ScanUserInfo,
+    RemoteServer,
 )
 from mcp_scan.upload import (
     get_user_info,
     upload,  # Make sure this import is correct
 )
 from mcp_scan.MCPScanner import MCPScanner
-import httpx
 
 
 def test_opt_out_does_not_create_identity():
@@ -441,6 +444,68 @@ async def test_upload_does_not_retry_on_client_error():
             
             # Verify that sleep was NOT called
             mock_sleep.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_scan_path_redacts_remote_url_query_and_headers():
+    """
+    Ensure RemoteServer headers are redacted and URL query parameter values are replaced with REDACTED.
+    Uses scanner.scan_path to exercise _redact_server in the normal flow.
+    """
+    class DummyCfg:
+        def get_servers(self):
+            return {
+                "remote": RemoteServer(
+                    url="https://api.example.com/endpoint?token=abc123&api_key=xyz",
+                    type="http",
+                    headers={"Authorization": "Bearer secret", "X-Custom": "value"},
+                )
+            }
+
+    with patch.object(sys.modules['mcp_scan.MCPScanner'], "scan_mcp_config_file", return_value=DummyCfg()), \
+         patch.object(sys.modules['mcp_scan.MCPScanner'], "check_server_with_timeout", return_value=None):
+        async with MCPScanner(files=["/dummy/path"]) as scanner:
+            result = await scanner.scan_path("/dummy/path", inspect_only=True)
+
+    assert result.servers is not None and len(result.servers) == 1
+    srv = result.servers[0]
+    assert isinstance(srv.server, RemoteServer)
+    # Headers should be redacted
+    assert srv.server.headers["Authorization"] == "**REDACTED**"
+    assert srv.server.headers["X-Custom"] == "**REDACTED**"
+    # URL query param values should be redacted (keys preserved)
+    parts = urlsplit(srv.server.url)
+    qs = dict(parse_qsl(parts.query, keep_blank_values=True))
+    assert qs.get("token") == "**REDACTED**"
+    assert qs.get("api_key") == "**REDACTED**"
+
+
+@pytest.mark.asyncio
+async def test_scan_path_redacts_stdio_env_vars():
+    """
+    Ensure StdioServer environment variable values are redacted via scanner.scan_path.
+    """
+    class DummyCfg:
+        def get_servers(self):
+            return {
+                "stdio": StdioServer(
+                    command="echo",
+                    args=["hello"],
+                    env={"SECRET": "shh", "API_TOKEN": "tok"},
+                )
+            }
+
+    with patch.object(sys.modules['mcp_scan.MCPScanner'], "scan_mcp_config_file", return_value=DummyCfg()), \
+         patch.object(sys.modules['mcp_scan.MCPScanner'], "check_server_with_timeout", return_value=None):
+        async with MCPScanner(files=["/dummy/path"]) as scanner:
+            result = await scanner.scan_path("/dummy/path", inspect_only=True)
+
+    assert result.servers is not None and len(result.servers) == 1
+    srv = result.servers[0]
+    assert isinstance(srv.server, StdioServer)
+    # Env values should be redacted; keys preserved
+    assert srv.server.env["SECRET"] == "**REDACTED**"
+    assert srv.server.env["API_TOKEN"] == "**REDACTED**"
 
 
 @pytest.mark.asyncio
