@@ -147,7 +147,7 @@ class VSCodeConfigFile(MCPConfig):
 class ScanError(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
     message: str | None = None
-    exception: Exception | None = None
+    exception: Exception | str | None = None
     is_failure: bool = True
 
     @field_serializer("exception")
@@ -193,10 +193,6 @@ class ServerSignature(BaseModel):
     @property
     def entities(self) -> list[Entity]:
         return self.prompts + self.resources + self.resource_templates + self.tools
-
-
-class VerifyServerRequest(RootModel[list[ServerSignature | None]]):
-    pass
 
 
 class ServerScanResult(BaseModel):
@@ -332,10 +328,6 @@ class ToolReferenceWithLabel(BaseModel):
 class ToxicFlowExtraData(RootModel[dict[str, list[ToolReferenceWithLabel]]]):
     pass
 
-
-class AnalysisServerResponse(BaseModel):
-    issues: list[Issue]
-    labels: list[list[ScalarToolLabels]]
 
 class ScanPathResultsCreate(BaseModel):
     scan_path_results: list[ScanPathResult]
