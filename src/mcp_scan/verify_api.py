@@ -9,10 +9,8 @@ from mcp_scan.well_known_clients import get_client_from_path
 
 from .identity import IdentityManager
 from .models import (
-    AnalysisServerResponse,
     Issue,
     ScanPathResult,
-    VerifyServerRequest,
     ScanUserInfo,
     ScanPathResultsCreate,
 )
@@ -239,62 +237,3 @@ async def analyze_machine(
             await asyncio.sleep(backoff_time)
     scan_paths = add_X_errors(scan_paths, f"Tried calling verification api {max_retries} times. Could not reach analysis server {error_text}")
     return scan_paths
-
-
-async def analyze_scan_path(
-    scan_path: ScanPathResult, analysis_url: str, additional_headers: dict = {}, opt_out_of_identity: bool = False, verbose: bool = False
-) -> ScanPathResult:
-    if scan_path.servers is None:
-        return scan_path
-    headers = {
-        "Content-Type": "application/json",
-        "X-User": identity_manager.get_identity(opt_out_of_identity),
-        "X-Environment": os.getenv("MCP_SCAN_ENVIRONMENT", "production")
-    }
-    headers.update(additional_headers)
-
-    logger.debug(f"Analyzing scan path with URL: {analysis_url}")
-    payload = VerifyServerRequest(
-        root=[
-            server.signature.model_dump() if server.signature else None
-            for server in scan_path.servers
-        ]
-    )
-    logger.debug("Payload: %s", payload.model_dump_json())
-
-    # Server signatures do not contain any information about the user setup. Only about the server itself.
-    try:
-        trace_configs = setup_aiohttp_debug_logging(verbose=verbose)
-        tcp_connector = setup_tcp_connector()
-
-        if verbose:
-            logger.debug("aiohttp: TCPConnector created")
-
-        async with aiohttp.ClientSession(connector=tcp_connector, trace_configs=trace_configs) as session:
-            async with session.post(analysis_url, headers=headers, data=payload.model_dump_json()) as response:
-                if response.status == 200:
-                    results = AnalysisServerResponse.model_validate_json(await response.read())
-                else:
-                    logger.debug("Error: %s - %s", response.status, await response.text())
-                    raise Exception(f"Error: {response.status} - {await response.text()}")
-
-        scan_path.issues += results.issues
-        scan_path.labels = results.labels
-    except Exception as e:
-        logger.exception("Error analyzing scan path")
-        try:
-            errstr = str(e.args[0])
-            errstr = errstr.splitlines()[0]
-        except Exception:
-            errstr = ""
-        for server_idx, server in enumerate(scan_path.servers):
-            if server.signature is not None:
-                for i, _ in enumerate(server.entities):
-                    scan_path.issues.append(
-                        Issue(
-                            code="X001",
-                            message=f"could not reach analysis server {errstr}",
-                            reference=(server_idx, i),
-                        )
-                    )
-    return scan_path
