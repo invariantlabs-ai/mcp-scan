@@ -13,6 +13,7 @@ from .models import (
     ScanPathResult,
     ScanUserInfo,
     ScanPathResultsCreate,
+    ScanError,
 )
 import rich
 
@@ -192,6 +193,7 @@ async def analyze_machine(
                     headers=headers,
                     timeout=aiohttp.ClientTimeout(total=30)
                 ) as response:
+                    response.raise_for_status()
                     if response.status == 200:
                         response_data = ScanPathResultsCreate.model_validate_json(await response.text())
                         logger.info(
@@ -201,22 +203,19 @@ async def analyze_machine(
                             sent_scan_path_result.issues = response_scan_path_result.issues
                             sent_scan_path_result.labels = response_scan_path_result.labels
                         return scan_paths  # Success - exit the function
-                    else:
-                        error_text = await response.text()
-                        logger.warning(
-                            f"Failed to analyze scan results (attempt {attempt + 1}/{max_retries}). "
-                            f"Status: {response.status}, Error: {error_text}"
+
+        except aiohttp.ClientResponseError as e:
+            error_text = f"Could not reach analysis server: {e.status} - {e.message}"
+            if 400 <= e.status < 500:
+                logger.warning(error_text)
+                for scan_path in scan_paths:
+                    if scan_path.servers is not None and scan_path.error is None:
+                        scan_path.error = ScanError(
+                            message=error_text,
+                            exception=e,
+                            is_failure=True
                         )
-
-                        # Don't retry on client errors (4xx)
-                        if 400 <= response.status < 500:
-                            logger.warning(f"Failed to analyze scan results: {response.status} - {error_text}")
-                            scan_paths = add_X_errors(scan_paths, error_text)
-                            return scan_paths
-
-        except aiohttp.ClientError as e:
-            logger.warning(f"Network error while analyzing (attempt {attempt + 1}/{max_retries}): {e}")
-            error_text = str(e)
+                return scan_paths
 
 
         except RuntimeError as e:
@@ -235,5 +234,13 @@ async def analyze_machine(
             backoff_time = 2 ** attempt  # 1s, 2s, 4s
             logger.info(f"Retrying in {backoff_time} seconds...")
             await asyncio.sleep(backoff_time)
-    scan_paths = add_X_errors(scan_paths, f"Tried calling verification api {max_retries} times. Could not reach analysis server {error_text}")
+
+    # failed even after all retries
+    for scan_path in scan_paths:
+        if scan_path.servers is not None and scan_path.error is None:
+            scan_path.error = ScanError(
+                message=f"Tried calling verification api {max_retries} times. Could not reach analysis server. Last error: {error_text}",
+                exception=None,
+                is_failure=True
+            )
     return scan_paths
