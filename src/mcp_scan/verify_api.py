@@ -137,23 +137,6 @@ def get_user_info(identifier: str | None = None, opt_out: bool = False) -> ScanU
     )
 
 
-def add_X_errors(scan_paths: list[ScanPathResult], error_message: str) -> list[ScanPathResult]:
-    for scan_path in scan_paths:
-        if scan_path.servers is None:
-            continue
-        for server_idx, server in enumerate(scan_path.servers):
-            if server.signature is not None:
-                for i, _ in enumerate(server.entities):
-                    scan_path.issues.append(
-                        Issue(
-                            code="X001",
-                            message=f"could not reach analysis server {error_message}",
-                            reference=(server_idx, i),
-                        )
-                    )
-    return scan_paths
-
-
 async def analyze_machine(
     scan_paths: list[ScanPathResult],
     analysis_url: str,
@@ -176,14 +159,13 @@ async def analyze_machine(
     )
     logger.debug("Payload: %s", payload.model_dump_json())
     trace_configs = setup_aiohttp_debug_logging(verbose=verbose)
-    tcp_connector = setup_tcp_connector()
     additional_headers = additional_headers or {}
     if skip_pushing:
         additional_headers["X-Push"] = "skip"
 
     for attempt in range(max_retries):
         try:
-            async with aiohttp.ClientSession(trace_configs=trace_configs, connector=tcp_connector) as session:
+            async with aiohttp.ClientSession(trace_configs=trace_configs, connector=setup_tcp_connector()) as session:
                 headers = {"Content-Type": "application/json"}
                 headers.update(additional_headers)
 
@@ -220,8 +202,7 @@ async def analyze_machine(
 
         except RuntimeError as e:
             logger.warning(f"Network error while uploading (attempt {attempt + 1}/{max_retries}): {e}")
-            error_text = str(e)
-
+            raise RuntimeError(error_text) from e
 
         except Exception as e:
             logger.error(f"Unexpected error while uploading scan results (attempt {attempt + 1}/{max_retries}): {e}")
