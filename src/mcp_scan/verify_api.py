@@ -136,7 +136,31 @@ async def analyze_scan_path(
                     raise Exception(f"Error: {response.status} - {await response.text()}")
 
         scan_path.issues += results.issues
-        scan_path.labels = results.labels
+
+        # Consolidate labels to match the server list length. When a
+        # server fails to be scanned, it should have an empty label list.
+        if len(results.labels) != len(scan_path.servers):
+            logger.warning(
+                "Label count (%d) does not match server count (%d). Consolidating labels.",
+                len(results.labels),
+                len(scan_path.servers),
+            )
+            consolidated_labels = []
+            label_index = 0
+
+            for server in scan_path.servers:
+                # If server has a signature (was successfully scanned) and we have labels available
+                if server.signature is not None and label_index < len(results.labels):
+                    consolidated_labels.append(results.labels[label_index])
+                    label_index += 1
+                else:
+                    # Server failed to scan or no more labels available, add empty list
+                    consolidated_labels.append([])
+
+            scan_path.labels = consolidated_labels
+        else:
+            scan_path.labels = results.labels
+
     except Exception as e:
         logger.exception("Error analyzing scan path")
         try:
