@@ -147,6 +147,19 @@ async def analyze_machine(
     skip_pushing: bool = False,
     max_retries: int = 3
 ) -> list[ScanPathResult]:
+    """
+    Analyze the scan paths with the analysis server.
+
+    Args:
+        scan_paths: List of scan path results to analyze
+        analysis_url: URL of the analysis server
+        identifier: Identifier for the user
+        additional_headers: Additional headers to send to the analysis server
+        opt_out_of_identity: Whether to opt out of sending personal identifier
+        verbose: Whether to enable verbose logging
+        skip_pushing: Whether to skip pushing the scan to the platform
+        max_retries: Maximum number of retry attempts
+    """
     logger.debug(f"Analyzing scan path with URL: {analysis_url}")
     user_info = get_user_info(identifier=identifier, opt_out=opt_out_of_identity)
 
