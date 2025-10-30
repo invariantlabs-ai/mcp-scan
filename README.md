@@ -259,6 +259,28 @@ mcp-scan whitelist
 mcp-scan whitelist tool "add" "a1b2c3..."
 ```
 
+## Demo
+
+This repository includes a vulnerable MCP server that can demonstrate Model Context Protocol security issues that MCP-Scan finds.
+
+How to demo MCP security issues?
+1. Clone this repository
+2. Create an `mcp.json` config file in the cloned git repository root directory with the following contents:
+```jsonc
+{
+  "mcpServers": {
+    "Demo MCP Server": {
+      "type": "stdio",
+      "command": "uv",
+      "args": ["run", "mcp", "run", "demoserver/server.py"],
+    }
+  }
+}
+```
+3. Run MCP-Scan: `uvx --python 3.13 mcp-scan@latest scan --full-toxic-flows mcp.json`
+
+Note: if you place the `mcp.json` configuration filepath elsewhere then adjust the `args` path inside the MCP server configuration to reflect the path to the MCP Server (`demoserver/server.py`) as well as the `uvx` command that runs MCP-Scan CLI with the correct filepath to `mcp.json`.
+
 ## MCP-Scan is closed to contributions
 
 MCP-Scan can currently no longer accept external contributions. We are focused on stabilizing releases.
