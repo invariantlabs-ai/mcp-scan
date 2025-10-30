@@ -2,10 +2,10 @@ import asyncio
 import logging
 import os
 import re
-from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
 from collections import defaultdict
 from collections.abc import Callable
 from typing import Any
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from httpx import HTTPStatusError
 
@@ -21,6 +21,7 @@ from .verify_api import analyze_scan_path
 logger = logging.getLogger(__name__)
 
 REDACTED = "**REDACTED**"
+
 
 class ContextManager:
     def __init__(
@@ -66,14 +67,14 @@ class MCPScanner:
         opt_out: bool = False,
         include_built_in: bool = False,
         verbose: bool = False,
-        additional_headers: dict = {},
+        additional_headers: dict | None = None,
         **kwargs: Any,
     ):
         logger.info("Initializing MCPScanner")
         self.paths = files or []
         logger.debug("Paths to scan: %s", self.paths)
         self.analysis_url = analysis_url
-        self.additional_headers = additional_headers
+        self.additional_headers = additional_headers or {}
         self.checks_per_server = checks_per_server
         self.storage_file_path = os.path.expanduser(storage_file)
         logger.debug("Storage file path: %s", self.storage_file_path)
@@ -209,7 +210,6 @@ class MCPScanner:
             result.error = ScanError(message=error_msg, exception=e, is_failure=True)
         await self.emit("server_scanned", result)
         return result
-    
 
     def _redact_server(self, server_scan_result: ServerScanResult) -> ServerScanResult:
         """
@@ -218,15 +218,11 @@ class MCPScanner:
         if isinstance(server_scan_result.server, StdioServer):
             # Redact all environment variables
             if server_scan_result.server.env:
-                server_scan_result.server.env = {
-                    k: REDACTED for k in server_scan_result.server.env
-                }
+                server_scan_result.server.env = dict.fromkeys(server_scan_result.server.env, REDACTED)
         elif isinstance(server_scan_result.server, RemoteServer):
             # Redact all headers
             if server_scan_result.server.headers:
-                server_scan_result.server.headers = {
-                    k: REDACTED for k in server_scan_result.server.headers
-                }
+                server_scan_result.server.headers = dict.fromkeys(server_scan_result.server.headers, REDACTED)
             # Redact all query parameter values in the URL
             try:
                 parts = urlsplit(server_scan_result.server.url)
@@ -271,7 +267,11 @@ class MCPScanner:
         path_result.issues += self.check_server_changed(path_result)
         logger.debug(f"Verifying server path: {path_result.path}, {path_result.path is None}")
         path_result = await analyze_scan_path(
-            path_result, analysis_url=self.analysis_url, additional_headers=self.additional_headers, opt_out_of_identity=self.opt_out_of_identity, verbose=self.verbose
+            path_result,
+            analysis_url=self.analysis_url,
+            additional_headers=self.additional_headers,
+            opt_out_of_identity=self.opt_out_of_identity,
+            verbose=self.verbose,
         )
         await self.emit("path_scanned", path_result)
         return path_result

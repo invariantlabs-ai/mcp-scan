@@ -1,4 +1,7 @@
 """Test scanning/parsing and connecting to MCP servers."""
+
+from unittest.mock import AsyncMock, Mock, patch
+
 import pytest
 from mcp.types import (
     Implementation,
@@ -12,7 +15,6 @@ from mcp.types import (
     ToolsCapability,
 )
 from pytest_lazy_fixtures import lf
-from unittest.mock import patch, Mock, AsyncMock
 
 from mcp_scan.mcp_client import check_server, check_server_with_timeout, scan_mcp_config_file
 from mcp_scan.models import StdioServer

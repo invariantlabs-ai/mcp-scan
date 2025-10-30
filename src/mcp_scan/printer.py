@@ -97,7 +97,8 @@ def format_entity_line(entity: Entity, issues: list[Issue], inspect_mode: bool =
 
     # right-pad type
     type = entity_type_to_str(entity)
-    if type == "resource template": type = "res. temp."
+    if type == "resource template":
+        type = "res. temp."
     # resouce
     # tool
     # prompt

@@ -1,10 +1,12 @@
 """Tests for CLI argument parsing, especially multiple control servers."""
-import pytest
+
 import sys
-from unittest.mock import patch, AsyncMock
-from mcp_scan.cli import parse_control_servers, main
-from mcp_scan.models import ScanPathResult, ScanUserInfo
-import json
+from unittest.mock import AsyncMock, patch
+
+import pytest
+
+from mcp_scan.cli import parse_control_servers
+from mcp_scan.models import ScanPathResult
 
 
 class TestControlServerParsing:
@@ -14,7 +16,7 @@ class TestControlServerParsing:
         """Test parsing a single control server without any options."""
         argv = ["--control-server", "https://server1.com"]
         result = parse_control_servers(argv)
-        
+
         assert len(result) == 1
         assert result[0]["url"] == "https://server1.com"
         assert result[0]["headers"] == []
@@ -24,13 +26,16 @@ class TestControlServerParsing:
     def test_parse_single_control_server_with_all_options(self):
         """Test parsing a single control server with all options."""
         argv = [
-            "--control-server", "https://server1.com",
-            "--control-server-H", "Auth: token1",
-            "--control-identifier", "user@example.com",
-            "--opt-out"
+            "--control-server",
+            "https://server1.com",
+            "--control-server-H",
+            "Auth: token1",
+            "--control-identifier",
+            "user@example.com",
+            "--opt-out",
         ]
         result = parse_control_servers(argv)
-        
+
         assert len(result) == 1
         assert result[0]["url"] == "https://server1.com"
         assert result[0]["headers"] == ["Auth: token1"]
@@ -40,12 +45,15 @@ class TestControlServerParsing:
     def test_parse_single_control_server_with_multiple_headers(self):
         """Test parsing a single control server with multiple headers."""
         argv = [
-            "--control-server", "https://server1.com",
-            "--control-server-H", "Auth: token1",
-            "--control-server-H", "X-Custom: value1"
+            "--control-server",
+            "https://server1.com",
+            "--control-server-H",
+            "Auth: token1",
+            "--control-server-H",
+            "X-Custom: value1",
         ]
         result = parse_control_servers(argv)
-        
+
         assert len(result) == 1
         assert result[0]["url"] == "https://server1.com"
         assert result[0]["headers"] == ["Auth: token1", "X-Custom: value1"]
@@ -53,24 +61,30 @@ class TestControlServerParsing:
     def test_parse_multiple_control_servers_with_individual_options(self):
         """Test parsing multiple control servers with their own options."""
         argv = [
-            "--control-server", "https://server1.com",
-            "--control-server-H", "Auth: token1",
-            "--control-identifier", "user@example.com",
+            "--control-server",
+            "https://server1.com",
+            "--control-server-H",
+            "Auth: token1",
+            "--control-identifier",
+            "user@example.com",
             "--opt-out",
-            "--control-server", "https://server2.com",
-            "--control-server-H", "Auth: token2",
-            "--control-identifier", "serial-123"
+            "--control-server",
+            "https://server2.com",
+            "--control-server-H",
+            "Auth: token2",
+            "--control-identifier",
+            "serial-123",
         ]
         result = parse_control_servers(argv)
-        
+
         assert len(result) == 2
-        
+
         # First server
         assert result[0]["url"] == "https://server1.com"
         assert result[0]["headers"] == ["Auth: token1"]
         assert result[0]["identifier"] == "user@example.com"
         assert result[0]["opt_out"] is True
-        
+
         # Second server
         assert result[1]["url"] == "https://server2.com"
         assert result[1]["headers"] == ["Auth: token2"]
@@ -80,30 +94,36 @@ class TestControlServerParsing:
     def test_parse_multiple_control_servers_mixed_options(self):
         """Test parsing multiple servers where some have certain options and others don't."""
         argv = [
-            "--control-server", "https://server1.com",
-            "--control-identifier", "user1",
-            "--control-server", "https://server2.com",
+            "--control-server",
+            "https://server1.com",
+            "--control-identifier",
+            "user1",
+            "--control-server",
+            "https://server2.com",
             "--opt-out",
-            "--control-server", "https://server3.com",
-            "--control-server-H", "Auth: token3",
-            "--control-server-H", "X-Custom: value3"
+            "--control-server",
+            "https://server3.com",
+            "--control-server-H",
+            "Auth: token3",
+            "--control-server-H",
+            "X-Custom: value3",
         ]
         result = parse_control_servers(argv)
-        
+
         assert len(result) == 3
-        
+
         # First server: only identifier
         assert result[0]["url"] == "https://server1.com"
         assert result[0]["identifier"] == "user1"
         assert result[0]["headers"] == []
         assert result[0]["opt_out"] is False
-        
+
         # Second server: only opt-out
         assert result[1]["url"] == "https://server2.com"
         assert result[1]["opt_out"] is True
         assert result[1]["identifier"] is None
         assert result[1]["headers"] == []
-        
+
         # Third server: only headers
         assert result[2]["url"] == "https://server3.com"
         assert result[2]["headers"] == ["Auth: token3", "X-Custom: value3"]
@@ -115,15 +135,19 @@ class TestControlServerParsing:
         argv = [
             "scan",
             "--verbose",
-            "--control-server", "https://server1.com",
-            "--control-identifier", "user1",
+            "--control-server",
+            "https://server1.com",
+            "--control-identifier",
+            "user1",
             "--json",
-            "--control-server", "https://server2.com",
+            "--control-server",
+            "https://server2.com",
             "--opt-out",
-            "--storage-file", "~/.mcp-scan"
+            "--storage-file",
+            "~/.mcp-scan",
         ]
         result = parse_control_servers(argv)
-        
+
         assert len(result) == 2
         assert result[0]["url"] == "https://server1.com"
         assert result[0]["identifier"] == "user1"
@@ -134,19 +158,22 @@ class TestControlServerParsing:
         """Test parsing when no control servers are specified."""
         argv = ["scan", "--verbose", "--json"]
         result = parse_control_servers(argv)
-        
+
         assert len(result) == 0
 
     def test_parse_control_servers_options_before_first_server_ignored(self):
         """Test that control server options before the first --control-server are ignored."""
         argv = [
-            "--control-identifier", "should-be-ignored",
+            "--control-identifier",
+            "should-be-ignored",
             "--opt-out",
-            "--control-server", "https://server1.com",
-            "--control-identifier", "user1"
+            "--control-server",
+            "https://server1.com",
+            "--control-identifier",
+            "user1",
         ]
         result = parse_control_servers(argv)
-        
+
         assert len(result) == 1
         assert result[0]["url"] == "https://server1.com"
         assert result[0]["identifier"] == "user1"  # Should use the one after --control-server
@@ -154,14 +181,19 @@ class TestControlServerParsing:
     def test_parse_control_server_options_only_apply_to_preceding_server(self):
         """Test that options only apply to their immediately preceding server."""
         argv = [
-            "--control-server", "https://server1.com",
-            "--control-identifier", "user1",
-            "--control-server", "https://server2.com",
-            "--control-server", "https://server3.com",
-            "--control-identifier", "user3"
+            "--control-server",
+            "https://server1.com",
+            "--control-identifier",
+            "user1",
+            "--control-server",
+            "https://server2.com",
+            "--control-server",
+            "https://server3.com",
+            "--control-identifier",
+            "user3",
         ]
         result = parse_control_servers(argv)
-        
+
         assert len(result) == 3
         assert result[0]["identifier"] == "user1"
         assert result[1]["identifier"] is None  # No identifier for server2
@@ -171,21 +203,18 @@ class TestControlServerParsing:
         """Test parsing when --control-server is provided without a URL."""
         argv = [
             "--control-server",  # No URL follows
-            "--verbose"
+            "--verbose",
         ]
         result = parse_control_servers(argv)
-        
+
         # Should not create a server entry when URL is missing
         assert len(result) == 0
 
     def test_parse_control_server_url_starts_with_dash(self):
         """Test parsing when what looks like a URL actually starts with --."""
-        argv = [
-            "--control-server", "--some-other-arg",
-            "value"
-        ]
+        argv = ["--control-server", "--some-other-arg", "value"]
         result = parse_control_servers(argv)
-        
+
         # Should not create a server when the next arg is another flag
         assert len(result) == 0
 
@@ -197,39 +226,47 @@ class TestCLIArgumentParsing:
     async def test_scan_with_multiple_control_servers_uploads_to_all(self):
         """Test that scanning with multiple control servers uploads to all of them."""
         mock_result = ScanPathResult(path="/test/path")
-        
-        with patch("mcp_scan.cli.MCPScanner") as MockScanner, \
-             patch("mcp_scan.cli.upload") as mock_upload, \
-             patch("mcp_scan.cli.print_scan_result"):
-            
+
+        with (
+            patch("mcp_scan.cli.MCPScanner") as MockScanner,
+            patch("mcp_scan.cli.upload") as mock_upload,
+            patch("mcp_scan.cli.print_scan_result"),
+        ):
             # Setup scanner mock
             mock_scanner_instance = AsyncMock()
             mock_scanner_instance.scan = AsyncMock(return_value=[mock_result])
             mock_scanner_instance.__aenter__ = AsyncMock(return_value=mock_scanner_instance)
             mock_scanner_instance.__aexit__ = AsyncMock(return_value=None)
             MockScanner.return_value = mock_scanner_instance
-            
+
             # Setup upload mock
             mock_upload.return_value = None
-            
+
             # Simulate CLI with multiple control servers
             test_argv = [
                 "mcp-scan",
                 "scan",
-                "--control-server", "https://server1.com",
-                "--control-server-H", "Auth: token1",
-                "--control-identifier", "user1@example.com",
+                "--control-server",
+                "https://server1.com",
+                "--control-server-H",
+                "Auth: token1",
+                "--control-identifier",
+                "user1@example.com",
                 "--opt-out",
-                "--control-server", "https://server2.com",
-                "--control-server-H", "Auth: token2",
-                "--control-identifier", "serial-123",
+                "--control-server",
+                "https://server2.com",
+                "--control-server-H",
+                "Auth: token2",
+                "--control-identifier",
+                "serial-123",
             ]
-            
-            with patch.object(sys, 'argv', test_argv):
+
+            with patch.object(sys, "argv", test_argv):
                 # Import and run the relevant parts
                 from mcp_scan.cli import parse_control_servers
+
                 control_servers = parse_control_servers(test_argv)
-                
+
                 # Verify parsing
                 assert len(control_servers) == 2
                 assert control_servers[0]["url"] == "https://server1.com"
@@ -246,38 +283,43 @@ class TestControlServerHeaderParsing:
     def test_parse_headers_single_header(self):
         """Test parsing a single header."""
         from mcp_scan.utils import parse_headers
+
         headers = ["Auth: token123"]
         result = parse_headers(headers)
-        
+
         assert result == {"Auth": " token123"}
 
     def test_parse_headers_multiple_headers(self):
         """Test parsing multiple headers."""
         from mcp_scan.utils import parse_headers
+
         headers = ["Auth: token123", "X-Custom: value456"]
         result = parse_headers(headers)
-        
+
         assert result == {"Auth": " token123", "X-Custom": " value456"}
 
     def test_parse_headers_none_input(self):
         """Test parsing None returns empty dict."""
         from mcp_scan.utils import parse_headers
+
         result = parse_headers(None)
-        
+
         assert result == {}
 
     def test_parse_headers_empty_list(self):
         """Test parsing empty list returns empty dict."""
         from mcp_scan.utils import parse_headers
+
         result = parse_headers([])
-        
+
         assert result == {}
 
     def test_parse_headers_invalid_format_raises_error(self):
         """Test that invalid header format raises ValueError."""
         from mcp_scan.utils import parse_headers
+
         headers = ["InvalidHeaderWithoutColon"]
-        
+
         with pytest.raises(ValueError, match="Invalid header"):
             parse_headers(headers)
 
@@ -288,55 +330,49 @@ class TestControlServerUploadIntegration:
     @pytest.mark.asyncio
     async def test_upload_called_for_each_control_server(self):
         """Test that upload is called once for each control server."""
-        from mcp_scan.cli import run_scan_inspect
         from argparse import Namespace
-        
+
+        from mcp_scan.cli import run_scan_inspect
+
         mock_result = ScanPathResult(path="/test/path")
-        
-        with patch("mcp_scan.cli.MCPScanner") as MockScanner, \
-             patch("mcp_scan.cli.upload") as mock_upload:
-            
+
+        with patch("mcp_scan.cli.MCPScanner") as MockScanner, patch("mcp_scan.cli.upload") as mock_upload:
             # Setup scanner mock
             mock_scanner_instance = AsyncMock()
             mock_scanner_instance.scan = AsyncMock(return_value=[mock_result])
             mock_scanner_instance.__aenter__ = AsyncMock(return_value=mock_scanner_instance)
             mock_scanner_instance.__aexit__ = AsyncMock(return_value=None)
             MockScanner.return_value = mock_scanner_instance
-            
+
             # Setup upload mock
             mock_upload.return_value = None
-            
+
             # Create args with multiple control servers
             args = Namespace(
                 verification_H=None,
                 control_servers=[
-                    {
-                        "url": "https://server1.com",
-                        "headers": ["Auth: token1"],
-                        "identifier": "user1",
-                        "opt_out": True
-                    },
+                    {"url": "https://server1.com", "headers": ["Auth: token1"], "identifier": "user1", "opt_out": True},
                     {
                         "url": "https://server2.com",
                         "headers": ["Auth: token2", "X-Custom: value"],
                         "identifier": "user2",
-                        "opt_out": False
-                    }
-                ]
+                        "opt_out": False,
+                    },
+                ],
             )
-            
+
             # Run the scan
             await run_scan_inspect(mode="scan", args=args)
-            
+
             # Verify upload was called twice
             assert mock_upload.call_count == 2
-            
+
             # Verify first upload call
             first_call = mock_upload.call_args_list[0]
             assert first_call[0][1] == "https://server1.com"  # URL
             assert first_call[0][2] == "user1"  # identifier
             assert first_call[0][3] is True  # opt_out
-            
+
             # Verify second upload call
             second_call = mock_upload.call_args_list[1]
             assert second_call[0][1] == "https://server2.com"  # URL
@@ -346,33 +382,28 @@ class TestControlServerUploadIntegration:
     @pytest.mark.asyncio
     async def test_no_upload_when_no_control_servers(self):
         """Test that upload is not called when no control servers are specified."""
-        from mcp_scan.cli import run_scan_inspect
         from argparse import Namespace
-        
+
+        from mcp_scan.cli import run_scan_inspect
+
         mock_result = ScanPathResult(path="/test/path")
-        
-        with patch("mcp_scan.cli.MCPScanner") as MockScanner, \
-             patch("mcp_scan.cli.upload") as mock_upload:
-            
+
+        with patch("mcp_scan.cli.MCPScanner") as MockScanner, patch("mcp_scan.cli.upload") as mock_upload:
             # Setup scanner mock
             mock_scanner_instance = AsyncMock()
             mock_scanner_instance.scan = AsyncMock(return_value=[mock_result])
             mock_scanner_instance.__aenter__ = AsyncMock(return_value=mock_scanner_instance)
             mock_scanner_instance.__aexit__ = AsyncMock(return_value=None)
             MockScanner.return_value = mock_scanner_instance
-            
+
             # Setup upload mock
             mock_upload.return_value = None
-            
+
             # Create args with no control servers
-            args = Namespace(
-                verification_H=None,
-                control_servers=[]
-            )
-            
+            args = Namespace(verification_H=None, control_servers=[])
+
             # Run the scan
             await run_scan_inspect(mode="scan", args=args)
-            
+
             # Verify upload was not called
             mock_upload.assert_not_called()
-

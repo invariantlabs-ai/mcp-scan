@@ -1,45 +1,45 @@
-from datetime import datetime
-import threading
-import time
-from contextlib import asynccontextmanager
-from tkinter import W
-from typing import AsyncIterator
-from mcp.server.fastmcp import FastMCP
-from mcp_scan.cli import run_scan_inspect, setup_scan_parser
 import asyncio
-import argparse
-import os
 import json
-from mcp_scan.Storage import Storage
 import logging
-import filelock
-import sys
-from datetime import timedelta, datetime
-from rich.logging import RichHandler
-import rich
-from mcp_scan.mcp_client import scan_mcp_config_file
-from mcp_scan.utils import rebalance_command_args
-from mcp_scan.models import StdioServer
-import psutil
+import os
 import random
+import sys
+import threading
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+from datetime import datetime, timedelta
+
+import filelock
+import psutil
+import rich
+from mcp.server.fastmcp import FastMCP
+from rich.logging import RichHandler
+
+from mcp_scan.cli import run_scan_inspect
+from mcp_scan.mcp_client import scan_mcp_config_file
+from mcp_scan.models import StdioServer
+from mcp_scan.Storage import Storage
 
 logger = logging.getLogger(__name__)
 
+
 # start a thread that runs the do_mcp_scan function
 def thread_fn(path, args, stop_event):
-    logger.info(f"Launching scanning thread")
+    logger.info("Launching scanning thread")
     t = threading.current_thread()
     jitter = random.randint(0, 10)
-    sleep_time = 10 + jitter # initially sleep for 10 + jitter seconds to avoid race conditions on startup
+    sleep_time = 10 + jitter  # initially sleep for 10 + jitter seconds to avoid race conditions on startup
     while getattr(t, "do_run", True):
         # Use event.wait() for interruptible sleep
         if stop_event.wait(timeout=sleep_time):
             # Event was set, we should stop
-            logger.info(f"Recieved stop event; stopping")
+            logger.info("Recieved stop event; stopping")
             break
-        logger.info(f"Waking up to perform scan")
+        logger.info("Waking up to perform scan")
         sleep_time = asyncio.run(perform_and_schedule_scan(path, args))
-        if sleep_time is None: sleep_time = 10 # seconds
+        if sleep_time is None:
+            sleep_time = 10  # seconds
+
 
 class Scanner:
     def __init__(self, args):
@@ -48,55 +48,54 @@ class Scanner:
         self.storage = Storage(args.storage_file)
         self.scan_path = self.storage.get_background_scan_path()
         self.stop_event = threading.Event()
-        logger.info(f"Scanner initialized")
+        logger.info("Scanner initialized")
 
     def start(self):
-        logger.info(f"Starting scanner thread")
+        logger.info("Starting scanner thread")
         self.thread = threading.Thread(target=thread_fn, args=(self.scan_path, self.args, self.stop_event))
         self.thread.start()
 
     def stop(self):
-        logger.info(f"Stopping scanner thread")
+        logger.info("Stopping scanner thread")
         self.thread.do_run = False
         self.stop_event.set()  # Signal the thread to wake up and stop
         self.thread.join()
-        
+
+
 def setup_mcp_server_logging(log_path):
     # Create a root logger
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.DEBUG)
-    
+
     # Clear any existing handlers
     root_logger.handlers.clear()
-    
+
     # Create formatter for file handler (plain text)
-    file_formatter = logging.Formatter(
-        fmt="%(message)s",
-        datefmt="[%X]"
-    )
-    
+    file_formatter = logging.Formatter(fmt="%(message)s", datefmt="[%X]")
+
     # Create file handler
     file_handler = logging.FileHandler(log_path, mode="a")
     file_handler.setLevel(logging.DEBUG)
     file_handler.setFormatter(file_formatter)
-    
+
     # Create stderr handler with Rich formatting
     stderr_console = rich.console.Console(stderr=True)
     stderr_handler = RichHandler(markup=True, rich_tracebacks=True, console=stderr_console)
     stderr_handler.setLevel(logging.DEBUG)
     # Rich handler uses its own formatting, so no need to set a formatter
-    
+
     # Add handlers to root logger
     root_logger.addHandler(file_handler)
     root_logger.addHandler(stderr_handler)
 
+
 async def perform_and_schedule_scan(path, args):
     # aquire lock on the path in a cross-OS way
-    lock_path = path + '.lock'
-    
+    lock_path = path + ".lock"
+
     # get the scheduler id
     scheduler_id = os.getpid()
-    
+
     # time delta betwen two scans
     scan_interval = args.scan_interval
 
@@ -108,39 +107,39 @@ async def perform_and_schedule_scan(path, args):
     with lock:
         if os.path.exists(path):
             try:
-                with open(path, 'r') as f:
+                with open(path) as f:
                     data = json.load(f)
-                    sid = data.get("scheduler_id", None)
+                    # sid = data.get("scheduler_id", None)
                     sdate = datetime.fromisoformat(data.get("scheduled_scan", None))
             except Exception as e:
                 logger.error(f"Error loading scan data: {e}")
                 data = {}
-                sid = None
+                # sid = None
                 sdate = None
         else:
-            logger.info(f"No scan data file found")
+            logger.info("No scan data file found")
             data = {}
-            sid = None
+            # sid = None
             sdate = None
-                
+
         now = datetime.now()
         if (sdate is not None and sdate < now) or (sdate is None):
             if sdate is not None:
                 logger.info(f"Scan is scheduled for {sdate}; running scan")
             else:
-                logger.info(f"No scan is scheduled; running scan")
+                logger.info("No scan is scheduled; running scan")
             result = await run_scan_inspect(mode="scan", args=args)
 
             # Convert result to JSON format for return
             result_dict = {r.path: r.model_dump(mode="json") for r in result}
             now = datetime.now()
-            data['last_scan'] = now.isoformat()
-            data['results'] = result_dict
-            
+            data["last_scan"] = now.isoformat()
+            data["results"] = result_dict
+
             # schedule the next scan
-            data['scheduler_id'] = scheduler_id
-            then = (now + timedelta(seconds=scan_interval))
-            data['scheduled_scan'] = then.isoformat()
+            data["scheduler_id"] = scheduler_id
+            then = now + timedelta(seconds=scan_interval)
+            data["scheduled_scan"] = then.isoformat()
             logger.info(f"Scheduling next scan for {then}")
         elif sdate is not None and sdate > now:
             logger.info(f"Scan is scheduled for {sdate}; sleeping until then")
@@ -148,7 +147,7 @@ async def perform_and_schedule_scan(path, args):
             # sleep until next scan
             sleep_time = sdate - now
 
-        with open(path, 'w') as f:
+        with open(path, "w") as f:
             json.dump(data, f, indent=2)
 
     # add 5 milliseconds to the sleep time
@@ -164,12 +163,14 @@ def create_lifespan_context(args):
         if args.background:
             try:
                 scanner.start()
-                yield {'scanner': scanner}
+                yield {"scanner": scanner}
             finally:
                 scanner.stop()
         else:
-            yield {'scanner': scanner}
+            yield {"scanner": scanner}
+
     return lifespan
+
 
 def install_mcp_server(args):
     if args.file is None:
@@ -180,27 +181,23 @@ def install_mcp_server(args):
         return 1
 
     # get args
-    lock_path = args.file + '.lock'
+    lock_path = args.file + ".lock"
     lock = filelock.FileLock(lock_path, timeout=1)
     path = os.path.expanduser(args.file)
     with lock:
         config = asyncio.run(scan_mcp_config_file(path))
         parent = psutil.Process().parent()
         cmd = parent.cmdline()
-        cmd = [c.replace('install-mcp-server', 'mcp-server') for c in cmd]
+        cmd = [c.replace("install-mcp-server", "mcp-server") for c in cmd]
 
         # remove the file argument
         idx = cmd.index(args.file)
         if idx >= 0:
-            cmd = cmd[:idx] + cmd[idx+1:]
+            cmd = cmd[:idx] + cmd[idx + 1 :]
 
-        if 'mcp-scan' in config.mcpServers:
+        if "mcp-scan" in config.mcpServers:
             rich.print(f"MCP server already installed in {path}; Updating configuration")
-        config.mcpServers['mcp-scan'] = StdioServer(
-            name="mcp-scan",
-            command=cmd[0],
-            args=cmd[1:]
-        )
+        config.mcpServers["mcp-scan"] = StdioServer(name="mcp-scan", command=cmd[0], args=cmd[1:])
         rich.print(f"Installed MCP server in {path}")
         with open(os.path.expanduser(path), "w") as f:
             f.write(config.model_dump_json(indent=4) + "\n")
@@ -211,18 +208,15 @@ def install_mcp_server(args):
 
 
 def mcp_server(args):
-
     # get args
     lifespan = create_lifespan_context(args)
     storage = Storage(args.storage_file)
     setup_mcp_server_logging(storage.get_mcp_server_log_path(os.getpid(), args.client_name))
-    
 
     logger.info(f"Starting MCP server with args: {args}")
     logger.info(f"Storage path: {args.storage_file}")
 
-    instructions = \
-        """
+    instructions = """
         This is a MCP server that scans this agent (and the MCP servers it uses) for MCP--related security vunerabilities.
         """
     if args.background:
@@ -237,30 +231,32 @@ def mcp_server(args):
             sys.exit(1)
 
     logger.info(f"Instructions: {instructions}")
-    
+
     mcp = FastMCP("MCP Scan", instructions=instructions, lifespan=lifespan)
 
     if args.background and args.tool:
         logger.info("Adding get_scan_results tool")
+
         @mcp.tool()
         async def get_scan_results() -> str:
             """Returns the results of the last scan"""
             path = storage.get_background_scan_path()
-            lock_path = path + '.lock'
+            lock_path = path + ".lock"
             with filelock.FileLock(lock_path, timeout=1):
-                with open(path, 'r') as f:
+                with open(path) as f:
                     data = json.load(f)
                     results = data.get("results", {})
                     return json.dumps(results, indent=2)
     elif args.tool:
         logger.info("Adding scan tool")
+
         @mcp.tool()
         async def scan() -> str:
             """Performs a the current MCP setup (this client + tools it uses)"""
-            
+
             # Run the actual scan
             result = await run_scan_inspect(mode="scan", args=args)
-            
+
             # Convert result to JSON format for return
             result_dict = {r.path: r.model_dump(mode="json") for r in result}
             return json.dumps(result_dict, indent=2)

@@ -1,5 +1,8 @@
 # fix ssl certificates if custom certificates (i.e. ZScaler) are used
+# as this needs to occur at the beginning of the file, we need to disable the ruff rule
+# ruff: noqa: E402
 import truststore
+
 truststore.inject_into_ssl()
 
 import argparse
@@ -7,7 +10,6 @@ import asyncio
 import json
 import logging
 import sys
-import os
 
 import psutil
 import rich
@@ -18,13 +20,12 @@ from mcp_scan.gateway import MCPGatewayConfig, MCPGatewayInstaller
 from mcp_scan.upload import upload
 from mcp_scan_server.server import MCPScanServer
 
-
 from .MCPScanner import MCPScanner
-from .well_known_clients import WELL_KNOWN_MCP_PATHS, client_shorthands_to_paths
 from .printer import print_scan_result
 from .Storage import Storage
-from .version import version_info
 from .utils import parse_headers
+from .version import version_info
+from .well_known_clients import WELL_KNOWN_MCP_PATHS, client_shorthands_to_paths
 
 # Configure logging to suppress all output by default
 logging.getLogger().setLevel(logging.CRITICAL + 1)  # Higher than any standard level
@@ -51,7 +52,7 @@ def setup_logging(verbose=False, log_to_stderr=False):
                 handlers=[RichHandler(markup=True, rich_tracebacks=True, console=stderr_console)],
             )
             root_logger.debug("Verbose mode enabled, logging initialized to stderr")
-        else: # stdout logging
+        else:  # stdout logging
             logging.basicConfig(
                 format="%(message)s",
                 datefmt="[%X]",
@@ -95,16 +96,16 @@ def parse_control_servers(argv):
     """
     control_servers = []
     current_server = None
-    
+
     i = 0
     while i < len(argv):
         arg = argv[i]
-        
+
         if arg == "--control-server":
             # Save previous server if exists
             if current_server is not None:
                 control_servers.append(current_server)
-            
+
             # Start new server config
             if i + 1 < len(argv) and not argv[i + 1].startswith("--"):
                 current_server = {
@@ -116,27 +117,27 @@ def parse_control_servers(argv):
                 i += 1  # Skip the URL value
             else:
                 current_server = None
-        
+
         elif current_server is not None:
             if arg == "--control-server-H":
                 if i + 1 < len(argv) and not argv[i + 1].startswith("--"):
                     current_server["headers"].append(argv[i + 1])
                     i += 1
-            
+
             elif arg == "--control-identifier":
                 if i + 1 < len(argv) and not argv[i + 1].startswith("--"):
                     current_server["identifier"] = argv[i + 1]
                     i += 1
-            
+
             elif arg == "--opt-out":
                 current_server["opt_out"] = True
-        
+
         i += 1
-    
+
     # Don't forget the last server
     if current_server is not None:
         control_servers.append(current_server)
-    
+
     return control_servers
 
 
@@ -259,6 +260,7 @@ def add_install_arguments(parser):
         metavar="PORT",
     )
 
+
 def add_scan_arguments(scan_parser):
     scan_parser.add_argument(
         "--checks-per-server",
@@ -331,6 +333,7 @@ def install_extras(args):
     if hasattr(args, "install_extras") and args.install_extras:
         add_extra(*args.install_extras, "-y")
 
+
 def setup_scan_parser(scan_parser, add_files=True):
     if add_files:
         scan_parser.add_argument(
@@ -343,7 +346,7 @@ def setup_scan_parser(scan_parser, add_files=True):
     add_common_arguments(scan_parser)
     add_server_arguments(scan_parser)
     add_scan_arguments(scan_parser)
-   
+
 
 def main():
     # Create main parser with description
@@ -364,9 +367,9 @@ def main():
             f"  {program_name} --json              # Output results in JSON format\n"
             f"  # Multiple control servers with individual options:\n"
             f'  {program_name} --control-server https://server1.com --control-server-H "Auth: token1" \\\n'
-            f'    --control-identifier user@example.com --opt-out \\\n'
+            f"    --control-identifier user@example.com --opt-out \\\n"
             f'    --control-server https://server2.com --control-server-H "Auth: token2" \\\n'
-            f'    --control-identifier serial-123\n'
+            f"    --control-identifier serial-123\n"
         ),
     )
 
@@ -466,24 +469,43 @@ def main():
     add_uninstall_arguments(uninstall_parser)
     uninstall_parser = subparsers.add_parser("uninstall-proxy", help="Uninstall Invariant Gateway")
     add_uninstall_arguments(uninstall_parser)
-    
-    # install 
-    install_autoscan_parser = subparsers.add_parser("install-mcp-server", help="Install itself as a MCP server for automatic scanning (experimental)")
+
+    # install
+    install_autoscan_parser = subparsers.add_parser(
+        "install-mcp-server", help="Install itself as a MCP server for automatic scanning (experimental)"
+    )
     install_autoscan_parser.add_argument("file", type=str, default=None, help="File to install the MCP server in")
-    install_autoscan_parser.add_argument("--tool", action="store_true", default=False, help="Expose a tool for scanning")
-    install_autoscan_parser.add_argument("--background", action="store_true", default=False, help="Periodically run the scan in the background")
-    install_autoscan_parser.add_argument("--scan-interval", type=int, default=60*30, help="Scan interval in seconds (default: 1800 seconds = 30 minutes)")
-    install_autoscan_parser.add_argument("--client-name", type=str, default=None, help="Name of the client issuing the scan")
+    install_autoscan_parser.add_argument(
+        "--tool", action="store_true", default=False, help="Expose a tool for scanning"
+    )
+    install_autoscan_parser.add_argument(
+        "--background", action="store_true", default=False, help="Periodically run the scan in the background"
+    )
+    install_autoscan_parser.add_argument(
+        "--scan-interval",
+        type=int,
+        default=60 * 30,
+        help="Scan interval in seconds (default: 1800 seconds = 30 minutes)",
+    )
+    install_autoscan_parser.add_argument(
+        "--client-name", type=str, default=None, help="Name of the client issuing the scan"
+    )
     setup_scan_parser(install_autoscan_parser, add_files=False)
-    
+
     # mcp server mode
     mcp_server_parser = subparsers.add_parser("mcp-server", help="Start an MCP server (experimental)")
     mcp_server_parser.add_argument("--tool", action="store_true", default=False, help="Expose a tool for scanning")
-    mcp_server_parser.add_argument("--background", action="store_true", default=False, help="Periodically run the scan in the background")
-    mcp_server_parser.add_argument("--scan-interval", type=int, default=60*30, help="Scan interval in seconds (default: 1800 seconds = 30 minutes)")
+    mcp_server_parser.add_argument(
+        "--background", action="store_true", default=False, help="Periodically run the scan in the background"
+    )
+    mcp_server_parser.add_argument(
+        "--scan-interval",
+        type=int,
+        default=60 * 30,
+        help="Scan interval in seconds (default: 1800 seconds = 30 minutes)",
+    )
     mcp_server_parser.add_argument("--client-name", type=str, default=None, help="Name of the client issuing the scan")
     setup_scan_parser(mcp_server_parser)
-
 
     # HELP command
     help_parser = subparsers.add_parser(  # noqa: F841
@@ -516,22 +538,22 @@ def main():
     add_common_arguments(proxy_parser)
     add_server_arguments(proxy_parser)
     add_install_arguments(proxy_parser)
-    
 
     # Parse arguments (default to 'scan' if no command provided)
-    if len(sys.argv) == 1 or sys.argv[1] not in subparsers.choices:
-        if not (len(sys.argv) == 2 and sys.argv[1] == '--help'):
-            sys.argv.insert(1, "scan")
-    
+    if (len(sys.argv) == 1 or sys.argv[1] not in subparsers.choices) and (
+        not (len(sys.argv) == 2 and sys.argv[1] == "--help")
+    ):
+        sys.argv.insert(1, "scan")
+
     # Parse control servers before argparse to preserve their grouping
     control_servers = parse_control_servers(sys.argv)
-    
+
     args = parser.parse_args()
 
     # postprocess the files argument (if shorthands are used)
     if hasattr(args, "files") and args.files is None:
         args.files = client_shorthands_to_paths(args.files)
-    
+
     # Attach parsed control servers to args
     args.control_servers = control_servers
 
@@ -621,9 +643,11 @@ def main():
         sys.exit(0)
     elif args.command == "mcp-server":
         from mcp_scan.mcp_server import mcp_server
+
         sys.exit(mcp_server(args))
     elif args.command == "install-mcp-server":
         from mcp_scan.mcp_server import install_mcp_server
+
         sys.exit(install_mcp_server(args))
     else:
         # This shouldn't happen due to argparse's handling
@@ -650,9 +674,10 @@ async def run_scan_inspect(mode="scan", args=None):
                 server_config["identifier"],
                 server_config["opt_out"],
                 verbose=hasattr(args, "verbose") and args.verbose,
-                additional_headers=parse_headers(server_config["headers"])
+                additional_headers=parse_headers(server_config["headers"]),
             )
     return result
+
 
 async def print_scan_inspect(mode="scan", args=None):
     result = await run_scan_inspect(mode, args)

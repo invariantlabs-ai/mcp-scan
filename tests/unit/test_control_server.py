@@ -1,27 +1,25 @@
-from unittest.mock import AsyncMock, patch
-
 import json
 import sys
-
-from urllib.parse import urlsplit, parse_qsl
+from unittest.mock import AsyncMock, patch
+from urllib.parse import parse_qsl, urlsplit
 
 import aiohttp
 import httpx
 import pytest
 
+from mcp_scan.MCPScanner import MCPScanner
 from mcp_scan.models import (
+    RemoteServer,
     ScanError,
     ScanPathResult,
+    ScanUserInfo,
     ServerScanResult,
     StdioServer,
-    ScanUserInfo,
-    RemoteServer,
 )
 from mcp_scan.upload import (
     get_user_info,
     upload,  # Make sure this import is correct
 )
-from mcp_scan.MCPScanner import MCPScanner
 
 
 def test_opt_out_does_not_create_identity():
@@ -208,8 +206,12 @@ async def test_get_servers_from_path_sets_file_not_found_error_and_uploads_paylo
     Patch MCPScanner.get_servers_from_path dependencies so that scan_mcp_config_file raises FileNotFoundError
     and ensure the resulting ScanPathResult has error message "file does not exist" and is uploaded.
     """
-    with patch.object(sys.modules['mcp_scan.MCPScanner'], "scan_mcp_config_file", side_effect=FileNotFoundError("missing")), \
-         patch("mcp_scan.upload.get_user_info") as mock_get_user_info:
+    with (
+        patch.object(
+            sys.modules["mcp_scan.MCPScanner"], "scan_mcp_config_file", side_effect=FileNotFoundError("missing")
+        ),
+        patch("mcp_scan.upload.get_user_info") as mock_get_user_info,
+    ):
         mock_get_user_info.return_value = ScanUserInfo()
 
         mock_http_response = AsyncMock(status=200)
@@ -242,8 +244,12 @@ async def test_get_servers_from_path_sets_parse_error_and_uploads_payload():
     Patch MCPScanner.get_servers_from_path dependencies so that scan_mcp_config_file raises a generic Exception
     and ensure the resulting ScanPathResult has error message "could not parse file" and is uploaded.
     """
-    with patch.object(sys.modules['mcp_scan.MCPScanner'], "scan_mcp_config_file", side_effect=Exception("parse failure")), \
-         patch("mcp_scan.upload.get_user_info") as mock_get_user_info:
+    with (
+        patch.object(
+            sys.modules["mcp_scan.MCPScanner"], "scan_mcp_config_file", side_effect=Exception("parse failure")
+        ),
+        patch("mcp_scan.upload.get_user_info") as mock_get_user_info,
+    ):
         mock_get_user_info.return_value = ScanUserInfo()
 
         mock_http_response = AsyncMock(status=200)
@@ -276,13 +282,20 @@ async def test_scan_server_sets_http_status_error_and_uploads_payload():
     Patch MCPScanner to return a server, then make check_server_with_timeout raise HTTPStatusError and
     ensure the server-level error message "server returned HTTP status code" is included on upload.
     """
+
     class DummyCfg:
         def get_servers(self):
             return {"srv": StdioServer(command="echo")}
 
-    with patch.object(sys.modules['mcp_scan.MCPScanner'], "scan_mcp_config_file", return_value=DummyCfg()), \
-         patch.object(sys.modules['mcp_scan.MCPScanner'], "check_server_with_timeout", side_effect=httpx.HTTPStatusError("bad", request=None, response=None)), \
-         patch("mcp_scan.upload.get_user_info") as mock_get_user_info:
+    with (
+        patch.object(sys.modules["mcp_scan.MCPScanner"], "scan_mcp_config_file", return_value=DummyCfg()),
+        patch.object(
+            sys.modules["mcp_scan.MCPScanner"],
+            "check_server_with_timeout",
+            side_effect=httpx.HTTPStatusError("bad", request=None, response=None),
+        ),
+        patch("mcp_scan.upload.get_user_info") as mock_get_user_info,
+    ):
         mock_get_user_info.return_value = ScanUserInfo()
 
         mock_http_response = AsyncMock(status=200)
@@ -314,13 +327,18 @@ async def test_scan_server_sets_could_not_start_error_and_uploads_payload():
     Patch MCPScanner to return a server, then make check_server_with_timeout raise a generic Exception and
     ensure the server-level error message "could not start server" is included on upload.
     """
+
     class DummyCfg:
         def get_servers(self):
             return {"srv": StdioServer(command="echo")}
 
-    with patch.object(sys.modules['mcp_scan.MCPScanner'], "scan_mcp_config_file", return_value=DummyCfg()), \
-         patch.object(sys.modules['mcp_scan.MCPScanner'], "check_server_with_timeout", side_effect=Exception("spawn failed")), \
-         patch("mcp_scan.upload.get_user_info") as mock_get_user_info:
+    with (
+        patch.object(sys.modules["mcp_scan.MCPScanner"], "scan_mcp_config_file", return_value=DummyCfg()),
+        patch.object(
+            sys.modules["mcp_scan.MCPScanner"], "check_server_with_timeout", side_effect=Exception("spawn failed")
+        ),
+        patch("mcp_scan.upload.get_user_info") as mock_get_user_info,
+    ):
         mock_get_user_info.return_value = ScanUserInfo()
 
         mock_http_response = AsyncMock(status=200)
@@ -352,9 +370,10 @@ async def test_upload_retries_on_network_error():
     """
     mock_result = ScanPathResult(path="/test/path")
 
-    with patch("mcp_scan.upload.get_user_info") as mock_get_user_info, \
-         patch("mcp_scan.upload.asyncio.sleep") as mock_sleep:
-        
+    with (
+        patch("mcp_scan.upload.get_user_info") as mock_get_user_info,
+        patch("mcp_scan.upload.asyncio.sleep") as mock_sleep,
+    ):
         mock_get_user_info.return_value = ScanUserInfo()
         mock_sleep.return_value = None  # Speed up tests by not actually sleeping
 
@@ -370,7 +389,7 @@ async def test_upload_retries_on_network_error():
 
             # Verify that post was attempted 3 times
             assert mock_post_method.call_count == 3
-            
+
             # Verify that sleep was called between retries (2 times for 3 attempts)
             assert mock_sleep.call_count == 2
             # Verify exponential backoff: 1s, 2s
@@ -385,9 +404,10 @@ async def test_upload_retries_on_server_error():
     """
     mock_result = ScanPathResult(path="/test/path")
 
-    with patch("mcp_scan.upload.get_user_info") as mock_get_user_info, \
-         patch("mcp_scan.upload.asyncio.sleep") as mock_sleep:
-        
+    with (
+        patch("mcp_scan.upload.get_user_info") as mock_get_user_info,
+        patch("mcp_scan.upload.asyncio.sleep") as mock_sleep,
+    ):
         mock_get_user_info.return_value = ScanUserInfo()
         mock_sleep.return_value = None
 
@@ -407,7 +427,7 @@ async def test_upload_retries_on_server_error():
 
             # Verify that post was attempted 3 times
             assert mock_post_method.call_count == 3
-            
+
             # Verify that sleep was called between retries
             assert mock_sleep.call_count == 2
 
@@ -419,9 +439,10 @@ async def test_upload_does_not_retry_on_client_error():
     """
     mock_result = ScanPathResult(path="/test/path")
 
-    with patch("mcp_scan.upload.get_user_info") as mock_get_user_info, \
-         patch("mcp_scan.upload.asyncio.sleep") as mock_sleep:
-        
+    with (
+        patch("mcp_scan.upload.get_user_info") as mock_get_user_info,
+        patch("mcp_scan.upload.asyncio.sleep") as mock_sleep,
+    ):
         mock_get_user_info.return_value = ScanUserInfo()
         mock_sleep.return_value = None
 
@@ -441,7 +462,7 @@ async def test_upload_does_not_retry_on_client_error():
 
             # Verify that post was attempted only once (no retries on 4xx)
             assert mock_post_method.call_count == 1
-            
+
             # Verify that sleep was NOT called
             mock_sleep.assert_not_called()
 
@@ -452,6 +473,7 @@ async def test_scan_path_redacts_remote_url_query_and_headers():
     Ensure RemoteServer headers are redacted and URL query parameter values are replaced with REDACTED.
     Uses scanner.scan_path to exercise _redact_server in the normal flow.
     """
+
     class DummyCfg:
         def get_servers(self):
             return {
@@ -462,8 +484,10 @@ async def test_scan_path_redacts_remote_url_query_and_headers():
                 )
             }
 
-    with patch.object(sys.modules['mcp_scan.MCPScanner'], "scan_mcp_config_file", return_value=DummyCfg()), \
-         patch.object(sys.modules['mcp_scan.MCPScanner'], "check_server_with_timeout", return_value=None):
+    with (
+        patch.object(sys.modules["mcp_scan.MCPScanner"], "scan_mcp_config_file", return_value=DummyCfg()),
+        patch.object(sys.modules["mcp_scan.MCPScanner"], "check_server_with_timeout", return_value=None),
+    ):
         async with MCPScanner(files=["/dummy/path"]) as scanner:
             result = await scanner.scan_path("/dummy/path", inspect_only=True)
 
@@ -485,6 +509,7 @@ async def test_scan_path_redacts_stdio_env_vars():
     """
     Ensure StdioServer environment variable values are redacted via scanner.scan_path.
     """
+
     class DummyCfg:
         def get_servers(self):
             return {
@@ -495,8 +520,10 @@ async def test_scan_path_redacts_stdio_env_vars():
                 )
             }
 
-    with patch.object(sys.modules['mcp_scan.MCPScanner'], "scan_mcp_config_file", return_value=DummyCfg()), \
-         patch.object(sys.modules['mcp_scan.MCPScanner'], "check_server_with_timeout", return_value=None):
+    with (
+        patch.object(sys.modules["mcp_scan.MCPScanner"], "scan_mcp_config_file", return_value=DummyCfg()),
+        patch.object(sys.modules["mcp_scan.MCPScanner"], "check_server_with_timeout", return_value=None),
+    ):
         async with MCPScanner(files=["/dummy/path"]) as scanner:
             result = await scanner.scan_path("/dummy/path", inspect_only=True)
 
@@ -515,16 +542,17 @@ async def test_upload_succeeds_on_second_attempt():
     """
     mock_result = ScanPathResult(path="/test/path")
 
-    with patch("mcp_scan.upload.get_user_info") as mock_get_user_info, \
-         patch("mcp_scan.upload.asyncio.sleep") as mock_sleep:
-        
+    with (
+        patch("mcp_scan.upload.get_user_info") as mock_get_user_info,
+        patch("mcp_scan.upload.asyncio.sleep") as mock_sleep,
+    ):
         mock_get_user_info.return_value = ScanUserInfo()
         mock_sleep.return_value = None
 
         # First attempt fails, second succeeds
         mock_error_context = AsyncMock()
         mock_error_context.__aenter__.side_effect = aiohttp.ClientError("Connection refused")
-        
+
         mock_success_response = AsyncMock(status=200)
         mock_success_response.json.return_value = []
         mock_success_context = AsyncMock()
@@ -539,7 +567,7 @@ async def test_upload_succeeds_on_second_attempt():
 
             # Verify that post was attempted twice (failed once, succeeded on retry)
             assert mock_post_method.call_count == 2
-            
+
             # Verify that sleep was called once
             assert mock_sleep.call_count == 1
             mock_sleep.assert_called_once_with(1)  # First backoff is 1 second
@@ -552,9 +580,10 @@ async def test_upload_custom_max_retries():
     """
     mock_result = ScanPathResult(path="/test/path")
 
-    with patch("mcp_scan.upload.get_user_info") as mock_get_user_info, \
-         patch("mcp_scan.upload.asyncio.sleep") as mock_sleep:
-        
+    with (
+        patch("mcp_scan.upload.get_user_info") as mock_get_user_info,
+        patch("mcp_scan.upload.asyncio.sleep") as mock_sleep,
+    ):
         mock_get_user_info.return_value = ScanUserInfo()
         mock_sleep.return_value = None
 
@@ -570,7 +599,7 @@ async def test_upload_custom_max_retries():
 
             # Verify that post was attempted 5 times
             assert mock_post_method.call_count == 5
-            
+
             # Verify that sleep was called 4 times (between 5 attempts)
             assert mock_sleep.call_count == 4
 
@@ -582,9 +611,10 @@ async def test_upload_exponential_backoff():
     """
     mock_result = ScanPathResult(path="/test/path")
 
-    with patch("mcp_scan.upload.get_user_info") as mock_get_user_info, \
-         patch("mcp_scan.upload.asyncio.sleep") as mock_sleep:
-        
+    with (
+        patch("mcp_scan.upload.get_user_info") as mock_get_user_info,
+        patch("mcp_scan.upload.asyncio.sleep") as mock_sleep,
+    ):
         mock_get_user_info.return_value = ScanUserInfo()
         mock_sleep.return_value = None
 
@@ -611,9 +641,10 @@ async def test_upload_does_not_retry_on_unexpected_error():
     """
     mock_result = ScanPathResult(path="/test/path")
 
-    with patch("mcp_scan.upload.get_user_info") as mock_get_user_info, \
-         patch("mcp_scan.upload.asyncio.sleep") as mock_sleep:
-        
+    with (
+        patch("mcp_scan.upload.get_user_info") as mock_get_user_info,
+        patch("mcp_scan.upload.asyncio.sleep") as mock_sleep,
+    ):
         mock_get_user_info.return_value = ScanUserInfo()
         mock_sleep.return_value = None
 
@@ -630,6 +661,6 @@ async def test_upload_does_not_retry_on_unexpected_error():
 
             # Verify that post was attempted only once (no retry on unexpected errors)
             assert mock_post_method.call_count == 1
-            
+
             # Verify that sleep was NOT called
             mock_sleep.assert_not_called()

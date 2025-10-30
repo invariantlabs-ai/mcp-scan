@@ -1,12 +1,12 @@
 import asyncio
 import logging
 import os
+import shutil
 import subprocess
 from contextlib import asynccontextmanager
-from ctypes import LibraryLoader
-from typing import AsyncContextManager, Literal  # noqa: UP035
 from pathlib import Path
-import shutil
+from typing import AsyncContextManager, Literal  # noqa: UP035
+
 import pyjson5
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.sse import sse_client
@@ -36,12 +36,17 @@ async def streamablehttp_client_without_session(*args, **kwargs):
     async with streamablehttp_client(*args, **kwargs) as (read, write, _):
         yield read, write
 
+
 def check_executable_exists(command: str) -> bool:
     path = Path(command)
     return path.exists() or shutil.which(command) is not None
 
+
 def get_client(
-    server_config: StdioServer | RemoteServer, protocol: Literal["sse", "http", "stdio"], timeout: int | None = None, verbose: bool = False
+    server_config: StdioServer | RemoteServer,
+    protocol: Literal["sse", "http", "stdio"],
+    timeout: int | None = None,
+    verbose: bool = False,
 ) -> AsyncContextManager:
     if protocol == "sse":
         logger.debug("Creating SSE client with URL: %s", server_config.url)
@@ -87,7 +92,10 @@ def get_client(
 
 
 async def check_server(
-    server_config: StdioServer | RemoteServer, protocol: Literal["sse", "http", "stdio"], timeout: int, suppress_mcpserver_io: bool
+    server_config: StdioServer | RemoteServer,
+    protocol: Literal["sse", "http", "stdio"],
+    timeout: int,
+    suppress_mcpserver_io: bool,
 ) -> ServerSignature:
     async def _check_server(verbose: bool) -> ServerSignature:
         if isinstance(server_config, StaticToolsServer):
@@ -114,7 +122,8 @@ async def check_server(
                 resources: list = []
                 resource_templates: list = []
                 tools: list = []
-                completions: list = []
+                # completions are currently not implemented
+                completions: list = []  # noqa: F841
                 logger.debug(f"Server capabilities: {meta.capabilities}")
                 if isinstance(server_config, StdioServer) or meta.capabilities.prompts:
                     logger.debug("Fetching prompts")
@@ -170,7 +179,9 @@ async def check_server_with_timeout(
     while retry:
         retry = False
         try:
-            if isinstance(server_config, StdioServer) or (isinstance(server_config, RemoteServer) and server_config.type is not None):
+            if isinstance(server_config, StdioServer) or (
+                isinstance(server_config, RemoteServer) and server_config.type is not None
+            ):
                 protocol = server_config.type
             elif isinstance(server_config, RemoteServer) and server_config.type is None:
                 if "http" not in protocols_tried:
@@ -183,12 +194,19 @@ async def check_server_with_timeout(
                 protocol = "tools"
             protocols_tried.append(protocol)
 
-            result = await asyncio.wait_for(check_server(server_config, protocol, timeout, suppress_mcpserver_io), timeout)
+            result = await asyncio.wait_for(
+                check_server(server_config, protocol, timeout, suppress_mcpserver_io), timeout
+            )
             logger.debug("Server check completed within timeout")
             return result
         except asyncio.TimeoutError:
             logger.exception("Server check timed out after %s seconds", timeout)
-            if isinstance(server_config, RemoteServer) and server_config.type is None and "http" in protocols_tried and "sse" not in protocols_tried:
+            if (
+                isinstance(server_config, RemoteServer)
+                and server_config.type is None
+                and "http" in protocols_tried
+                and "sse" not in protocols_tried
+            ):
                 logger.debug("Scan with HTTP failed, retrying with SSE")
                 retry = True
             else:

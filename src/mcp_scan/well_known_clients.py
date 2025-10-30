@@ -81,7 +81,11 @@ elif sys.platform == "darwin":
         "windsurf": ["~/.codeium/windsurf/mcp_config.json"],
         "cursor": ["~/.cursor/mcp.json"],
         "claude": ["~/Library/Application Support/Claude/claude_desktop_config.json"],
-        "vscode": ["~/.vscode/mcp.json", "~/Library/Application Support/Code/User/settings.json", "~/Library/Application Support/Code/User/mcp.json"],
+        "vscode": [
+            "~/.vscode/mcp.json",
+            "~/Library/Application Support/Code/User/settings.json",
+            "~/Library/Application Support/Code/User/mcp.json",
+        ],
     }
     WELL_KNOWN_MCP_PATHS = [path for client, paths in CLIENT_PATHS.items() for path in paths]
 elif sys.platform == "win32":
@@ -89,7 +93,11 @@ elif sys.platform == "win32":
         "windsurf": ["~/.codeium/windsurf/mcp_config.json"],
         "cursor": ["~/.cursor/mcp.json"],
         "claude": ["~/AppData/Roaming/Claude/claude_desktop_config.json"],
-        "vscode": ["~/.vscode/mcp.json", "~/AppData/Roaming/Code/User/settings.json", "~/AppData/Roaming/Code/User/mcp.json"],
+        "vscode": [
+            "~/.vscode/mcp.json",
+            "~/AppData/Roaming/Code/User/settings.json",
+            "~/AppData/Roaming/Code/User/mcp.json",
+        ],
     }
 
     WELL_KNOWN_MCP_PATHS = [path for client, paths in CLIENT_PATHS.items() for path in paths]

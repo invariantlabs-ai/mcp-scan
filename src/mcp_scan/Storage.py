@@ -1,5 +1,3 @@
-import asyncio
-import contextlib
 import json
 import logging
 import os
@@ -33,7 +31,6 @@ class Storage:
         os.makedirs(self.path, exist_ok=True)
         self._lock_path = os.path.join(self.path, ".mcp-scan.lock")
         self._lock = FileLock(self._lock_path, timeout=10)
-
 
     def detect_and_convert_legacy_storage(self):
         if os.path.isfile(self.path):
@@ -138,7 +135,7 @@ class Storage:
 
         self.scanned_entities.root[key] = new_data
         return changed, messages
-    
+
     def get_background_scan_path(self):
         return os.path.join(self.path, "background_scan.json")
 
@@ -152,7 +149,6 @@ class Storage:
             with open(file, "w") as f:
                 f.write("")
         return file
-
 
     def print_whitelist(self) -> None:
         logger.info("Printing whitelist with %d entries", len(self.whitelist))

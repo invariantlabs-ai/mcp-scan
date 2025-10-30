@@ -2,13 +2,14 @@ import asyncio
 import getpass
 import logging
 import os
-import rich
+
 import aiohttp
+import rich
 
 from mcp_scan.identity import IdentityManager
-from mcp_scan.models import ScanPathResult, ScanUserInfo, ScanPathResultsCreate
-from mcp_scan.well_known_clients import get_client_from_path
+from mcp_scan.models import ScanPathResult, ScanPathResultsCreate, ScanUserInfo
 from mcp_scan.verify_api import setup_aiohttp_debug_logging, setup_tcp_connector
+from mcp_scan.well_known_clients import get_client_from_path
 
 logger = logging.getLogger(__name__)
 
@@ -47,19 +48,19 @@ def get_user_info(identifier: str | None = None, opt_out: bool = False) -> ScanU
         hostname=get_hostname() if not opt_out else None,
         username=get_username() if not opt_out else None,
         identifier=identifier if not opt_out else None,
-        ip_address=None, # don't report local ip address
+        ip_address=None,  # don't report local ip address
         anonymous_identifier=user_identifier,
     )
 
 
 async def upload(
-    results: list[ScanPathResult], 
-    control_server: str, 
-    identifier: str | None = None, 
-    opt_out: bool = False, 
+    results: list[ScanPathResult],
+    control_server: str,
+    identifier: str | None = None,
+    opt_out: bool = False,
     verbose: bool = False,
-    additional_headers: dict = {},
-    max_retries: int = 3
+    additional_headers: dict | None = None,
+    max_retries: int = 3,
 ) -> None:
     """
     Upload the scan results to the control server with retry logic.
@@ -75,7 +76,9 @@ async def upload(
     if not results:
         logger.info("No scan results to upload")
         return
-    
+
+    additional_headers = additional_headers or {}
+
     # Normalize control server URL
     user_info = get_user_info(identifier=identifier, opt_out=opt_out)
 
@@ -88,10 +91,7 @@ async def upload(
         result.client = get_client_from_path(result.path) or result.client or result.path
         results_with_servers.append(result)
 
-    payload = ScanPathResultsCreate(
-        scan_path_results=results_with_servers,
-        scan_user_info=user_info
-    )
+    payload = ScanPathResultsCreate(scan_path_results=results_with_servers, scan_user_info=user_info)
 
     last_exception = None
     trace_configs = setup_aiohttp_debug_logging(verbose=verbose)
@@ -105,10 +105,10 @@ async def upload(
                 headers.update(additional_headers)
 
                 async with session.post(
-                    control_server, 
-                    data=payload.model_dump_json(), 
-                    headers=headers, 
-                    timeout=aiohttp.ClientTimeout(total=30)
+                    control_server,
+                    data=payload.model_dump_json(),
+                    headers=headers,
+                    timeout=aiohttp.ClientTimeout(total=30),
                 ) as response:
                     if response.status == 200:
                         response_data = await response.json()
@@ -124,7 +124,7 @@ async def upload(
                             f"Status: {response.status}, Error: {error_text}"
                         )
                         last_exception = Exception(f"HTTP {response.status}: {error_text}")
-                        
+
                         # Don't retry on client errors (4xx)
                         if 400 <= response.status < 500:
                             rich.print(f"❌ Failed to upload scan results: {response.status} - {error_text}")
@@ -133,20 +133,20 @@ async def upload(
         except aiohttp.ClientError as e:
             logger.warning(f"Network error while uploading scan results (attempt {attempt + 1}/{max_retries}): {e}")
             last_exception = e
-            
+
         except Exception as e:
             logger.error(f"Unexpected error while uploading scan results (attempt {attempt + 1}/{max_retries}): {e}")
             last_exception = e
             # For unexpected errors, don't retry
             rich.print(f"❌ Unexpected error while uploading scan results: {e}")
             raise e
-        
+
         # If not the last attempt, wait before retrying (exponential backoff)
         if attempt < max_retries - 1:
-            backoff_time = 2 ** attempt  # 1s, 2s, 4s
+            backoff_time = 2**attempt  # 1s, 2s, 4s
             logger.info(f"Retrying in {backoff_time} seconds...")
             await asyncio.sleep(backoff_time)
-    
+
     # All retries exhausted
     error_msg = f"Failed to upload scan results after {max_retries} attempts"
     if last_exception:

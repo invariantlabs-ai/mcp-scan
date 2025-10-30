@@ -1,4 +1,5 @@
 import json
+
 import pytest
 
 from mcp_scan import inspect as inspect_api

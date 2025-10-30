@@ -106,9 +106,11 @@ class TestFullScanFlow:
         elif set(server_names) == {"Math"}:
             allowed_issue_sets = [{"W001"}, {"W001", "TF002"}]
         else:
-            assert False, "Invalid server names"
+            raise ValueError(f"Invalid server names: {server_names}")
         # call list for better error message
-        assert any(list(issue_set == ais for ais in allowed_issue_sets)), f"Issues codes {issue_set} do not match expected values {allowed_issue_sets}"
+        assert any(issue_set == ais for ais in allowed_issue_sets), (
+            f"Issues codes {issue_set} do not match expected values {allowed_issue_sets}"
+        )
 
     def test_inspect(self):
         path = "tests/mcp_servers/configs_files/all_config.json"

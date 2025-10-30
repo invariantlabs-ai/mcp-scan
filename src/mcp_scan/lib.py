@@ -1,14 +1,17 @@
 """
 MCP-scan high-level API for programmatic use.
 """
+
 from __future__ import annotations
 
-from collections.abc import Sequence
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from .MCPScanner import MCPScanner
 from .upload import upload as _upload
 from .utils import parse_headers
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 
 async def _run_scan_or_inspect(

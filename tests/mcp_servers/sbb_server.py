@@ -17,6 +17,7 @@ def get_train_info(train_number: str) -> str:
 def get_connections(from_station: str, to_station: str) -> list[str]:
     return ["connection1", "connection2"]
 
+
 @mcp.resource(uri="resource://status")
 def get_status() -> str:
     """Get the status of all trains."""

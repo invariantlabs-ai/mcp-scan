@@ -1,11 +1,19 @@
 import logging
+import re
 from datetime import datetime
 from hashlib import md5
 from itertools import chain
 from typing import Any, Literal, TypeAlias
-import re
-from mcp.types import InitializeResult, Prompt, Resource, Tool, ResourceTemplate, Completion
-from pydantic import BaseModel, ConfigDict, Field, RootModel, field_serializer, field_validator, model_validator, ValidationError
+
+from mcp.types import Completion, InitializeResult, Prompt, Resource, ResourceTemplate, Tool
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    RootModel,
+    field_serializer,
+    field_validator,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -84,19 +92,23 @@ class StdioServer(BaseModel):
     type: Literal["stdio"] | None = "stdio"
     env: dict[str, str] | None = None
 
+
 class StaticToolsServer(BaseModel):
     """A server with a static set of tools (e.g. if not scanning a MCP configuration but the set of tools directly)."""
+
     model_config = ConfigDict()
     name: str
     signature: list[Tool]
     type: Literal["tools"] | None = "tools"
 
+
 class MCPConfig(BaseModel):
-    def get_servers(self) -> dict[str, StdioServer |  RemoteServer]:
+    def get_servers(self) -> dict[str, StdioServer | RemoteServer]:
         raise NotImplementedError("Subclasses must implement this method")
 
     def set_servers(self, servers: dict[str, StdioServer | RemoteServer]) -> None:
         raise NotImplementedError("Subclasses must implement this method")
+
 
 class StaticToolsConfig(MCPConfig):
     model_config = ConfigDict()
@@ -287,7 +299,7 @@ def entity_to_tool(
         )
     elif isinstance(entity, ResourceTemplate):
         # get parameters from uriTemplate
-        params = re.findall(r'\{(\w+)\}', entity.uriTemplate)
+        params = re.findall(r"\{(\w+)\}", entity.uriTemplate)
         return Tool(
             name=entity.name,
             description=entity.description,
@@ -336,6 +348,7 @@ class ToxicFlowExtraData(RootModel[dict[str, list[ToolReferenceWithLabel]]]):
 class AnalysisServerResponse(BaseModel):
     issues: list[Issue]
     labels: list[list[ScalarToolLabels]]
+
 
 class ScanPathResultsCreate(BaseModel):
     scan_path_results: list[ScanPathResult]
