@@ -40,3 +40,4 @@
 - `0.3.22` Fix: support more than 100 tools; allow specifying a version when scanning a package
 - `0.3.23` Maintainace to ensure continued server compatability
 - `0.3.24` Handle custom SSL certificates (via System/Truststore)
+- `0.3.25` Improved error handling for control servers
