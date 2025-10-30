@@ -261,7 +261,7 @@ mcp-scan whitelist tool "add" "a1b2c3..."
 
 ## Demo
 
-This repository includes a vulnerable MCP server that can demonstrate Model Content Protocol security issues that MCP-Scan finds.
+This repository includes a vulnerable MCP server that can demonstrate Model Context Protocol security issues that MCP-Scan finds.
 
 How to demo MCP security issues?
 1. Clone this repository
