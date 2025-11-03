@@ -70,6 +70,7 @@ async def upload(
         control_server: Base URL of the control server
         identifier: Non-anonymous identifier for the user
         opt_out: Whether to opt-out of sending personal information
+        verbose: Whether to enable verbose logging
         additional_headers: Additional HTTP headers to send
         max_retries: Maximum number of retry attempts (default: 3)
     """
