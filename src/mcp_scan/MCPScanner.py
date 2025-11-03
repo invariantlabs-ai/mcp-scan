@@ -133,12 +133,12 @@ class MCPScanner:
                 ServerScanResult(name=server_name, server=server) for server_name, server in servers.items()
             ]
         except FileNotFoundError as e:
-            error_msg = "file does not exist"
+            error_msg = f"resource {path} not found" if is_direct_scan(path) else f"file {path} does not exist"
             logger.exception("%s: %s", error_msg, path)
             # This is a non failing error, so we set is_failure to False.
             result.error = ScanError(message=error_msg, exception=e, is_failure=False)
         except Exception as e:
-            error_msg = "could not parse file"
+            error_msg = f"could not scan {path}" if is_direct_scan(path) else f"could not parse file {path}"
             logger.exception("%s: %s", error_msg, path)
             result.error = ScanError(message=error_msg, exception=e, is_failure=True)
         return result
