@@ -95,12 +95,11 @@ async def upload(
 
     last_exception = None
     trace_configs = setup_aiohttp_debug_logging(verbose=verbose)
-    tcp_connector = setup_tcp_connector()
     additional_headers = additional_headers or {}
 
     for attempt in range(max_retries):
         try:
-            async with aiohttp.ClientSession(trace_configs=trace_configs, connector=tcp_connector) as session:
+            async with aiohttp.ClientSession(trace_configs=trace_configs, connector=setup_tcp_connector()) as session:
                 headers = {"Content-Type": "application/json"}
                 headers.update(additional_headers)
 
