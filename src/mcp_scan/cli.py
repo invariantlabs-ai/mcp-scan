@@ -153,7 +153,7 @@ def add_common_arguments(parser):
     parser.add_argument(
         "--analysis-url",
         type=str,
-        default="https://mcp.invariantlabs.ai/api/v1/public/mcp-analysis",
+        default="https://api.snyk.io/hidden/mcp-scan/analysis-machine?version=2025-09-02",
         help="URL endpoint for the verification server",
         metavar="URL",
     )
