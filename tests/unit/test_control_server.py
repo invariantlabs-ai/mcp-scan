@@ -233,7 +233,7 @@ async def test_get_servers_from_path_sets_file_not_found_error_and_uploads_paylo
             sent_result = payload["scan_path_results"][0]
             assert sent_result["servers"] is None
             assert sent_result["path"] == "/nonexistent/path"
-            assert sent_result["error"]["message"] == "file does not exist"
+            assert sent_result["error"]["message"] == "file /nonexistent/path does not exist"
             assert sent_result["error"]["is_failure"] is False
             assert "missing" in (sent_result["error"].get("exception") or "")
 
@@ -271,7 +271,7 @@ async def test_get_servers_from_path_sets_parse_error_and_uploads_payload():
             sent_result = payload["scan_path_results"][0]
             assert sent_result["servers"] is None
             assert sent_result["path"] == "/bad/config"
-            assert sent_result["error"]["message"] == "could not parse file"
+            assert sent_result["error"]["message"] == "could not parse file /bad/config"
             assert sent_result["error"]["is_failure"] is True
             assert "parse failure" in (sent_result["error"].get("exception") or "")
 
