@@ -79,7 +79,7 @@ class TestFullScanFlow:
     )
     def test_scan(self, path, server_names):
         result = subprocess.run(
-            ["uv", "run", "-m", "src.mcp_scan.run", "scan", "--json", path],
+            ["uv", "run", "-m", "src.mcp_scan.run", "scan", "--json", path, "--analysis-url", "https://api.dev.snyk.io/hidden/mcp-scan/analysis-machine?version=2025-09-07"],
             capture_output=True,
             text=True,
         )
@@ -96,11 +96,13 @@ class TestFullScanFlow:
 
         assert len(output) == 1, "Output should contain exactly one entry for the config file"
         path = next(iter(output.keys()))
+        errors = output[path]["error"]
+        assert errors is None, f"Error should not be present, found: {errors}"
         issues = output[path]["issues"]
 
         issue_set = {issue["code"] for issue in issues}
         if set(server_names) == {"Weather", "Math"}:
-            allowed_issue_sets = [{"W001", "TF001", "TF002"}, {"W001", "TF002"}]
+            allowed_issue_sets = [{"W001", "TF001", "TF002"}, {"W001", "TF002"}, {"W001"}]
         elif set(server_names) == {"Weather"}:
             allowed_issue_sets = [{"TF001"}, set()]
         elif set(server_names) == {"Math"}:

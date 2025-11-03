@@ -15,7 +15,7 @@ from mcp_scan.well_known_clients import get_builtin_tools
 from .direct_scanner import direct_scan, is_direct_scan
 from .mcp_client import check_server_with_timeout, scan_mcp_config_file
 from .Storage import Storage
-from .verify_api import analyze_scan_path
+from .verify_api import analyze_machine
 
 # Set up logger for this module
 logger = logging.getLogger(__name__)
@@ -68,6 +68,7 @@ class MCPScanner:
         include_built_in: bool = False,
         verbose: bool = False,
         additional_headers: dict | None = None,
+        control_servers: list | None = None,
         **kwargs: Any,
     ):
         logger.info("Initializing MCPScanner")
@@ -84,6 +85,7 @@ class MCPScanner:
         self.context_manager = None
         self.opt_out_of_identity = opt_out
         self.include_built_in = include_built_in
+        self.control_servers = control_servers
         self.verbose = verbose
         logger.debug(
             "MCPScanner initialized with timeout: %d, checks_per_server: %d", server_timeout, checks_per_server
@@ -265,14 +267,6 @@ class MCPScanner:
         path_result.issues += self.check_whitelist(path_result)
         logger.debug(f"Check changed: {path_result.path}, {path_result.path is None}")
         path_result.issues += self.check_server_changed(path_result)
-        logger.debug(f"Verifying server path: {path_result.path}, {path_result.path is None}")
-        path_result = await analyze_scan_path(
-            path_result,
-            analysis_url=self.analysis_url,
-            additional_headers=self.additional_headers,
-            opt_out_of_identity=self.opt_out_of_identity,
-            verbose=self.verbose,
-        )
         await self.emit("path_scanned", path_result)
         return path_result
 
@@ -291,10 +285,21 @@ class MCPScanner:
             result = [self.scan_path(path) for path in self.paths]
             result_awaited = await asyncio.gather(*result)
 
+        logger.debug("Calling Backend")
+        result_verified = await analyze_machine(
+            result_awaited,
+            analysis_url=self.analysis_url,
+            identifier=None,
+            additional_headers=self.additional_headers,
+            opt_out_of_identity=self.opt_out_of_identity,
+            skip_pushing=bool(self.control_servers),
+            verbose=self.verbose
+        )
+        logger.debug("Result verified: %s", result_verified)
         logger.debug("Saving storage file")
         self.storage_file.save()
         logger.info("Scan completed successfully")
-        return result_awaited
+        return result_verified
 
     async def inspect(self) -> list[ScanPathResult]:
         logger.info("Starting inspection of %d paths", len(self.paths))
