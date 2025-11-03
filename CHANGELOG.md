@@ -41,3 +41,4 @@
 - `0.3.23` Maintainace to ensure continued server compatability
 - `0.3.24` Handle custom SSL certificates (via System/Truststore)
 - `0.3.25` Improved error handling for control servers
+- `0.3.26` Now pushing agent configurations once for the full machine, not once per agent
