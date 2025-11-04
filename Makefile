@@ -10,11 +10,11 @@ run:
 	uv run -m src.mcp_scan.run ${RUN_ARGS}
 
 test:
-	uv pip install -e .[test]
+	uv pip install -e .[test,proxy]
 	MCP_SCAN_ENVIRONMENT=test uv run pytest
 
 ci:
-	uv pip install -e .[test]
+	uv pip install -e .[test,proxy]
 	MCP_SCAN_ENVIRONMENT=ci uv run pytest
 
 clean:
