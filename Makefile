@@ -9,13 +9,25 @@ endif
 run:
 	uv run -m src.mcp_scan.run ${RUN_ARGS}
 
-test:
+test-all:
+	uv sync
 	uv pip install -e ".[test,proxy]"
 	MCP_SCAN_ENVIRONMENT=test uv run pytest
 
+test-static:
+	uv sync
+	uv pip install -e ".[test]"
+	MCP_SCAN_ENVIRONMENT=test uv run pytest --ignore=tests/e2e/test_full_proxy_flow.py --ignore=tests/unit/test_mcp_scan_server.py
+
+test: test-all
+
 ci:
+	uv sync
 	uv pip install -e ".[test,proxy]"
 	MCP_SCAN_ENVIRONMENT=ci uv run pytest
+	uv sync
+	uv pip install -e ".[test]"
+	MCP_SCAN_ENVIRONMENT=ci uv run pytest --ignore=tests/e2e/test_full_proxy_flow.py --ignore=tests/unit/test_mcp_scan_server.py
 
 clean:
 	rm -rf ./dist
