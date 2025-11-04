@@ -42,4 +42,3 @@
 - `0.3.24` Handle custom SSL certificates (via System/Truststore)
 - `0.3.25` Improved error handling for control servers
 - `0.3.26` Now pushing agent configurations once for the full machine, not once per agent
-- `0.3.27` **BREAKING:** Proxy functionality (`proxy`, `server`, `install-proxy`, `uninstall-proxy` commands) now requires installing with `[proxy]` extra: `pip install mcp-scan[proxy]`. This makes the core scanning functionality lighter and faster to install.
