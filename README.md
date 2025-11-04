@@ -295,6 +295,12 @@ uv run pip install -e .
 uv run -m src.mcp_scan.cli
 ```
 
+For proxy functionality (e.g., `mcp-scan proxy`, `mcp-scan server`), install with the proxy extra:
+
+```bash
+uv run pip install -e .[proxy]
+```
+
 ## Including MCP-scan results in your own project / registry
 
 If you want to include MCP-scan results in your own project or registry, please reach out to the team via `mcpscan@invariantlabs.ai`, and we can help you with that.

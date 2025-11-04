@@ -20,14 +20,13 @@ dependencies = [
     "psutil>=5.9.0",
     "fastapi>=0.115.12",
     "uvicorn>=0.34.2",
-    "invariant-sdk>=0.0.11",
     "pyyaml>=6.0.2",
     "regex>=2024.11.6",
     "aiohttp>=3.11.16",
     "rapidfuzz>=3.13.0",
-    "invariant-ai>=0.3.3",
     "filelock>=3.18.0",
     "truststore>=0.10.4",
+    "pydantic-core>=2.41.4",
 ]
 
 [project.scripts]
@@ -41,6 +40,10 @@ build-backend = "hatchling.build"
 packages = ["src/mcp_scan","src/mcp_scan_server"]
 
 [project.optional-dependencies]
+proxy = [
+    "invariant-sdk>=0.0.11",
+    "invariant-ai>=0.3.3",
+]
 test = [
     "pytest>=7.4.0",
     "pytest-lazy-fixtures>=1.1.2",
