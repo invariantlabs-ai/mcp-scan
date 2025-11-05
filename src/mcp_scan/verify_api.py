@@ -171,15 +171,18 @@ async def analyze_machine(
     )
     logger.debug("Payload: %s", payload.model_dump_json())
     trace_configs = setup_aiohttp_debug_logging(verbose=verbose)
-    additional_headers = additional_headers or {}
+    headers = {
+        "Content-Type": "application/json",
+        "X-Environment": os.getenv("MCP_SCAN_ENVIRONMENT", "production"),
+    }
+    if additional_headers:
+        headers.update(additional_headers)
     if skip_pushing:
-        additional_headers["X-Push"] = "skip"
+        headers["X-Push"] = "skip"
 
     for attempt in range(max_retries):
         try:
             async with aiohttp.ClientSession(trace_configs=trace_configs, connector=setup_tcp_connector()) as session:
-                headers = {"Content-Type": "application/json"}
-                headers.update(additional_headers)
 
                 async with session.post(
                     analysis_url,
