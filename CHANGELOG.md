@@ -43,3 +43,4 @@
 - `0.3.25` Improved error handling for control servers
 - `0.3.26` Now pushing agent configurations once for the full machine, not once per agent
 - `0.3.27` Comability updated for new server version and new python version
+- `0.3.28` Support unknown MCP configurations
