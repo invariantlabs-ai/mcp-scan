@@ -19,6 +19,14 @@ from mcp_scan.models import (
 MAX_ENTITY_NAME_LENGTH = 25
 MAX_ENTITY_NAME_TOXIC_FLOW_LENGTH = 30
 
+ISSUE_COLOR_MAP = {
+    "successful": "[green]",
+    "issue": "[red]",
+    "analysis_error": "[gray62]",
+    "warning": "[yellow]",
+    "whitelisted": "[blue]",
+    "inspect_mode": "[white]",
+}
 
 def format_exception(e: Exception | str | None) -> tuple[str, rTraceback | None]:
     if e is None:
@@ -51,10 +59,14 @@ def format_path_line(path: str, status: str | None, operation: str = "Scanning")
     return Text.from_markup(text)
 
 
-def format_servers_line(server: str, status: str | None = None) -> Text:
+def format_servers_line(server: str, status: str | None = None, issues: list[Issue] | None = None) -> Text:
     text = f"[bold]{server}[/bold]"
+    gap = 27
+    text += " " * (max(0, gap - len(text)))
     if status:
         text += f" [gray62]{status}[/gray62]"
+    if issues:
+        text += " " + format_issues(issues)
     return Text.from_markup(text)
 
 
@@ -63,6 +75,28 @@ def append_status(status: str, new_status: str) -> str:
         return new_status
     return f"{new_status}, {status}"
 
+
+def format_issues(issues: list[Issue]) -> str:
+    status_text = " ".join(
+        [
+            ISSUE_COLOR_MAP["analysis_error"]
+            + rf"\[{issue.code}]: {issue.message}"
+            + ISSUE_COLOR_MAP["analysis_error"].replace("[", "[/")
+            for issue in issues
+            if issue.code.startswith("X")
+        ]
+        + [
+            ISSUE_COLOR_MAP["issue"] + rf"\[{issue.code}]: {issue.message}" + ISSUE_COLOR_MAP["issue"].replace("[", "[/")
+            for issue in issues
+            if issue.code.startswith("E")
+        ]
+        + [
+            ISSUE_COLOR_MAP["warning"] + rf"\[{issue.code}]: {issue.message}" + ISSUE_COLOR_MAP["warning"].replace("[", "[/")
+            for issue in issues
+            if issue.code.startswith("W")
+        ]
+    )
+    return status_text
 
 def format_entity_line(entity: Entity, issues: list[Issue], inspect_mode: bool = False) -> Text:
     # is_verified = verified.value
@@ -79,15 +113,7 @@ def format_entity_line(entity: Entity, issues: list[Issue], inspect_mode: bool =
     else:
         status = "successful"
 
-    color_map = {
-        "successful": "[green]",
-        "issue": "[red]",
-        "analysis_error": "[gray62]",
-        "warning": "[yellow]",
-        "whitelisted": "[blue]",
-        "inspect_mode": "[white]",
-    }
-    color = color_map[status] if not inspect_mode else color_map["inspect_mode"]
+    color = ISSUE_COLOR_MAP[status] if not inspect_mode else ISSUE_COLOR_MAP["inspect_mode"]
     icon_map = {
         "successful": ":white_heavy_check_mark:",
         "issue": ":cross_mark:",
@@ -115,25 +141,7 @@ def format_entity_line(entity: Entity, issues: list[Issue], inspect_mode: bool =
     # res. temp.
     type = type + " " * (len("res. temp.") - len(type))
 
-    status_text = " ".join(
-        [
-            color_map["analysis_error"]
-            + rf"\[{issue.code}]: {issue.message}"
-            + color_map["analysis_error"].replace("[", "[/")
-            for issue in issues
-            if issue.code.startswith("X")
-        ]
-        + [
-            color_map["issue"] + rf"\[{issue.code}]: {issue.message}" + color_map["issue"].replace("[", "[/")
-            for issue in issues
-            if issue.code.startswith("E")
-        ]
-        + [
-            color_map["warning"] + rf"\[{issue.code}]: {issue.message}" + color_map["warning"].replace("[", "[/")
-            for issue in issues
-            if issue.code.startswith("W")
-        ]
-    )
+    status_text = format_issues(issues)
     text = f"{type} {color}[bold]{name}[/bold] {icon} {status_text}"
 
     if include_description:
@@ -175,7 +183,7 @@ def format_global_issue(result: ScanPathResult, issue: Issue, show_all: bool = F
     """
     Format issues about the whole scan.
     """
-    assert issue.reference is None, "Global issues should not have a reference"
+    assert issue.reference == (None, None), "Global issues should not have a reference"
     # assert issue.code in ["TF001", "TF002", "W002"] , (
     #     f"Only issues with code TF001, TF002 or W002 can be global issues. {issue.code}"
     # )
@@ -242,16 +250,18 @@ def print_scan_path_result(
 
     message = f"found {len(result.servers or [])} server{'' if len(result.servers or []) == 1 else 's'}"
     rich.print(format_path_line(result.path, message))
+    print(f"ISSUES: {result.issues}")
     path_print_tree = Tree("│")
     server_tracebacks = []
     for server_idx, server in enumerate(result.servers or []):
+        server_issues = [issue for issue in result.issues if issue.reference == (server_idx, None)]
         if server.error is not None:
             err_status, traceback = format_error(server.error)
             path_print_tree.add(format_servers_line(server.name or "", err_status))
             if traceback is not None:
                 server_tracebacks.append((server, traceback))
         else:
-            server_print = path_print_tree.add(format_servers_line(server.name or ""))
+            server_print = path_print_tree.add(format_servers_line(server.name or "", None, server_issues))
             for entity_idx, entity in enumerate(server.entities):
                 issues = [issue for issue in result.issues if issue.reference == (server_idx, entity_idx)]
                 server_print.add(format_entity_line(entity, issues, inspect_mode))
@@ -261,7 +271,7 @@ def print_scan_path_result(
 
     # print global issues
     for issue in result.issues:
-        if issue.reference is None:
+        if issue.reference == (None, None):
             rich.print(format_global_issue(result, issue, full_toxic_flows))
 
     if print_errors and len(server_tracebacks) > 0:
