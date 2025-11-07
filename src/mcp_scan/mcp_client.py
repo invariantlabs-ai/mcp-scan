@@ -21,6 +21,7 @@ from mcp_scan.models import (
     ServerSignature,
     StaticToolsServer,
     StdioServer,
+    UnknownMCPConfig,
     VSCodeConfigFile,
     VSCodeMCPConfig,
 )
@@ -224,6 +225,7 @@ async def scan_mcp_config_file(path: str) -> MCPConfig:
             ClaudeConfigFile,  # used by most clients
             VSCodeConfigFile,  # used by vscode settings.json
             VSCodeMCPConfig,  # used by vscode mcp.json
+            UnknownMCPConfig,  # used by unknown config files
         ]
         for model in models:
             try:
