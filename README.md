@@ -179,9 +179,13 @@ Options:
 
 Run a proxy server to monitor and guardrail system-wide MCP traffic in real-time. Temporarily injects [Gateway](https://github.com/invariantlabs-ai/invariant-gateway) into MCP server configurations, to intercept and analyze traffic. Removes Gateway again after the `proxy` command exits.
 
-```
-mcp-scan proxy [CONFIG_FILE...] [--pretty oneline|compact|full]
-```
+This command requires the `proxy` optional dependency (extra).
+
+- Run via uvx:
+  ```bash
+  uvx --with "mcp-scan[proxy]" mcp-scan@latest proxy
+  ```
+  This installs the `proxy` extra into an uvx-managed virtual environment, not your current shell venv.
 
 Options:
 ```
