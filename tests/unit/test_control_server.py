@@ -15,6 +15,7 @@ from mcp_scan.models import (
     ScanUserInfo,
     ServerScanResult,
     StdioServer,
+    UnknownMCPConfig,
 )
 from mcp_scan.upload import (
     get_user_info,
@@ -664,3 +665,39 @@ async def test_upload_does_not_retry_on_unexpected_error():
 
             # Verify that sleep was NOT called
             mock_sleep.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_get_servers_from_path_sets_unknown_mcp_config_error_and_uploads_payload():
+    """
+    Patch MCPScanner.get_servers_from_path dependencies so that scan_mcp_config_file returns UnknownMCPConfig
+    and ensure the resulting ScanPathResult has a non-failing error and is uploaded with empty servers list.
+    """
+    with (
+        patch.object(sys.modules["mcp_scan.MCPScanner"], "scan_mcp_config_file", return_value=UnknownMCPConfig()),
+        patch("mcp_scan.upload.get_user_info") as mock_get_user_info,
+    ):
+        mock_get_user_info.return_value = ScanUserInfo()
+
+        # Mock successful HTTP response
+        mock_http_response = AsyncMock(status=200)
+        mock_http_response.json.return_value = []
+        mock_http_response.text.return_value = ""
+
+        mock_post_context_manager = AsyncMock()
+        mock_post_context_manager.__aenter__.return_value = mock_http_response
+
+        with patch("mcp_scan.upload.aiohttp.ClientSession.post") as mock_post_method:
+            mock_post_method.return_value = mock_post_context_manager
+
+            async with MCPScanner(files=["/unknown.cfg"]) as scanner:
+                result = await scanner.get_servers_from_path("/unknown.cfg")
+
+            await upload([result], "https://control.mcp.scan", None, False)
+
+            payload = json.loads(mock_post_method.call_args.kwargs["data"])
+            sent_result = payload["scan_path_results"][0]
+            assert sent_result["servers"] == []
+            assert sent_result["path"] == "/unknown.cfg"
+            assert sent_result["error"]["message"] == "Unknown MCP config: /unknown.cfg"
+            assert sent_result["error"]["is_failure"] is False

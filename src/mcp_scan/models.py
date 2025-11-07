@@ -156,6 +156,24 @@ class VSCodeConfigFile(MCPConfig):
         self.mcp.servers = servers
 
 
+class UnknownMCPConfig(MCPConfig):
+    """
+    Represents an MCP configuration the scanner cannot interpret.
+
+    Used when:
+    1. The config format is not yet supported (a new client config format the scanner does not parse for)
+    2. The config lacks MCP details (an existing client config with MCP info missing or empty)
+
+    This type intentionally resolves to an empty server set.
+    """
+    model_config = ConfigDict()
+    
+    def get_servers(self) -> dict[str, StdioServer | RemoteServer]:
+        return {}
+    
+    def set_servers(self, servers: dict[str, StdioServer | RemoteServer]) -> None:
+        pass
+
 class ScanError(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
     message: str | None = None

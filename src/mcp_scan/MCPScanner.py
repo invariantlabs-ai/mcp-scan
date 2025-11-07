@@ -9,7 +9,7 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from httpx import HTTPStatusError
 
-from mcp_scan.models import Issue, RemoteServer, ScanError, ScanPathResult, ServerScanResult, StdioServer
+from mcp_scan.models import Issue, RemoteServer, ScanError, ScanPathResult, ServerScanResult, StdioServer, UnknownMCPConfig
 from mcp_scan.well_known_clients import get_builtin_tools
 
 from .direct_scanner import direct_scan, is_direct_scan
@@ -129,7 +129,10 @@ class MCPScanner:
             if not os.path.exists(path) and is_direct_scan(path):
                 servers = (await direct_scan(path)).get_servers()
             else:
-                servers = (await scan_mcp_config_file(path)).get_servers()
+                mcp_config = await scan_mcp_config_file(path)
+                if isinstance(mcp_config, UnknownMCPConfig):
+                    result.error = ScanError(message=f"Unknown MCP config: {path}", is_failure=False)
+                servers = mcp_config.get_servers()
             logger.debug("Found %d servers in path: %s", len(servers), path)
             result.servers = [
                 ServerScanResult(name=server_name, server=server) for server_name, server in servers.items()
