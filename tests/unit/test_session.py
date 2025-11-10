@@ -2,7 +2,7 @@ import datetime
 
 import pytest
 
-from src.mcp_scan_server.session_store import Session, SessionNode, SessionStore, to_session
+from mcp_scan_server.session_store import Session, SessionNode, SessionStore, to_session
 
 
 def create_timestamped_node(timestamp: datetime.datetime):

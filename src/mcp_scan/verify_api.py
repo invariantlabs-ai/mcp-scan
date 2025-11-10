@@ -1,21 +1,21 @@
+import asyncio
+import getpass
 import logging
 import os
 import ssl
 
-import getpass
-import asyncio
 import aiohttp
 import certifi
-from mcp_scan.well_known_clients import get_client_from_path
+import rich
 
-from .identity import IdentityManager
-from .models import (
+from mcp_scan.identity import IdentityManager
+from mcp_scan.models import (
     ScanError,
     ScanPathResult,
-    ScanUserInfo,
     ScanPathResultsCreate,
+    ScanUserInfo,
 )
-import rich
+from mcp_scan.well_known_clients import get_client_from_path
 
 logger = logging.getLogger(__name__)
 identity_manager = IdentityManager()
@@ -131,7 +131,7 @@ def get_user_info(identifier: str | None = None, opt_out: bool = False) -> ScanU
         hostname=get_hostname() if not opt_out else None,
         username=get_username() if not opt_out else None,
         identifier=identifier if not opt_out else None,
-        ip_address=None, # don't report local ip address
+        ip_address=None,  # don't report local ip address
         anonymous_identifier=user_identifier,
     )
 
@@ -139,12 +139,12 @@ def get_user_info(identifier: str | None = None, opt_out: bool = False) -> ScanU
 async def analyze_machine(
     scan_paths: list[ScanPathResult],
     analysis_url: str,
-    identifier: str,
+    identifier: str | None,
     additional_headers: dict | None = None,
     opt_out_of_identity: bool = False,
     verbose: bool = False,
     skip_pushing: bool = False,
-    max_retries: int = 3
+    max_retries: int = 3,
 ) -> list[ScanPathResult]:
     """
     Analyze the scan paths with the analysis server.
@@ -165,10 +165,7 @@ async def analyze_machine(
     for result in scan_paths:
         result.client = get_client_from_path(result.path) or result.client or result.path
 
-    payload = ScanPathResultsCreate(
-        scan_path_results=scan_paths,
-        scan_user_info=user_info
-    )
+    payload = ScanPathResultsCreate(scan_path_results=scan_paths, scan_user_info=user_info)
     logger.debug("Payload: %s", payload.model_dump_json())
     trace_configs = setup_aiohttp_debug_logging(verbose=verbose)
     headers = {
@@ -183,20 +180,19 @@ async def analyze_machine(
     for attempt in range(max_retries):
         try:
             async with aiohttp.ClientSession(trace_configs=trace_configs, connector=setup_tcp_connector()) as session:
-
                 async with session.post(
                     analysis_url,
                     data=payload.model_dump_json(),
                     headers=headers,
-                    timeout=aiohttp.ClientTimeout(total=30)
+                    timeout=aiohttp.ClientTimeout(total=30),
                 ) as response:
                     response.raise_for_status()
                     if response.status == 200:
                         response_data = ScanPathResultsCreate.model_validate_json(await response.text())
-                        logger.info(
-                            "Successfully analyzed scan results."
-                        )
-                        for sent_scan_path_result, response_scan_path_result in zip(scan_paths, response_data.scan_path_results, strict=True):
+                        logger.info("Successfully analyzed scan results.")
+                        for sent_scan_path_result, response_scan_path_result in zip(
+                            scan_paths, response_data.scan_path_results, strict=True
+                        ):
                             sent_scan_path_result.issues = response_scan_path_result.issues
                             sent_scan_path_result.labels = response_scan_path_result.labels
                         return scan_paths  # Success - exit the function
@@ -207,13 +203,8 @@ async def analyze_machine(
                 logger.warning(error_text)
                 for scan_path in scan_paths:
                     if scan_path.servers is not None and scan_path.error is None:
-                        scan_path.error = ScanError(
-                            message=error_text,
-                            exception=e,
-                            is_failure=True
-                        )
+                        scan_path.error = ScanError(message=error_text, exception=e, is_failure=True)
                 return scan_paths
-
 
         except RuntimeError as e:
             logger.warning(f"Network error while uploading (attempt {attempt + 1}/{max_retries}): {e}")
@@ -227,7 +218,7 @@ async def analyze_machine(
 
         # If not the last attempt, wait before retrying (exponential backoff)
         if attempt < max_retries - 1:
-            backoff_time = 2 ** attempt  # 1s, 2s, 4s
+            backoff_time = 2**attempt  # 1s, 2s, 4s
             logger.info(f"Retrying in {backoff_time} seconds...")
             await asyncio.sleep(backoff_time)
 
@@ -237,6 +228,6 @@ async def analyze_machine(
             scan_path.error = ScanError(
                 message=f"Tried calling verification api {max_retries} times. Could not reach analysis server. Last error: {error_text}",
                 exception=None,
-                is_failure=True
+                is_failure=True,
             )
     return scan_paths

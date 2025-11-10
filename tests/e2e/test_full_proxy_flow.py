@@ -25,7 +25,7 @@ def safe_decode(bytes_output, encoding="utf-8", errors="replace"):
 
 
 async def run_toy_server_client(config):
-    async with get_client(config, protocol=config.type) as (read, write):
+    async with get_client(config) as (read, write):
         async with ClientSession(read, write) as session:
             print("[Client] Initializing connection")
             await session.initialize()

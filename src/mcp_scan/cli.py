@@ -15,37 +15,39 @@ import psutil
 import rich
 from rich.logging import RichHandler
 
+from mcp_scan.MCPScanner import MCPScanner
+from mcp_scan.printer import print_scan_result
+from mcp_scan.Storage import Storage
 from mcp_scan.upload import upload
-
-from .MCPScanner import MCPScanner
-from .printer import print_scan_result
-from .Storage import Storage
-from .utils import parse_headers
-from .version import version_info
-from .well_known_clients import WELL_KNOWN_MCP_PATHS, client_shorthands_to_paths
+from mcp_scan.utils import parse_headers
+from mcp_scan.version import version_info
+from mcp_scan.well_known_clients import WELL_KNOWN_MCP_PATHS, client_shorthands_to_paths
 
 # Proxy-related imports (require [proxy] extra)
 _PROXY_AVAILABLE = None
+
 
 def check_proxy_dependencies():
     """Check if proxy dependencies are installed and return True if available."""
     global _PROXY_AVAILABLE
     if _PROXY_AVAILABLE is not None:
         return _PROXY_AVAILABLE
-    
+
     try:
         import invariant  # noqa: F401
         import invariant_sdk  # noqa: F401
+
         _PROXY_AVAILABLE = True
         return True
     except ImportError:
         _PROXY_AVAILABLE = False
         return False
 
+
 def require_proxy_dependencies(command_name: str):
     """
     Raise an error if proxy dependencies are not installed.
-    
+
     Args:
         command_name: Name of the command that requires proxy dependencies
     """
@@ -53,6 +55,7 @@ def require_proxy_dependencies(command_name: str):
         rich.print(f"[bold red]Error:[/bold red] The '{command_name}' command requires proxy dependencies.")
         rich.print("Please use the optional [bold cyan][proxy][/bold cyan] extra to install the dependencies.")
         sys.exit(1)
+
 
 # Configure logging to suppress all output by default
 logging.getLogger().setLevel(logging.CRITICAL + 1)  # Higher than any standard level
@@ -360,6 +363,7 @@ def install_extras(args):
     if hasattr(args, "install_extras") and args.install_extras:
         require_proxy_dependencies("install_extras")
         from invariant.__main__ import add_extra
+
         add_extra(*args.install_extras, "-y")
 
 
@@ -593,7 +597,7 @@ def main():
     async def install():
         require_proxy_dependencies("install-proxy")
         from mcp_scan.gateway import MCPGatewayConfig, MCPGatewayInstaller
-        
+
         try:
             check_install_args(args)
         except argparse.ArgumentError as e:
@@ -616,12 +620,13 @@ def main():
     async def uninstall():
         require_proxy_dependencies("uninstall-proxy")
         from mcp_scan.gateway import MCPGatewayInstaller
-        
+
         installer = MCPGatewayInstaller(paths=args.files)
         await installer.uninstall(verbose=True)
 
     def server(on_exit=None):
-        from mcp_scan_server.server import MCPScanServer
+        from mcp_scan_server.server import MCPScanServer  # type: ignore
+
         sf = Storage(args.storage_file)
         guardrails_config_path = sf.create_guardrails_config()
         mcp_scan_server = MCPScanServer(
@@ -680,6 +685,7 @@ def main():
         sys.exit(0)
     elif args.command == "mcp-server":
         from mcp_scan.mcp_server import mcp_server
+
         sys.exit(mcp_server(args))
     elif args.command == "install-mcp-server":
         from mcp_scan.mcp_server import install_mcp_server

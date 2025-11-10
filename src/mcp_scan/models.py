@@ -43,6 +43,10 @@ def entity_type_to_str(entity: Entity) -> str:
         raise ValueError(f"Unknown entity type: {type(entity)}")
 
 
+class StartMCPServerError(Exception):
+    pass
+
+
 class ScannedEntity(BaseModel):
     model_config = ConfigDict()
     hash: str
@@ -166,13 +170,15 @@ class UnknownMCPConfig(MCPConfig):
 
     This type intentionally resolves to an empty server set.
     """
+
     model_config = ConfigDict()
-    
+
     def get_servers(self) -> dict[str, StdioServer | RemoteServer]:
         return {}
-    
+
     def set_servers(self, servers: dict[str, StdioServer | RemoteServer]) -> None:
         pass
+
 
 class ScanError(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)

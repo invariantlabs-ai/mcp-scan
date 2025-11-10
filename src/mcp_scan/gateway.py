@@ -97,7 +97,7 @@ def uninstall_gateway(
         raise MCPServerIsNotGateway()
 
     assert isinstance(server.args, list), "args is not a list"
-    args, unknown = parser.parse_known_args(server.args[2:])
+    args, _ = parser.parse_known_args(server.args[2:])
     if server.env is None:
         new_env = None
     else:

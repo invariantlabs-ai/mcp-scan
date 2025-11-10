@@ -51,3 +51,6 @@ src/mcp_scan/todo.md
 *.env
 npm/package.json
 .cursor/
+
+# Snyk Security Extension - AI Rules (auto-generated)
+.cursor/rules/snyk_rules.mdc

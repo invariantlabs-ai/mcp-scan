@@ -1,6 +1,6 @@
-from .lib import inspect, scan
-from .MCPScanner import MCPScanner
-from .version import version_info
+from mcp_scan.lib import inspect, scan
+from mcp_scan.MCPScanner import MCPScanner
+from mcp_scan.version import version_info
 
 __all__ = ["MCPScanner", "inspect", "scan"]
 __version__ = version_info

@@ -6,9 +6,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from .MCPScanner import MCPScanner
-from .upload import upload as _upload
-from .utils import parse_headers
+from mcp_scan.MCPScanner import MCPScanner
+from mcp_scan.upload import upload as _upload
+from mcp_scan.utils import parse_headers
 
 if TYPE_CHECKING:
     from collections.abc import Sequence

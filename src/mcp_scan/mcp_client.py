@@ -5,7 +5,7 @@ import shutil
 import subprocess
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import AsyncContextManager, Literal  # noqa: UP035
+from typing import AsyncContextManager  # noqa: UP035
 
 import pyjson5
 from mcp import ClientSession, StdioServerParameters
@@ -25,8 +25,7 @@ from mcp_scan.models import (
     VSCodeConfigFile,
     VSCodeMCPConfig,
 )
-
-from .utils import rebalance_command_args
+from mcp_scan.utils import rebalance_command_args
 
 # Set up logger for this module
 logger = logging.getLogger(__name__)
@@ -45,11 +44,10 @@ def check_executable_exists(command: str) -> bool:
 
 def get_client(
     server_config: StdioServer | RemoteServer,
-    protocol: Literal["sse", "http", "stdio"],
     timeout: int | None = None,
     verbose: bool = False,
 ) -> AsyncContextManager:
-    if protocol == "sse":
+    if isinstance(server_config, RemoteServer) and server_config.type == "sse":
         logger.debug("Creating SSE client with URL: %s", server_config.url)
         return sse_client(
             url=server_config.url,
@@ -57,7 +55,7 @@ def get_client(
             # env=server_config.env, #Not supported by MCP yet, but present in vscode
             timeout=timeout,
         )
-    elif protocol == "http":
+    elif isinstance(server_config, RemoteServer) and server_config.type == "http":
         logger.debug(
             "Creating Streamable HTTP client with URL: %s with headers %s", server_config.url, server_config.headers
         )
@@ -67,7 +65,7 @@ def get_client(
             headers=server_config.headers,
             timeout=timeout,
         )
-    elif protocol == "stdio":
+    elif isinstance(server_config, StdioServer):
         logger.debug("Creating stdio client")
 
         # check if command points to an executable and wether it exists absolute or on the path
@@ -89,12 +87,11 @@ def get_client(
         )
         return stdio_client(server_params, errlog=subprocess.DEVNULL if not verbose else None)
     else:
-        raise ValueError(f"Invalid protocol: {protocol}")
+        raise ValueError(f"Invalid server config: {server_config}")
 
 
 async def check_server(
-    server_config: StdioServer | RemoteServer,
-    protocol: Literal["sse", "http", "stdio"],
+    server_config: StdioServer | RemoteServer | StaticToolsServer,
     timeout: int,
     suppress_mcpserver_io: bool,
 ) -> ServerSignature:
@@ -114,7 +111,7 @@ async def check_server(
                 tools=server_config.signature,
             )
 
-        async with get_client(server_config, protocol, timeout=timeout, verbose=verbose) as (read, write):
+        async with get_client(server_config, timeout=timeout, verbose=verbose) as (read, write):
             async with ClientSession(read, write) as session:
                 meta = await session.initialize()
                 logger.debug("Server initialized with metadata: %s", meta)
@@ -170,48 +167,36 @@ async def check_server(
 
 
 async def check_server_with_timeout(
-    server_config: StdioServer | RemoteServer,
+    server_config: StdioServer | RemoteServer | StaticToolsServer,
     timeout: int,
     suppress_mcpserver_io: bool,
 ) -> ServerSignature:
     logger.debug("Checking server with timeout: %s seconds", timeout)
-    retry = True
-    protocols_tried = []
-    while retry:
-        retry = False
-        try:
-            if isinstance(server_config, StdioServer) or (
-                isinstance(server_config, RemoteServer) and server_config.type is not None
-            ):
-                protocol = server_config.type
-            elif isinstance(server_config, RemoteServer) and server_config.type is None:
-                if "http" not in protocols_tried:
-                    protocol = "http"
-                    logger.debug("Remote server with no type, trying http")
-                else:
-                    protocol = "sse"
-                    logger.debug("Remote server with no type, trying sse")
-            elif isinstance(server_config, StaticToolsServer):
-                protocol = "tools"
-            protocols_tried.append(protocol)
+    try_sse = False
 
-            result = await asyncio.wait_for(
-                check_server(server_config, protocol, timeout, suppress_mcpserver_io), timeout
-            )
-            logger.debug("Server check completed within timeout")
-            return result
-        except asyncio.TimeoutError:
-            logger.exception("Server check timed out after %s seconds", timeout)
-            if (
-                isinstance(server_config, RemoteServer)
-                and server_config.type is None
-                and "http" in protocols_tried
-                and "sse" not in protocols_tried
-            ):
-                logger.debug("Scan with HTTP failed, retrying with SSE")
-                retry = True
-            else:
-                raise
+    if isinstance(server_config, RemoteServer) and server_config.type is None:
+        server_config.type = "http"
+        logger.debug("Remote server with no type, trying http")
+        try_sse = True
+
+    try:
+        result = await asyncio.wait_for(check_server(server_config, timeout, suppress_mcpserver_io), timeout)
+        logger.debug("Server check completed within timeout")
+        return result
+    except asyncio.TimeoutError:
+        if not try_sse:
+            raise
+        else:
+            logger.debug("Scan with HTTP failed, retrying with SSE")
+
+    server_config.type = "sse"
+    logger.debug("Remote server with no type, trying sse")
+    try:
+        result = await asyncio.wait_for(check_server(server_config, timeout, suppress_mcpserver_io), timeout)
+        logger.debug("Server check completed within timeout")
+        return result
+    except asyncio.TimeoutError:
+        raise
 
 
 async def scan_mcp_config_file(path: str) -> MCPConfig:

@@ -9,13 +9,20 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from httpx import HTTPStatusError
 
-from mcp_scan.models import Issue, RemoteServer, ScanError, ScanPathResult, ServerScanResult, StdioServer, UnknownMCPConfig
+from mcp_scan.direct_scanner import direct_scan, is_direct_scan
+from mcp_scan.mcp_client import check_server_with_timeout, scan_mcp_config_file
+from mcp_scan.models import (
+    Issue,
+    RemoteServer,
+    ScanError,
+    ScanPathResult,
+    ServerScanResult,
+    StdioServer,
+    UnknownMCPConfig,
+)
+from mcp_scan.Storage import Storage
+from mcp_scan.verify_api import analyze_machine
 from mcp_scan.well_known_clients import get_builtin_tools
-
-from .direct_scanner import direct_scan, is_direct_scan
-from .mcp_client import check_server_with_timeout, scan_mcp_config_file
-from .Storage import Storage
-from .verify_api import analyze_machine
 
 # Set up logger for this module
 logger = logging.getLogger(__name__)
@@ -296,7 +303,7 @@ class MCPScanner:
             additional_headers=self.additional_headers,
             opt_out_of_identity=self.opt_out_of_identity,
             skip_pushing=bool(self.control_servers),
-            verbose=self.verbose
+            verbose=self.verbose,
         )
         logger.debug("Result verified: %s", result_verified)
         logger.debug("Saving storage file")
