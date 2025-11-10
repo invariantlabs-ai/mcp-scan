@@ -21,7 +21,14 @@ from mcp_scan.models import StdioServer, UnknownMCPConfig
 
 
 @pytest.mark.parametrize(
-    "sample_config_file", [lf("claudestyle_config_file"), lf("vscode_mcp_config_file"), lf("vscode_config_file"), lf("vscode_settings_file_with_empty_mcp"), lf("vscode_settings_file_without_mcp")]
+    "sample_config_file",
+    [
+        lf("claudestyle_config_file"),
+        lf("vscode_mcp_config_file"),
+        lf("vscode_config_file"),
+        lf("vscode_settings_file_with_empty_mcp"),
+        lf("vscode_settings_file_without_mcp"),
+    ],
 )
 @pytest.mark.asyncio
 async def test_scan_mcp_config(sample_config_file):
@@ -152,6 +159,7 @@ async def test_weather_server():
             assert {r.name for r in signature.resources} == {"weathers"}
             assert {rt.name for rt in signature.resource_templates} == {"weather_description"}
 
+
 @pytest.mark.asyncio
 async def test_vscode_settings_file_without_mcp():
     path = "tests/mcp_servers/configs_files/vs_code_settings_file_without_mcp.json"
@@ -159,6 +167,7 @@ async def test_vscode_settings_file_without_mcp():
     assert isinstance(mcp_config, UnknownMCPConfig)
     servers = mcp_config.get_servers()
     assert len(servers) == 0
+
 
 @pytest.mark.asyncio
 async def test_vscode_settings_file_with_empty_mcp():

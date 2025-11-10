@@ -20,9 +20,11 @@ MAX_ENTITY_NAME_LENGTH = 25
 MAX_ENTITY_NAME_TOXIC_FLOW_LENGTH = 30
 
 
-def format_exception(e: Exception | None) -> tuple[str, rTraceback | None]:
+def format_exception(e: Exception | str | None) -> tuple[str, rTraceback | None]:
     if e is None:
         return "", None
+    if isinstance(e, str):
+        return e, None
     name = builtins.type(e).__name__
     message = str(e).strip()
     cause = getattr(e, "__cause__", None)
@@ -210,8 +212,10 @@ def format_global_issue(result: ScanPathResult, issue: Issue, show_all: bool = F
         for tool_reference in tool_references[: 3 if not show_all else None]:
             tool_tree.add(
                 _format_tool_name(
-                    result.servers[tool_reference.reference[0]].name or "",
-                    result.servers[tool_reference.reference[0]].signature.entities[tool_reference.reference[1]].name,
+                    result.servers[tool_reference.reference[0]].name if result.servers is not None else "",
+                    result.servers[tool_reference.reference[0]].signature.entities[tool_reference.reference[1]].name
+                    if result.servers is not None
+                    else "",
                     tool_reference.label_value,
                 )
             )
@@ -236,11 +240,11 @@ def print_scan_path_result(
             console.print(traceback)
         return
 
-    message = f"found {len(result.servers)} server{'' if len(result.servers) == 1 else 's'}"
+    message = f"found {len(result.servers or [])} server{'' if len(result.servers or []) == 1 else 's'}"
     rich.print(format_path_line(result.path, message))
     path_print_tree = Tree("│")
     server_tracebacks = []
-    for server_idx, server in enumerate(result.servers):
+    for server_idx, server in enumerate(result.servers or []):
         if server.error is not None:
             err_status, traceback = format_error(server.error)
             path_print_tree.add(format_servers_line(server.name or "", err_status))

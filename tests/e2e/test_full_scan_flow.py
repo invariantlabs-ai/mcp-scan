@@ -79,7 +79,17 @@ class TestFullScanFlow:
     )
     def test_scan(self, path, server_names):
         result = subprocess.run(
-            ["uv", "run", "-m", "src.mcp_scan.run", "scan", "--json", path, "--analysis-url", "https://api.dev.snyk.io/hidden/mcp-scan/analysis-machine?version=2025-09-07"],
+            [
+                "uv",
+                "run",
+                "-m",
+                "src.mcp_scan.run",
+                "scan",
+                "--json",
+                path,
+                "--analysis-url",
+                "https://api.dev.snyk.io/hidden/mcp-scan/analysis-machine?version=2025-09-07",
+            ],
             capture_output=True,
             text=True,
         )

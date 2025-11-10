@@ -108,3 +108,11 @@ quote-style = "double"
 indent-style = "space"
 skip-magic-trailing-comma = false
 line-ending = "auto"
+
+[tool.mypy]
+exclude = ["^src/mcp_scan_server/",]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "mcp_scan_server.*"
+ignore_errors = true

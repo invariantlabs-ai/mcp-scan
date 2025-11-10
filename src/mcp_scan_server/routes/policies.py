@@ -16,6 +16,7 @@ from invariant.analyzer.runtime.runtime_errors import (
 )
 from pydantic import ValidationError
 
+from mcp_scan_server.activity_logger import ActivityLogger, get_activity_logger
 from mcp_scan_server.models import (
     DEFAULT_GUARDRAIL_CONFIG,
     BatchCheckRequest,
@@ -25,7 +26,6 @@ from mcp_scan_server.models import (
     PolicyCheckResult,
 )
 from mcp_scan_server.parse_config import parse_config
-from mcp_scan_server.activity_logger import ActivityLogger, get_activity_logger
 from mcp_scan_server.session_store import SessionStore, to_session
 
 router = APIRouter()

@@ -89,6 +89,7 @@ def vscode_config_file(vscode_config):
         temp_file.flush()
         yield temp_file.name
 
+
 @pytest.fixture
 def vscode_settings_with_empty_mcp():
     """Sample VSCode settings.json with MCP config."""
@@ -109,6 +110,7 @@ def vscode_settings_file_with_empty_mcp(vscode_settings_with_empty_mcp):
         temp_file.flush()
         yield temp_file.name
 
+
 @pytest.fixture
 def vscode_settings_without_mcp():
     """Sample VSCode settings.json with MCP config."""
@@ -126,7 +128,6 @@ def vscode_settings_file_without_mcp(vscode_settings_without_mcp):
         temp_file.write(vscode_settings_without_mcp)
         temp_file.flush()
         yield temp_file.name
-
 
 
 @pytest.fixture

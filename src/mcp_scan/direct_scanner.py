@@ -4,11 +4,13 @@ Scans MCP servers directly from package, URL or provided tool signatures.
 
 import json
 import tempfile
+from collections.abc import Callable, Coroutine
+from typing import Any
 
 from mcp.types import Tool
 
 from mcp_scan.mcp_client import scan_mcp_config_file
-from mcp_scan.models import StaticToolsConfig, StaticToolsServer
+from mcp_scan.models import MCPConfig, StaticToolsConfig, StaticToolsServer
 
 SUPPORTED_TYPES = ["streamable-https", "streamable-http", "sse", "pypi", "npm", "oci", "nuget", "mcpb", "tools"]
 
@@ -131,7 +133,7 @@ async def scan_tools(path: str):
     return StaticToolsConfig(signature={server_name: StaticToolsServer(name=server_name, signature=tools)})
 
 
-SCANNERS = {
+SCANNERS: dict[str, Callable[..., Coroutine[Any, Any, MCPConfig]]] = {
     "streamable-https": scan_streamable_https,
     "streamable-http": scan_streamable_http,
     "npm": scan_npm,

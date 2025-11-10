@@ -26,6 +26,7 @@ from mcp_scan.well_known_clients import WELL_KNOWN_MCP_PATHS, client_shorthands_
 # Proxy-related imports (require [proxy] extra)
 _PROXY_AVAILABLE = None
 
+
 def check_proxy_dependencies():
     """Check if proxy dependencies are installed and return True if available."""
     global _PROXY_AVAILABLE
@@ -35,11 +36,13 @@ def check_proxy_dependencies():
     try:
         import invariant  # noqa: F401
         import invariant_sdk  # noqa: F401
+
         _PROXY_AVAILABLE = True
         return True
     except ImportError:
         _PROXY_AVAILABLE = False
         return False
+
 
 def require_proxy_dependencies(command_name: str):
     """
@@ -52,6 +55,7 @@ def require_proxy_dependencies(command_name: str):
         rich.print(f"[bold red]Error:[/bold red] The '{command_name}' command requires proxy dependencies.")
         rich.print("Please use the optional [bold cyan][proxy][/bold cyan] extra to install the dependencies.")
         sys.exit(1)
+
 
 # Configure logging to suppress all output by default
 logging.getLogger().setLevel(logging.CRITICAL + 1)  # Higher than any standard level
@@ -359,6 +363,7 @@ def install_extras(args):
     if hasattr(args, "install_extras") and args.install_extras:
         require_proxy_dependencies("install_extras")
         from invariant.__main__ import add_extra
+
         add_extra(*args.install_extras, "-y")
 
 
@@ -620,7 +625,8 @@ def main():
         await installer.uninstall(verbose=True)
 
     def server(on_exit=None):
-        from mcp_scan_server.server import MCPScanServer
+        from mcp_scan_server.server import MCPScanServer  # type: ignore
+
         sf = Storage(args.storage_file)
         guardrails_config_path = sf.create_guardrails_config()
         mcp_scan_server = MCPScanServer(
@@ -679,6 +685,7 @@ def main():
         sys.exit(0)
     elif args.command == "mcp-server":
         from mcp_scan.mcp_server import mcp_server
+
         sys.exit(mcp_server(args))
     elif args.command == "install-mcp-server":
         from mcp_scan.mcp_server import install_mcp_server

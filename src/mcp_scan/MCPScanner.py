@@ -303,7 +303,7 @@ class MCPScanner:
             additional_headers=self.additional_headers,
             opt_out_of_identity=self.opt_out_of_identity,
             skip_pushing=bool(self.control_servers),
-            verbose=self.verbose
+            verbose=self.verbose,
         )
         logger.debug("Result verified: %s", result_verified)
         logger.debug("Saving storage file")
