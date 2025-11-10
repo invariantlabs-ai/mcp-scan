@@ -21,7 +21,9 @@ def test_session_node_ordering(some_date: datetime.datetime):
         create_timestamped_node(some_date - datetime.timedelta(seconds=1)),
         create_timestamped_node(some_date - datetime.timedelta(seconds=2)),
     ]
-    session_nodes.sort()
+    session_nodes.sort(
+        
+    )
     assert session_nodes[0].timestamp < session_nodes[1].timestamp
     assert session_nodes[1].timestamp < session_nodes[2].timestamp
 

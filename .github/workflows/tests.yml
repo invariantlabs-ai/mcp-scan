@@ -8,6 +8,16 @@ on:
   workflow_dispatch:
 
 jobs:
+  pre-commit:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Install the latest version of uv
+      uses: astral-sh/setup-uv@v6
+    - name: Create venv
+      run: uv venv
+    - name: Run pre-commit hooks
+      run: make pre-commit
   test:
     runs-on: ${{ matrix.os }}
     strategy:
