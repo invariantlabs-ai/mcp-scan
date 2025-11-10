@@ -8,7 +8,7 @@ import yaml  # type: ignore
 from filelock import FileLock
 from pydantic import ValidationError
 
-from .models import Entity, ScannedEntities, ScannedEntity, entity_type_to_str, hash_entity
+from mcp_scan.models import Entity, ScannedEntities, ScannedEntity, entity_type_to_str, hash_entity
 
 try:
     from mcp_scan_server.models import DEFAULT_GUARDRAIL_CONFIG, GuardrailConfigFile
@@ -28,7 +28,7 @@ class Storage:
         logger.debug("Expanded path: %s", self.path)
         self.scanned_entities: ScannedEntities = ScannedEntities({})
         self.whitelist: dict[str, str] = {}
-        
+
         if GuardrailConfigFile is not None:
             self.guardrails_config: GuardrailConfigFile = GuardrailConfigFile()
         else:

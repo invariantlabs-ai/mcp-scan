@@ -6,12 +6,11 @@ import rich
 import uvicorn
 from fastapi import FastAPI, Response
 
+from mcp_scan.routes.policies import router as policies_router  # type: ignore
+from mcp_scan.routes.push import router as push_router
+from mcp_scan.routes.trace import router as dataset_trace_router
+from mcp_scan.routes.user import router as user_router
 from mcp_scan_server.activity_logger import setup_activity_logger  # type: ignore
-
-from .routes.policies import router as policies_router  # type: ignore
-from .routes.push import router as push_router
-from .routes.trace import router as dataset_trace_router
-from .routes.user import router as user_router
 
 
 class MCPScanServer:
@@ -68,7 +67,7 @@ class MCPScanServer:
         # setup activity logger
         setup_activity_logger(self.app, pretty=self.pretty)
 
-        from .routes.policies import load_guardrails_config_file
+        from mcp_scan.routes.policies import load_guardrails_config_file
 
         await load_guardrails_config_file(self.config_file_path)
 

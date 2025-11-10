@@ -15,14 +15,13 @@ import psutil
 import rich
 from rich.logging import RichHandler
 
+from mcp_scan.MCPScanner import MCPScanner
+from mcp_scan.printer import print_scan_result
+from mcp_scan.Storage import Storage
 from mcp_scan.upload import upload
-
-from .MCPScanner import MCPScanner
-from .printer import print_scan_result
-from .Storage import Storage
-from .utils import parse_headers
-from .version import version_info
-from .well_known_clients import WELL_KNOWN_MCP_PATHS, client_shorthands_to_paths
+from mcp_scan.utils import parse_headers
+from mcp_scan.version import version_info
+from mcp_scan.well_known_clients import WELL_KNOWN_MCP_PATHS, client_shorthands_to_paths
 
 # Proxy-related imports (require [proxy] extra)
 _PROXY_AVAILABLE = None
@@ -32,7 +31,7 @@ def check_proxy_dependencies():
     global _PROXY_AVAILABLE
     if _PROXY_AVAILABLE is not None:
         return _PROXY_AVAILABLE
-    
+
     try:
         import invariant  # noqa: F401
         import invariant_sdk  # noqa: F401
@@ -45,7 +44,7 @@ def check_proxy_dependencies():
 def require_proxy_dependencies(command_name: str):
     """
     Raise an error if proxy dependencies are not installed.
-    
+
     Args:
         command_name: Name of the command that requires proxy dependencies
     """
@@ -593,7 +592,7 @@ def main():
     async def install():
         require_proxy_dependencies("install-proxy")
         from mcp_scan.gateway import MCPGatewayConfig, MCPGatewayInstaller
-        
+
         try:
             check_install_args(args)
         except argparse.ArgumentError as e:
@@ -616,7 +615,7 @@ def main():
     async def uninstall():
         require_proxy_dependencies("uninstall-proxy")
         from mcp_scan.gateway import MCPGatewayInstaller
-        
+
         installer = MCPGatewayInstaller(paths=args.files)
         await installer.uninstall(verbose=True)
 

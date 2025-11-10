@@ -1,21 +1,21 @@
+import asyncio
+import getpass
 import logging
 import os
 import ssl
 
-import getpass
-import asyncio
 import aiohttp
 import certifi
-from mcp_scan.well_known_clients import get_client_from_path
+import rich
 
-from .identity import IdentityManager
-from .models import (
+from mcp_scan.identity import IdentityManager
+from mcp_scan.models import (
     ScanError,
     ScanPathResult,
-    ScanUserInfo,
     ScanPathResultsCreate,
+    ScanUserInfo,
 )
-import rich
+from mcp_scan.well_known_clients import get_client_from_path
 
 logger = logging.getLogger(__name__)
 identity_manager = IdentityManager()

@@ -167,10 +167,10 @@ class UnknownMCPConfig(MCPConfig):
     This type intentionally resolves to an empty server set.
     """
     model_config = ConfigDict()
-    
+
     def get_servers(self) -> dict[str, StdioServer | RemoteServer]:
         return {}
-    
+
     def set_servers(self, servers: dict[str, StdioServer | RemoteServer]) -> None:
         pass
 

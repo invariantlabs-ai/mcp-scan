@@ -6,7 +6,15 @@ from rich.text import Text
 from rich.traceback import Traceback as rTraceback
 from rich.tree import Tree
 
-from .models import Entity, Issue, ScanError, ScanPathResult, ToxicFlowExtraData, entity_type_to_str, hash_entity
+from mcp_scan.models import (
+    Entity,
+    Issue,
+    ScanError,
+    ScanPathResult,
+    ToxicFlowExtraData,
+    entity_type_to_str,
+    hash_entity,
+)
 
 MAX_ENTITY_NAME_LENGTH = 25
 MAX_ENTITY_NAME_TOXIC_FLOW_LENGTH = 30

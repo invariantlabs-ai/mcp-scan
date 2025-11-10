@@ -1,10 +1,10 @@
 import asyncio
+import getpass
 import logging
 import os
-import getpass
 
-import rich
 import aiohttp
+import rich
 
 from mcp_scan.identity import IdentityManager
 from mcp_scan.models import ScanPathResult, ScanPathResultsCreate, ScanUserInfo

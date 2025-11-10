@@ -25,8 +25,7 @@ from mcp_scan.models import (
     VSCodeConfigFile,
     VSCodeMCPConfig,
 )
-
-from .utils import rebalance_command_args
+from mcp_scan.utils import rebalance_command_args
 
 # Set up logger for this module
 logger = logging.getLogger(__name__)
