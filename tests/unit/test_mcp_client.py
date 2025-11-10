@@ -91,7 +91,7 @@ async def test_check_server_mocked(mock_stdio_client):
     # Test function with mocks
     with patch("mcp_scan.mcp_client.ClientSession", MockClientSession):
         server = StdioServer(command="mcp", args=["run", "some_file.py"])
-        signature = await check_server(server, server.type, 2, True)
+        signature = await check_server(server, 2, True)
 
     # Verify the results
     assert len(signature.prompts) == 2
