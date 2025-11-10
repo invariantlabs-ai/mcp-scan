@@ -35,6 +35,7 @@ ci: ci-static ci-proxy
 
 pre-commit:
 	uv sync
+	uv pip install pre-commit
 	uv run pre-commit run --all-files
 
 clean:

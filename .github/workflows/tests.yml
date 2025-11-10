@@ -11,13 +11,9 @@ jobs:
   pre-commit:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - name: Install the latest version of uv
-      uses: astral-sh/setup-uv@v6
-    - name: Create venv
-      run: uv venv
-    - name: Run pre-commit hooks
-      run: make pre-commit
+    - uses: actions/checkout@v3
+    - uses: actions/setup-python@v3
+    - uses: pre-commit/action@v3.0.1
   test:
     runs-on: ${{ matrix.os }}
     strategy:
