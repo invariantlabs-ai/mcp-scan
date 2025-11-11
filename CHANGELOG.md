@@ -44,3 +44,4 @@
 - `0.3.26` Now pushing agent configurations once for the full machine, not once per agent
 - `0.3.27` Comability updated for new server version and new python version
 - `0.3.28` Support unknown MCP configurations
+- `0.3.29` Add `evo` command to push scan results to Snyk Evo
