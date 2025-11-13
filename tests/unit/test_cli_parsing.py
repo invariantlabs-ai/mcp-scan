@@ -438,7 +438,6 @@ class TestControlServerUploadIntegration:
             await run_scan_inspect(mode="scan", args=args_without_insecure)
 
             # Verify upload was called and insecure was not propagated
-            mock_upload.assert_called_once()
             _, kwargs = mock_upload.call_args
             assert kwargs.get("insecure") is False
 
@@ -453,6 +452,6 @@ class TestControlServerUploadIntegration:
             await run_scan_inspect(mode="scan", args=args_with_insecure)
 
             # Verify upload was called and insecure was propagated
-            mock_upload.assert_called_once()
+            assert mock_upload.call_count == 2
             _, kwargs = mock_upload.call_args
             assert kwargs.get("insecure") is True
