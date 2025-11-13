@@ -793,9 +793,9 @@ async def run_scan_inspect(mode="scan", args=None):
                 server_config["url"],
                 server_config["identifier"],
                 server_config["opt_out"],
-                verbose=hasattr(args, "verbose") and args.verbose,
+                verbose=getattr(args, "verbose", False),
                 additional_headers=parse_headers(server_config["headers"]),
-                insecure=args.insecure,
+                insecure=getattr(args, "insecure", False),
             )
     return result
 
