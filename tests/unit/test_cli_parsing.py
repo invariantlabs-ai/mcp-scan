@@ -407,3 +407,52 @@ class TestControlServerUploadIntegration:
 
             # Verify upload was not called
             mock_upload.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_upload_with_insecure(self):
+        """Test that upload is called with insecure option."""
+        from argparse import Namespace
+
+        from mcp_scan.cli import run_scan_inspect
+
+        mock_result = ScanPathResult(path="/test/path")
+
+        with patch("mcp_scan.cli.MCPScanner") as MockScanner, patch("mcp_scan.cli.upload") as mock_upload:
+            # Setup scanner mock
+            mock_scanner_instance = AsyncMock()
+            mock_scanner_instance.scan = AsyncMock(return_value=[mock_result])
+            mock_scanner_instance.__aenter__ = AsyncMock(return_value=mock_scanner_instance)
+            mock_scanner_instance.__aexit__ = AsyncMock(return_value=None)
+            MockScanner.return_value = mock_scanner_instance
+
+            # Setup upload mock
+            mock_upload.return_value = None
+
+            # Create args with a control server and without the insecure option
+            args_without_insecure = Namespace(
+                verification_H=None,
+                control_servers=[{"url": "https://server1.com", "headers": [], "identifier": None, "opt_out": False}],
+            )
+
+            # Run the scan
+            await run_scan_inspect(mode="scan", args=args_without_insecure)
+
+            # Verify upload was called and insecure was not propagated
+            mock_upload.assert_called_once()
+            _, kwargs = mock_upload.call_args
+            assert kwargs.get("insecure") is False
+
+            # Create args with a control server and insecure option
+            args_with_insecure = Namespace(
+                verification_H=None,
+                control_servers=[{"url": "https://server1.com", "headers": [], "identifier": None, "opt_out": False}],
+                insecure=True,
+            )
+
+            # Run the scan
+            await run_scan_inspect(mode="scan", args=args_with_insecure)
+
+            # Verify upload was called and insecure was propagated
+            mock_upload.assert_called_once()
+            _, kwargs = mock_upload.call_args
+            assert kwargs.get("insecure") is True

@@ -76,6 +76,7 @@ class MCPScanner:
         verbose: bool = False,
         additional_headers: dict | None = None,
         control_servers: list | None = None,
+        insecure: bool = False,
         **kwargs: Any,
     ):
         logger.info("Initializing MCPScanner")
@@ -94,6 +95,7 @@ class MCPScanner:
         self.include_built_in = include_built_in
         self.control_servers = control_servers
         self.verbose = verbose
+        self.insecure = insecure
         logger.debug(
             "MCPScanner initialized with timeout: %d, checks_per_server: %d", server_timeout, checks_per_server
         )
@@ -304,6 +306,7 @@ class MCPScanner:
             opt_out_of_identity=self.opt_out_of_identity,
             skip_pushing=bool(self.control_servers),
             verbose=self.verbose,
+            insecure=self.insecure,
         )
         logger.debug("Result verified: %s", result_verified)
         logger.debug("Saving storage file")

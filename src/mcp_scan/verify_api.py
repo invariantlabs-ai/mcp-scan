@@ -103,10 +103,17 @@ def setup_aiohttp_debug_logging(verbose: bool) -> list[aiohttp.TraceConfig]:
     return [trace_config]
 
 
-def setup_tcp_connector() -> aiohttp.TCPConnector:
+def setup_tcp_connector(insecure: bool = False) -> aiohttp.TCPConnector:
     """
-    Setup a TCP connector with a default SSL context and cleanup enabled.
+    Setup a TCP connector with SSL settings.
+
+    When insecure is True, disable SSL verification and hostname checking.
+    Otherwise, use a secure default SSL context with certifi CA and TLSv1.2+.
     """
+    if insecure:
+        # Disable SSL verification at the connector level
+        return aiohttp.TCPConnector(ssl=False, enable_cleanup_closed=True)
+
     ssl_context = ssl.create_default_context(cafile=certifi.where())
     ssl_context.minimum_version = ssl.TLSVersion.TLSv1_2
     connector = aiohttp.TCPConnector(ssl=ssl_context, enable_cleanup_closed=True)
@@ -145,6 +152,7 @@ async def analyze_machine(
     verbose: bool = False,
     skip_pushing: bool = False,
     max_retries: int = 3,
+    insecure: bool = False,
 ) -> list[ScanPathResult]:
     """
     Analyze the scan paths with the analysis server.
@@ -158,6 +166,7 @@ async def analyze_machine(
         verbose: Whether to enable verbose logging
         skip_pushing: Whether to skip pushing the scan to the platform
         max_retries: Maximum number of retry attempts
+        insecure: Whether to skip SSL verification
     """
     logger.debug(f"Analyzing scan path with URL: {analysis_url}")
     user_info = get_user_info(identifier=identifier, opt_out=opt_out_of_identity)
@@ -179,7 +188,10 @@ async def analyze_machine(
 
     for attempt in range(max_retries):
         try:
-            async with aiohttp.ClientSession(trace_configs=trace_configs, connector=setup_tcp_connector()) as session:
+            async with aiohttp.ClientSession(
+                trace_configs=trace_configs,
+                connector=setup_tcp_connector(insecure=insecure),
+            ) as session:
                 async with session.post(
                     analysis_url,
                     data=payload.model_dump_json(),
