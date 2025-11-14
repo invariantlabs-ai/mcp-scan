@@ -45,3 +45,4 @@
 - `0.3.27` Comability updated for new server version and new python version
 - `0.3.28` Support unknown MCP configurations
 - `0.3.29` Add `evo` command to push scan results to Snyk Evo
+- `0.3.30` Add `--skip-ssl-verify` flag to skip SSL cert verification
