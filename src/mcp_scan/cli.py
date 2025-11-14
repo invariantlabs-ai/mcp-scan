@@ -212,6 +212,12 @@ def add_common_arguments(parser):
         default=False,
         help="Output results in JSON format instead of rich text",
     )
+    parser.add_argument(
+        "--insecure",
+        default=False,
+        action="store_true",
+        help="Disable SSL certificate verification",
+    )
 
 
 def add_server_arguments(parser):
@@ -787,8 +793,9 @@ async def run_scan_inspect(mode="scan", args=None):
                 server_config["url"],
                 server_config["identifier"],
                 server_config["opt_out"],
-                verbose=hasattr(args, "verbose") and args.verbose,
+                verbose=getattr(args, "verbose", False),
                 additional_headers=parse_headers(server_config["headers"]),
+                insecure=getattr(args, "insecure", False),
             )
     return result
 
