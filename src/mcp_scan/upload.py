@@ -61,7 +61,7 @@ async def upload(
     verbose: bool = False,
     additional_headers: dict | None = None,
     max_retries: int = 3,
-    insecure: bool = False,
+    skip_ssl_verify: bool = False,
 ) -> None:
     """
     Upload the scan results to the control server with retry logic.
@@ -74,7 +74,7 @@ async def upload(
         verbose: Whether to enable verbose logging
         additional_headers: Additional HTTP headers to send
         max_retries: Maximum number of retry attempts (default: 3)
-        insecure: Whether to disable SSL certificate verification (default: False)
+        skip_ssl_verify: Whether to disable SSL certificate verification (default: False)
     """
     if not results:
         logger.info("No scan results to upload")
@@ -104,7 +104,7 @@ async def upload(
         try:
             async with aiohttp.ClientSession(
                 trace_configs=trace_configs,
-                connector=setup_tcp_connector(insecure=insecure),
+                connector=setup_tcp_connector(skip_ssl_verify=skip_ssl_verify),
             ) as session:
                 headers = {"Content-Type": "application/json"}
                 headers.update(additional_headers)

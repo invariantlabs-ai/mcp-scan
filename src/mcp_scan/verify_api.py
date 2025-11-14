@@ -103,14 +103,14 @@ def setup_aiohttp_debug_logging(verbose: bool) -> list[aiohttp.TraceConfig]:
     return [trace_config]
 
 
-def setup_tcp_connector(insecure: bool = False) -> aiohttp.TCPConnector:
+def setup_tcp_connector(skip_ssl_verify: bool = False) -> aiohttp.TCPConnector:
     """
     Setup a TCP connector with SSL settings.
 
-    When insecure is True, disable SSL verification and hostname checking.
+    When skip_ssl_verify is True, disable SSL verification and hostname checking.
     Otherwise, use a secure default SSL context with certifi CA and TLSv1.2+.
     """
-    if insecure:
+    if skip_ssl_verify:
         # Disable SSL verification at the connector level
         return aiohttp.TCPConnector(ssl=False, enable_cleanup_closed=True)
 
@@ -152,7 +152,7 @@ async def analyze_machine(
     verbose: bool = False,
     skip_pushing: bool = False,
     max_retries: int = 3,
-    insecure: bool = False,
+    skip_ssl_verify: bool = False,
 ) -> list[ScanPathResult]:
     """
     Analyze the scan paths with the analysis server.
@@ -166,7 +166,7 @@ async def analyze_machine(
         verbose: Whether to enable verbose logging
         skip_pushing: Whether to skip pushing the scan to the platform
         max_retries: Maximum number of retry attempts
-        insecure: Whether to skip SSL verification
+        skip_ssl_verify: Whether to skip SSL verification
     """
     logger.debug(f"Analyzing scan path with URL: {analysis_url}")
     user_info = get_user_info(identifier=identifier, opt_out=opt_out_of_identity)
@@ -190,7 +190,7 @@ async def analyze_machine(
         try:
             async with aiohttp.ClientSession(
                 trace_configs=trace_configs,
-                connector=setup_tcp_connector(insecure=insecure),
+                connector=setup_tcp_connector(skip_ssl_verify=skip_ssl_verify),
             ) as session:
                 async with session.post(
                     analysis_url,
