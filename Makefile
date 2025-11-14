@@ -33,6 +33,11 @@ ci-proxy:
 
 ci: ci-static ci-proxy
 
+pre-commit:
+	uv sync
+	uv pip install pre-commit
+	uv run pre-commit run --all-files
+
 clean:
 	rm -rf ./dist
 	rm -rf ./mcp_scan/mcp_scan.egg-info
