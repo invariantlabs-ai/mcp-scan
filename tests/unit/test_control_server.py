@@ -158,10 +158,13 @@ async def test_upload_includes_scan_error_in_payload():
     server = ServerScanResult(name="server1", server=StdioServer(command="echo"))
     scan_error_message = "something went wrong"
     exception_message = "could not start server"
+    traceback = "traceback"
     path_result_with_error = ScanPathResult(
         path="/test/path",
         servers=[server],
-        error=ScanError(message=scan_error_message, exception=Exception(exception_message), is_failure=True),
+        error=ScanError(
+            message=scan_error_message, exception=Exception(exception_message), traceback=traceback, is_failure=True
+        ),
     )
 
     with patch("mcp_scan.upload.get_user_info") as mock_get_user_info:
@@ -199,6 +202,7 @@ async def test_upload_includes_scan_error_in_payload():
             assert scan_error_message in sent_result["error"].get("message")
             assert exception_message in sent_result["error"].get("exception")
             assert sent_result["error"]["is_failure"] is True
+            assert sent_result["error"]["traceback"] == traceback
 
 
 @pytest.mark.asyncio

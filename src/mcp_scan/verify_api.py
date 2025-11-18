@@ -3,6 +3,7 @@ import getpass
 import logging
 import os
 import ssl
+import traceback
 
 import aiohttp
 import certifi
@@ -215,7 +216,9 @@ async def analyze_machine(
                 logger.warning(error_text)
                 for scan_path in scan_paths:
                     if scan_path.servers is not None and scan_path.error is None:
-                        scan_path.error = ScanError(message=error_text, exception=e, is_failure=True)
+                        scan_path.error = ScanError(
+                            message=error_text, exception=e, traceback=traceback.format_exc(), is_failure=True
+                        )
                 return scan_paths
 
         except RuntimeError as e:
@@ -240,6 +243,7 @@ async def analyze_machine(
             scan_path.error = ScanError(
                 message=f"Tried calling verification api {max_retries} times. Could not reach analysis server. Last error: {error_text}",
                 exception=None,
+                traceback=traceback.format_exc(),
                 is_failure=True,
             )
     return scan_paths

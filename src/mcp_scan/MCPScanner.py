@@ -2,6 +2,7 @@ import asyncio
 import logging
 import os
 import re
+import traceback
 from collections import defaultdict
 from collections.abc import Callable
 from typing import Any
@@ -150,11 +151,11 @@ class MCPScanner:
             error_msg = f"resource {path} not found" if is_direct_scan(path) else f"file {path} does not exist"
             logger.exception("%s: %s", error_msg, path)
             # This is a non failing error, so we set is_failure to False.
-            result.error = ScanError(message=error_msg, exception=e, is_failure=False)
+            result.error = ScanError(message=error_msg, exception=e, traceback=traceback.format_exc(), is_failure=False)
         except Exception as e:
             error_msg = f"could not scan {path}" if is_direct_scan(path) else f"could not parse file {path}"
             logger.exception("%s: %s", error_msg, path)
-            result.error = ScanError(message=error_msg, exception=e, is_failure=True)
+            result.error = ScanError(message=error_msg, exception=e, traceback=traceback.format_exc(), is_failure=True)
         return result
 
     def check_server_changed(self, path_result: ScanPathResult) -> list[Issue]:
@@ -217,11 +218,11 @@ class MCPScanner:
         except HTTPStatusError as e:
             error_msg = "server returned HTTP status code"
             logger.exception("%s: %s", error_msg, server.name)
-            result.error = ScanError(message=error_msg, exception=e, is_failure=True)
+            result.error = ScanError(message=error_msg, exception=e, traceback=traceback.format_exc(), is_failure=True)
         except Exception as e:
             error_msg = "could not start server"
             logger.exception("%s: %s", error_msg, server.name)
-            result.error = ScanError(message=error_msg, exception=e, is_failure=True)
+            result.error = ScanError(message=error_msg, exception=e, traceback=traceback.format_exc(), is_failure=True)
         await self.emit("server_scanned", result)
         return result
 
