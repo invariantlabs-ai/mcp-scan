@@ -288,6 +288,7 @@ class MCPScanner:
 
     async def scan(self) -> list[ScanPathResult]:
         logger.info("Starting scan of %d paths", len(self.paths))
+        scan_start_time = time.perf_counter()
         if self.context_manager is not None:
             self.context_manager.disable()
 
@@ -302,7 +303,6 @@ class MCPScanner:
             result_awaited = await asyncio.gather(*result)
 
         logger.debug("Calling Backend")
-        time_start = time.perf_counter()
         result_verified = await analyze_machine(
             result_awaited,
             analysis_url=self.analysis_url,
@@ -313,7 +313,7 @@ class MCPScanner:
             verbose=self.verbose,
             skip_ssl_verify=self.skip_ssl_verify,
         )
-        self.scan_context["scan_time_seconds"] = time.perf_counter() - time_start
+        self.scan_context["scan_time_milliseconds"] = (time.perf_counter() - scan_start_time) * 1000
 
         logger.debug("Result verified: %s", result_verified)
         logger.debug("Saving storage file")
