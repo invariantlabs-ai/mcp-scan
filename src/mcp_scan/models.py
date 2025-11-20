@@ -184,6 +184,7 @@ class ScanError(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
     message: str | None = None
     exception: Exception | str | None = None
+    traceback: str | None = None
     is_failure: bool = True
 
     @field_serializer("exception")
@@ -202,6 +203,7 @@ class ScanError(BaseModel):
         return ScanError(
             message=self.message,
             exception=self.exception,
+            traceback=self.traceback,
             is_failure=self.is_failure,
         )
 
