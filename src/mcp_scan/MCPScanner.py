@@ -2,6 +2,7 @@ import asyncio
 import logging
 import os
 import re
+import time
 import traceback
 from collections import defaultdict
 from collections.abc import Callable
@@ -78,6 +79,7 @@ class MCPScanner:
         additional_headers: dict | None = None,
         control_servers: list | None = None,
         skip_ssl_verify: bool = False,
+        scan_context: dict | None = None,
         **kwargs: Any,
     ):
         logger.info("Initializing MCPScanner")
@@ -97,6 +99,7 @@ class MCPScanner:
         self.control_servers = control_servers
         self.verbose = verbose
         self.skip_ssl_verify = skip_ssl_verify
+        self.scan_context = scan_context if scan_context is not None else {}
         logger.debug(
             "MCPScanner initialized with timeout: %d, checks_per_server: %d", server_timeout, checks_per_server
         )
@@ -299,6 +302,7 @@ class MCPScanner:
             result_awaited = await asyncio.gather(*result)
 
         logger.debug("Calling Backend")
+        time_start = time.perf_counter()
         result_verified = await analyze_machine(
             result_awaited,
             analysis_url=self.analysis_url,
@@ -309,6 +313,8 @@ class MCPScanner:
             verbose=self.verbose,
             skip_ssl_verify=self.skip_ssl_verify,
         )
+        self.scan_context["scan_time_seconds"] = time.perf_counter() - time_start
+
         logger.debug("Result verified: %s", result_verified)
         logger.debug("Saving storage file")
         self.storage_file.save()

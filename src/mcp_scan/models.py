@@ -375,3 +375,4 @@ class AnalysisServerResponse(BaseModel):
 class ScanPathResultsCreate(BaseModel):
     scan_path_results: list[ScanPathResult]
     scan_user_info: ScanUserInfo
+    scan_metadata: dict[str, Any] | None = None
