@@ -19,7 +19,7 @@ from rich.logging import RichHandler
 from mcp_scan.MCPScanner import MCPScanner
 from mcp_scan.printer import print_scan_result
 from mcp_scan.Storage import Storage
-from mcp_scan.upload import upload
+from mcp_scan.upload import get_hostname, upload
 from mcp_scan.utils import parse_headers
 from mcp_scan.version import version_info
 from mcp_scan.well_known_clients import WELL_KNOWN_MCP_PATHS, client_shorthands_to_paths
@@ -712,6 +712,7 @@ def main():
         parser.print_help()
         sys.exit(1)
 
+
 async def evo(args):
     """
     Pushes the scan results to the Evo API.
@@ -721,13 +722,15 @@ async def evo(args):
     3. Revokes the client_id
     """
 
-    rich.print(f"Go to https://app.snyk.io and select the tenant on the left nav bar. Copy the Tenant ID from the URL and paste it here: ")
+    rich.print(
+        "Go to https://app.snyk.io and select the tenant on the left nav bar. Copy the Tenant ID from the URL and paste it here: "
+    )
     tenant_id = input().strip()
-    rich.print(f"Paste the Authorization token from https://app.snyk.io/account (API Token -> KEY -> click to show): ")
+    rich.print("Paste the Authorization token from https://app.snyk.io/account (API Token -> KEY -> click to show): ")
     token = input().strip()
 
     push_key_url = f"https://api.snyk.io/hidden/tenants/{tenant_id}/mcp-scan/push-key?version=2025-08-28"
-    push_scan_url = f"https://api.snyk.io/hidden/mcp-scan/push?version=2025-08-28"
+    push_scan_url = "https://api.snyk.io/hidden/mcp-scan/push?version=2025-08-28"
 
     # create a client_id (shared secret)
     client_id = None
@@ -743,18 +746,18 @@ async def evo(args):
                 if not client_id:
                     rich.print(f"[bold red]Unexpected response[/bold red]: {data}")
                     return
-                rich.print(f"Client ID created")
+                rich.print("Client ID created")
     except Exception as e:
         rich.print(f"[bold red]Error calling Snyk API[/bold red]: {e}")
         return
 
     # Update the default scan args
-    args.control_servers=[
+    args.control_servers = [
         {
             "url": push_scan_url,
-            "identifier": None,
+            "identifier": get_hostname() or None,
             "opt_out": False,
-            "headers": [f"x-client-id:{client_id}"]
+            "headers": [f"x-client-id:{client_id}"],
         }
     ]
     await run_scan_inspect(mode="scan", args=args)
@@ -777,7 +780,12 @@ async def evo(args):
 
 
 async def run_scan_inspect(mode="scan", args=None):
-    async with MCPScanner(additional_headers=parse_headers(args.verification_H), **vars(args)) as scanner:
+    # Initialize scan_context dict that can be populated during scanning
+    scan_context = {"cli_version": version_info}
+
+    async with MCPScanner(
+        additional_headers=parse_headers(args.verification_H), scan_context=scan_context, **vars(args)
+    ) as scanner:
         if mode == "scan":
             result = await scanner.scan()
         elif mode == "inspect":
@@ -796,6 +804,7 @@ async def run_scan_inspect(mode="scan", args=None):
                 verbose=getattr(args, "verbose", False),
                 additional_headers=parse_headers(server_config["headers"]),
                 skip_ssl_verify=getattr(args, "skip_ssl_verify", False),
+                scan_context=scan_context,
             )
     return result
 

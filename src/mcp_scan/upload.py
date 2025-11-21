@@ -62,6 +62,7 @@ async def upload(
     additional_headers: dict | None = None,
     max_retries: int = 3,
     skip_ssl_verify: bool = False,
+    scan_context: dict | None = None,
 ) -> None:
     """
     Upload the scan results to the control server with retry logic.
@@ -75,6 +76,7 @@ async def upload(
         additional_headers: Additional HTTP headers to send
         max_retries: Maximum number of retry attempts (default: 3)
         skip_ssl_verify: Whether to disable SSL certificate verification (default: False)
+        scan_context: Optional dict containing scan context metadata to include in upload
     """
     if not results:
         logger.info("No scan results to upload")
@@ -94,7 +96,11 @@ async def upload(
         result.client = get_client_from_path(result.path) or result.client or result.path
         results_with_servers.append(result)
 
-    payload = ScanPathResultsCreate(scan_path_results=results_with_servers, scan_user_info=user_info)
+    payload = ScanPathResultsCreate(
+        scan_path_results=results_with_servers,
+        scan_user_info=user_info,
+        scan_metadata=scan_context if scan_context else None,
+    )
 
     last_exception = None
     trace_configs = setup_aiohttp_debug_logging(verbose=verbose)
