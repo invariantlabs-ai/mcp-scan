@@ -207,9 +207,7 @@ class MCPScanner:
         logger.info("Scanning server: %s", server.name)
         result = server.clone()
         try:
-            result.signature = await check_server(
-                server.server, self.server_timeout, self.suppress_mcpserver_io
-            )
+            result.signature = await check_server(server.server, self.server_timeout, self.suppress_mcpserver_io)
             logger.debug(
                 "Server %s has %d prompts, %d resources, %d resouce templates,  %d tools",
                 server.name,

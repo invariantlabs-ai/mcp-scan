@@ -3,11 +3,11 @@ import logging
 import os
 import shutil
 import subprocess
+import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import AsyncContextManager  # noqa: UP035
 from urllib.parse import urlparse
-import sys
 
 import pyjson5
 from mcp import ClientSession, StdioServerParameters
@@ -175,7 +175,6 @@ async def check_server(
 ) -> ServerSignature:
     logger.debug("Checking server with timeout: %s seconds", timeout)
 
-
     if not isinstance(server_config, RemoteServer):
         result = await asyncio.wait_for(_check_server_pass(server_config, timeout, suppress_mcpserver_io), timeout)
         logger.debug("Server check completed within timeout")
@@ -203,13 +202,15 @@ async def check_server(
             strategy.append(("http", url_without_sse))
             strategy.append(("http", url_with_sse))
 
-        exceptions = []
+        exceptions: list[Exception] = []
         for protocol, url in strategy:
             try:
-                server_config.type = protocol
+                server_config.type = protocol  # type: ignore
                 server_config.url = url
                 logger.debug(f"Trying {protocol} with url: {url}")
-                result = await asyncio.wait_for(_check_server_pass(server_config, timeout, suppress_mcpserver_io), timeout)
+                result = await asyncio.wait_for(
+                    _check_server_pass(server_config, timeout, suppress_mcpserver_io), timeout
+                )
                 logger.debug("Server check completed within timeout")
                 return result
             except asyncio.TimeoutError as e:
@@ -220,12 +221,13 @@ async def check_server(
                 logger.debug("Server check failed")
                 exceptions.append(e)
                 continue
-            
+
         # if python 3.11 or higher, use ExceptionGroup
         if sys.version_info >= (3, 11):
-            raise ExceptionGroup("Could not connect to remote server", exceptions)
+            raise ExceptionGroup("Could not connect to remote server", exceptions)  # noqa: F821
         else:
             raise Exception("Could not connect to remote server")
+
 
 async def scan_mcp_config_file(path: str) -> MCPConfig:
     logger.info("Scanning MCP config file: %s", path)

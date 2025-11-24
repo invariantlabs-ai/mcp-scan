@@ -339,9 +339,7 @@ async def test_scan_server_sets_could_not_start_error_and_uploads_payload():
 
     with (
         patch.object(sys.modules["mcp_scan.MCPScanner"], "scan_mcp_config_file", return_value=DummyCfg()),
-        patch.object(
-            sys.modules["mcp_scan.MCPScanner"], "check_server", side_effect=Exception("spawn failed")
-        ),
+        patch.object(sys.modules["mcp_scan.MCPScanner"], "check_server", side_effect=Exception("spawn failed")),
         patch("mcp_scan.upload.get_user_info") as mock_get_user_info,
     ):
         mock_get_user_info.return_value = ScanUserInfo()

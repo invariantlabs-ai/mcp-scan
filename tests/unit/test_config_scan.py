@@ -16,7 +16,7 @@ from mcp.types import (
 )
 from pytest_lazy_fixtures import lf
 
-from mcp_scan.mcp_client import check_server, check_server, scan_mcp_config_file
+from mcp_scan.mcp_client import check_server, scan_mcp_config_file
 from mcp_scan.models import StdioServer, UnknownMCPConfig
 
 

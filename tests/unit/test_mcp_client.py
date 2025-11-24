@@ -16,7 +16,7 @@ from mcp.types import (
 )
 from pytest_lazy_fixtures import lf
 
-from mcp_scan.mcp_client import check_server, _check_server_pass, scan_mcp_config_file
+from mcp_scan.mcp_client import _check_server_pass, check_server, scan_mcp_config_file
 from mcp_scan.models import StdioServer
 
 
@@ -155,14 +155,14 @@ async def test_weather_server():
 
 @pytest.fixture
 def remote_mcp_server_just_url():
-    return f"""
-    {{
-        "mcpServers": {{
-            "remote": {{
+    return """
+    {
+        "mcpServers": {
+            "remote": {
                 "url": "http://localhost:8000"
-            }}
-        }}
-    }}
+            }
+        }
+    }
     """
 
 
