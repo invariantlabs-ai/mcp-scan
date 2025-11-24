@@ -284,7 +284,7 @@ async def test_get_servers_from_path_sets_parse_error_and_uploads_payload():
 @pytest.mark.asyncio
 async def test_scan_server_sets_http_status_error_and_uploads_payload():
     """
-    Patch MCPScanner to return a server, then make check_server_with_timeout raise HTTPStatusError and
+    Patch MCPScanner to return a server, then make check_server raise HTTPStatusError and
     ensure the server-level error message "server returned HTTP status code" is included on upload.
     """
 
@@ -296,7 +296,7 @@ async def test_scan_server_sets_http_status_error_and_uploads_payload():
         patch.object(sys.modules["mcp_scan.MCPScanner"], "scan_mcp_config_file", return_value=DummyCfg()),
         patch.object(
             sys.modules["mcp_scan.MCPScanner"],
-            "check_server_with_timeout",
+            "check_server",
             side_effect=httpx.HTTPStatusError("bad", request=None, response=None),
         ),
         patch("mcp_scan.upload.get_user_info") as mock_get_user_info,
@@ -329,7 +329,7 @@ async def test_scan_server_sets_http_status_error_and_uploads_payload():
 @pytest.mark.asyncio
 async def test_scan_server_sets_could_not_start_error_and_uploads_payload():
     """
-    Patch MCPScanner to return a server, then make check_server_with_timeout raise a generic Exception and
+    Patch MCPScanner to return a server, then make check_server raise a generic Exception and
     ensure the server-level error message "could not start server" is included on upload.
     """
 
@@ -340,7 +340,7 @@ async def test_scan_server_sets_could_not_start_error_and_uploads_payload():
     with (
         patch.object(sys.modules["mcp_scan.MCPScanner"], "scan_mcp_config_file", return_value=DummyCfg()),
         patch.object(
-            sys.modules["mcp_scan.MCPScanner"], "check_server_with_timeout", side_effect=Exception("spawn failed")
+            sys.modules["mcp_scan.MCPScanner"], "check_server", side_effect=Exception("spawn failed")
         ),
         patch("mcp_scan.upload.get_user_info") as mock_get_user_info,
     ):
@@ -491,7 +491,7 @@ async def test_scan_path_redacts_remote_url_query_and_headers():
 
     with (
         patch.object(sys.modules["mcp_scan.MCPScanner"], "scan_mcp_config_file", return_value=DummyCfg()),
-        patch.object(sys.modules["mcp_scan.MCPScanner"], "check_server_with_timeout", return_value=None),
+        patch.object(sys.modules["mcp_scan.MCPScanner"], "check_server", return_value=None),
     ):
         async with MCPScanner(files=["/dummy/path"]) as scanner:
             result = await scanner.scan_path("/dummy/path", inspect_only=True)
@@ -527,7 +527,7 @@ async def test_scan_path_redacts_stdio_env_vars():
 
     with (
         patch.object(sys.modules["mcp_scan.MCPScanner"], "scan_mcp_config_file", return_value=DummyCfg()),
-        patch.object(sys.modules["mcp_scan.MCPScanner"], "check_server_with_timeout", return_value=None),
+        patch.object(sys.modules["mcp_scan.MCPScanner"], "check_server", return_value=None),
     ):
         async with MCPScanner(files=["/dummy/path"]) as scanner:
             result = await scanner.scan_path("/dummy/path", inspect_only=True)
