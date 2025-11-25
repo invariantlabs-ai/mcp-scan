@@ -226,7 +226,7 @@ async def check_server(
         if sys.version_info >= (3, 11):
             raise ExceptionGroup("Could not connect to remote server", exceptions)  # noqa: F821
         else:
-            raise Exception("Could not connect to remote server")
+            raise Exception("Could not connect to remote server.") from exceptions[0]
 
 
 async def scan_mcp_config_file(path: str) -> MCPConfig:
