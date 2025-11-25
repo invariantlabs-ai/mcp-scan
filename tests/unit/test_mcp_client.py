@@ -16,7 +16,7 @@ from mcp.types import (
 )
 from pytest_lazy_fixtures import lf
 
-from mcp_scan.mcp_client import check_server, check_server_with_timeout, scan_mcp_config_file
+from mcp_scan.mcp_client import _check_server_pass, check_server, scan_mcp_config_file
 from mcp_scan.models import StdioServer
 
 
@@ -91,7 +91,7 @@ async def test_check_server_mocked(mock_stdio_client):
     # Test function with mocks
     with patch("mcp_scan.mcp_client.ClientSession", MockClientSession):
         server = StdioServer(command="mcp", args=["run", "some_file.py"])
-        signature = await check_server(server, 2, True)
+        signature = await _check_server_pass(server, 2, True)
 
     # Verify the results
     assert len(signature.prompts) == 2
@@ -104,7 +104,7 @@ async def test_math_server():
     path = "tests/mcp_servers/configs_files/math_config.json"
     servers = (await scan_mcp_config_file(path)).get_servers()
     for name, server in servers.items():
-        signature = await check_server_with_timeout(server, 5, False)
+        signature = await check_server(server, 5, False)
         if name == "Math":
             assert len(signature.prompts) == 1
             assert len(signature.resources) == 0
@@ -122,7 +122,7 @@ async def test_all_server():
     path = "tests/mcp_servers/configs_files/all_config.json"
     servers = (await scan_mcp_config_file(path)).get_servers()
     for name, server in servers.items():
-        signature = await check_server_with_timeout(server, 5, False)
+        signature = await check_server(server, 5, False)
         if name == "Math":
             assert len(signature.prompts) == 1
             assert len(signature.resources) == 0
@@ -145,9 +145,27 @@ async def test_weather_server():
     path = "tests/mcp_servers/configs_files/weather_config.json"
     servers = (await scan_mcp_config_file(path)).get_servers()
     for name, server in servers.items():
-        signature = await check_server_with_timeout(server, 5, False)
+        signature = await check_server(server, 5, False)
         if name == "Weather":
             assert {t.name for t in signature.tools} == {"weather"}
             assert {p.name for p in signature.prompts} == {"good_morning"}
             assert {r.name for r in signature.resources} == {"weathers"}
             assert {rt.name for rt in signature.resource_templates} == {"weather_description"}
+
+
+@pytest.fixture
+def remote_mcp_server_just_url():
+    return """
+    {
+        "mcpServers": {
+            "remote": {
+                "url": "http://localhost:8000"
+            }
+        }
+    }
+    """
+
+
+@pytest.mark.asyncio
+async def test_parse_server():
+    pass

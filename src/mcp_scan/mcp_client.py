@@ -3,9 +3,11 @@ import logging
 import os
 import shutil
 import subprocess
+import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import AsyncContextManager  # noqa: UP035
+from typing import AsyncContextManager, Literal  # noqa: UP035
+from urllib.parse import urlparse
 
 import pyjson5
 from mcp import ClientSession, StdioServerParameters
@@ -90,7 +92,7 @@ def get_client(
         raise ValueError(f"Invalid server config: {server_config}")
 
 
-async def check_server(
+async def _check_server_pass(
     server_config: StdioServer | RemoteServer | StaticToolsServer,
     timeout: int,
     suppress_mcpserver_io: bool,
@@ -166,37 +168,65 @@ async def check_server(
     return await _check_server(verbose=not suppress_mcpserver_io)
 
 
-async def check_server_with_timeout(
+async def check_server(
     server_config: StdioServer | RemoteServer | StaticToolsServer,
     timeout: int,
     suppress_mcpserver_io: bool,
 ) -> ServerSignature:
     logger.debug("Checking server with timeout: %s seconds", timeout)
-    try_sse = False
 
-    if isinstance(server_config, RemoteServer) and server_config.type is None:
-        server_config.type = "http"
-        logger.debug("Remote server with no type, trying http")
-        try_sse = True
-
-    try:
-        result = await asyncio.wait_for(check_server(server_config, timeout, suppress_mcpserver_io), timeout)
+    if not isinstance(server_config, RemoteServer):
+        result = await asyncio.wait_for(_check_server_pass(server_config, timeout, suppress_mcpserver_io), timeout)
         logger.debug("Server check completed within timeout")
         return result
-    except asyncio.TimeoutError:
-        if not try_sse:
-            raise
+    else:
+        logger.debug(f"Remote server with url: {server_config.url}, type: {server_config.type or 'none'}")
+        strategy: list[tuple[Literal["sse", "http"], str]] = []
+        url_path = urlparse(server_config.url).path
+        has_sse_in_url = url_path.endswith("/sse")
+        if has_sse_in_url:
+            url_with_sse = server_config.url
+            url_without_sse = server_config.url.replace("/sse", "")
         else:
-            logger.debug("Scan with HTTP failed, retrying with SSE")
+            url_with_sse = server_config.url + "/sse"
+            url_without_sse = server_config.url
 
-    server_config.type = "sse"
-    logger.debug("Remote server with no type, trying sse")
-    try:
-        result = await asyncio.wait_for(check_server(server_config, timeout, suppress_mcpserver_io), timeout)
-        logger.debug("Server check completed within timeout")
-        return result
-    except asyncio.TimeoutError:
-        raise
+        if server_config.type == "http" or server_config.type is None:
+            strategy.append(("http", url_without_sse))
+            strategy.append(("http", url_with_sse))
+            strategy.append(("sse", url_with_sse))
+            strategy.append(("sse", url_without_sse))
+        else:
+            strategy.append(("sse", url_with_sse))
+            strategy.append(("sse", url_without_sse))
+            strategy.append(("http", url_without_sse))
+            strategy.append(("http", url_with_sse))
+
+        exceptions: list[Exception] = []
+        for protocol, url in strategy:
+            try:
+                server_config.type = protocol
+                server_config.url = url
+                logger.debug(f"Trying {protocol} with url: {url}")
+                result = await asyncio.wait_for(
+                    _check_server_pass(server_config, timeout, suppress_mcpserver_io), timeout
+                )
+                logger.debug("Server check completed within timeout")
+                return result
+            except asyncio.TimeoutError as e:
+                logger.debug("Server check timed out")
+                exceptions.append(e)
+                continue
+            except Exception as e:
+                logger.debug("Server check failed")
+                exceptions.append(e)
+                continue
+
+        # if python 3.11 or higher, use ExceptionGroup
+        if sys.version_info >= (3, 11):
+            raise ExceptionGroup("Could not connect to remote server", exceptions)  # noqa: F821
+        else:
+            raise Exception("Could not connect to remote server.") from exceptions[0]
 
 
 async def scan_mcp_config_file(path: str) -> MCPConfig:

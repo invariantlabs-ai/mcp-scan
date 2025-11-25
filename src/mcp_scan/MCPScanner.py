@@ -12,7 +12,7 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from httpx import HTTPStatusError
 
 from mcp_scan.direct_scanner import direct_scan, is_direct_scan
-from mcp_scan.mcp_client import check_server_with_timeout, scan_mcp_config_file
+from mcp_scan.mcp_client import check_server, scan_mcp_config_file
 from mcp_scan.models import (
     Issue,
     RemoteServer,
@@ -207,9 +207,7 @@ class MCPScanner:
         logger.info("Scanning server: %s", server.name)
         result = server.clone()
         try:
-            result.signature = await check_server_with_timeout(
-                server.server, self.server_timeout, self.suppress_mcpserver_io
-            )
+            result.signature = await check_server(server.server, self.server_timeout, self.suppress_mcpserver_io)
             logger.debug(
                 "Server %s has %d prompts, %d resources, %d resouce templates,  %d tools",
                 server.name,
