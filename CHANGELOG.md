@@ -47,3 +47,4 @@
 - `0.3.29` Add `evo` command to push scan results to Snyk Evo
 - `0.3.30` Add `--skip-ssl-verify` flag to skip SSL cert verification
 - `0.3.31` Add metadata on push and more detailed error logging
+- `0.3.32` Adaptivly support sse urls.
