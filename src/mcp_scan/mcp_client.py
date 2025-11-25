@@ -6,7 +6,7 @@ import subprocess
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import AsyncContextManager  # noqa: UP035
+from typing import AsyncContextManager, Literal  # noqa: UP035
 from urllib.parse import urlparse
 
 import pyjson5
@@ -181,7 +181,7 @@ async def check_server(
         return result
     else:
         logger.debug(f"Remote server with url: {server_config.url}, type: {server_config.type or 'none'}")
-        strategy = []
+        strategy: list[tuple[Literal["sse", "http"], str]] = []
         url_path = urlparse(server_config.url).path
         has_sse_in_url = url_path.endswith("/sse")
         if has_sse_in_url:
@@ -205,7 +205,7 @@ async def check_server(
         exceptions: list[Exception] = []
         for protocol, url in strategy:
             try:
-                server_config.type = protocol  # type: ignore
+                server_config.type = protocol
                 server_config.url = url
                 logger.debug(f"Trying {protocol} with url: {url}")
                 result = await asyncio.wait_for(
