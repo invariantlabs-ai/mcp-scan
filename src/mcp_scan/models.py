@@ -219,6 +219,12 @@ class Issue(BaseModel):
         description="Extra data to provide more context about the issue.",
     )
 
+    @field_validator("reference", mode="before")
+    def handle_null_reference(cls, v: Any) -> tuple[int | None, int | None]:
+        if v is None:
+            return (None, None)
+        return v
+
 
 class ServerSignature(BaseModel):
     metadata: Metadata
