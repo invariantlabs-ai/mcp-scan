@@ -256,7 +256,6 @@ def print_scan_path_result(
 
     message = f"found {len(result.servers or [])} server{'' if len(result.servers or []) == 1 else 's'}"
     rich.print(format_path_line(result.path, message))
-    print(f"ISSUES: {result.issues}")
     path_print_tree = Tree("│")
     server_tracebacks = []
     for server_idx, server in enumerate(result.servers or []):
@@ -299,7 +298,7 @@ def print_scan_result(
     if not internal_issues:
         for res in result:
             res.issues = [
-                issue for issue in res.issues if issue.reference if issue.code not in ["W003", "W004", "W005"]
+                issue for issue in res.issues if issue.reference if issue.code not in ["W003", "W004", "W005, W006"]
             ]
     for i, path_result in enumerate(result):
         print_scan_path_result(path_result, print_errors, full_toxic_flows, inspect_mode)
