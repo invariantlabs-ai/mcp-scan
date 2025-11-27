@@ -28,6 +28,7 @@ ISSUE_COLOR_MAP = {
     "inspect_mode": "[white]",
 }
 
+
 def format_exception(e: Exception | str | None) -> tuple[str, rTraceback | None]:
     if e is None:
         return "", None
@@ -86,17 +87,22 @@ def format_issues(issues: list[Issue]) -> str:
             if issue.code.startswith("X")
         ]
         + [
-            ISSUE_COLOR_MAP["issue"] + rf"\[{issue.code}]: {issue.message}" + ISSUE_COLOR_MAP["issue"].replace("[", "[/")
+            ISSUE_COLOR_MAP["issue"]
+            + rf"\[{issue.code}]: {issue.message}"
+            + ISSUE_COLOR_MAP["issue"].replace("[", "[/")
             for issue in issues
             if issue.code.startswith("E")
         ]
         + [
-            ISSUE_COLOR_MAP["warning"] + rf"\[{issue.code}]: {issue.message}" + ISSUE_COLOR_MAP["warning"].replace("[", "[/")
+            ISSUE_COLOR_MAP["warning"]
+            + rf"\[{issue.code}]: {issue.message}"
+            + ISSUE_COLOR_MAP["warning"].replace("[", "[/")
             for issue in issues
             if issue.code.startswith("W")
         ]
     )
     return status_text
+
 
 def format_entity_line(entity: Entity, issues: list[Issue], inspect_mode: bool = False) -> Text:
     # is_verified = verified.value
@@ -257,7 +263,7 @@ def print_scan_path_result(
         server_issues = [issue for issue in result.issues if issue.reference == (server_idx, None)]
         if server.error is not None:
             err_status, traceback = format_error(server.error)
-            path_print_tree.add(format_servers_line(server.name or "", err_status))
+            path_print_tree.add(format_servers_line(server.name or "", issues=server_issues, status=err_status))
             if traceback is not None:
                 server_tracebacks.append((server, traceback))
         else:
@@ -288,7 +294,13 @@ def print_scan_result(
     print_errors: bool = False,
     full_toxic_flows: bool = False,
     inspect_mode: bool = False,
+    internal_issues: bool = False,
 ) -> None:
+    if not internal_issues:
+        for res in result:
+            res.issues = [
+                issue for issue in res.issues if issue.reference if issue.code not in ["W003", "W004", "W005"]
+            ]
     for i, path_result in enumerate(result):
         print_scan_path_result(path_result, print_errors, full_toxic_flows, inspect_mode)
         if i < len(result) - 1:
