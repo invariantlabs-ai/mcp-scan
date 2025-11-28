@@ -300,7 +300,6 @@ def print_scan_result(
     if not internal_issues:
         for res in result:
             res.issues = [issue for issue in res.issues if issue.code not in ["W003", "W004", "W005", "W006"]]
-            print([issue.code for issue in res.issues])
     for i, path_result in enumerate(result):
         print_scan_path_result(path_result, print_errors, full_toxic_flows, inspect_mode)
         if i < len(result) - 1:
