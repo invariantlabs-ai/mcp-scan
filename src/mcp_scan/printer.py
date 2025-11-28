@@ -262,14 +262,16 @@ def print_scan_path_result(
         server_issues = [issue for issue in result.issues if issue.reference == (server_idx, None)]
         if server.error is not None:
             err_status, traceback = format_error(server.error)
-            path_print_tree.add(format_servers_line(server.name or "", issues=server_issues, status=err_status))
+            server_print = path_print_tree.add(
+                format_servers_line(server.name or "", issues=server_issues, status=err_status)
+            )
             if traceback is not None:
                 server_tracebacks.append((server, traceback))
         else:
             server_print = path_print_tree.add(format_servers_line(server.name or "", None, server_issues))
-            for entity_idx, entity in enumerate(server.entities):
-                issues = [issue for issue in result.issues if issue.reference == (server_idx, entity_idx)]
-                server_print.add(format_entity_line(entity, issues, inspect_mode))
+        for entity_idx, entity in enumerate(server.entities):
+            issues = [issue for issue in result.issues if issue.reference == (server_idx, entity_idx)]
+            server_print.add(format_entity_line(entity, issues, inspect_mode))
 
     if result.servers is not None and len(result.servers) > 0:
         rich.print(path_print_tree)
@@ -297,9 +299,8 @@ def print_scan_result(
 ) -> None:
     if not internal_issues:
         for res in result:
-            res.issues = [
-                issue for issue in res.issues if issue.reference if issue.code not in ["W003", "W004", "W005, W006"]
-            ]
+            res.issues = [issue for issue in res.issues if issue.code not in ["W003", "W004", "W005", "W006"]]
+            print([issue.code for issue in res.issues])
     for i, path_result in enumerate(result):
         print_scan_path_result(path_result, print_errors, full_toxic_flows, inspect_mode)
         if i < len(result) - 1:
