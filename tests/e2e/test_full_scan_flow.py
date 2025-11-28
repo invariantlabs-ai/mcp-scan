@@ -112,11 +112,11 @@ class TestFullScanFlow:
 
         issue_set = {issue["code"] for issue in issues}
         if set(server_names) == {"Weather", "Math"}:
-            allowed_issue_sets = [{"W001", "TF001", "TF002"}, {"W001", "TF002"}, {"W001"}]
+            allowed_issue_sets = [{"W001", "W003", "TF001", "TF002"}, {"W001", "W003", "TF002"}, {"W001", "W003"}]
         elif set(server_names) == {"Weather"}:
-            allowed_issue_sets = [{"TF001"}, set()]
+            allowed_issue_sets = [{"W003", "TF001"}, set()]
         elif set(server_names) == {"Math"}:
-            allowed_issue_sets = [{"W001"}, {"W001", "TF002"}]
+            allowed_issue_sets = [{"W001", "W003"}, {"W001", "W003", "TF002"}]
         else:
             raise ValueError(f"Invalid server names: {server_names}")
         # call list for better error message

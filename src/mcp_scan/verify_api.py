@@ -208,6 +208,13 @@ async def analyze_machine(
                         ):
                             sent_scan_path_result.issues = response_scan_path_result.issues
                             sent_scan_path_result.labels = response_scan_path_result.labels
+                            for server_given, server_received in zip(
+                                sent_scan_path_result.servers or [],
+                                response_scan_path_result.servers or [],
+                                strict=True,
+                            ):
+                                if server_given.signature is None:
+                                    server_given.signature = server_received.signature
                         return scan_paths  # Success - exit the function
 
         except aiohttp.ClientResponseError as e:

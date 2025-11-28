@@ -211,14 +211,19 @@ class ScanError(BaseModel):
 class Issue(BaseModel):
     code: str
     message: str
-    reference: tuple[int, int] | None = Field(
-        default=None,
+    reference: tuple[int | None, int | None] = Field(
         description="The index of the tool the issue references. None if it is global",
     )
     extra_data: dict[str, Any] | None = Field(
         default=None,
         description="Extra data to provide more context about the issue.",
     )
+
+    @field_validator("reference", mode="before")
+    def handle_null_reference(cls, v: Any) -> tuple[int | None, int | None]:
+        if v is None:
+            return (None, None)
+        return v
 
 
 class ServerSignature(BaseModel):
