@@ -164,7 +164,11 @@ async def test_upload_includes_scan_error_in_payload():
         path="/test/path",
         servers=[server],
         error=ScanError(
-            message=scan_error_message, exception=Exception(exception_message), traceback=traceback, is_failure=True
+            message=scan_error_message,
+            exception=Exception(exception_message),
+            traceback=traceback,
+            is_failure=True,
+            category="server_startup",
         ),
     )
 

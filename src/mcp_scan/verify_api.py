@@ -217,7 +217,11 @@ async def analyze_machine(
                 for scan_path in scan_paths:
                     if scan_path.servers is not None and scan_path.error is None:
                         scan_path.error = ScanError(
-                            message=error_text, exception=e, traceback=traceback.format_exc(), is_failure=True
+                            message=error_text,
+                            exception=e,
+                            traceback=traceback.format_exc(),
+                            is_failure=True,
+                            category="analysis_error",
                         )
                 return scan_paths
 
@@ -245,5 +249,6 @@ async def analyze_machine(
                 exception=None,
                 traceback=traceback.format_exc(),
                 is_failure=True,
+                category="analysis_error",
             )
     return scan_paths

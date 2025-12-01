@@ -140,7 +140,11 @@ class MCPScanner:
             else:
                 mcp_config = await scan_mcp_config_file(path)
                 if isinstance(mcp_config, UnknownMCPConfig):
-                    result.error = ScanError(message=f"Unknown MCP config: {path}", is_failure=False)
+                    result.error = ScanError(
+                        message=f"Unknown MCP config: {path}",
+                        is_failure=False,
+                        category="unknown_config",
+                    )
                 servers = mcp_config.get_servers()
             logger.debug("Found %d servers in path: %s", len(servers), path)
             result.servers = [
@@ -150,11 +154,23 @@ class MCPScanner:
             error_msg = f"resource {path} not found" if is_direct_scan(path) else f"file {path} does not exist"
             logger.exception("%s: %s", error_msg, path)
             # This is a non failing error, so we set is_failure to False.
-            result.error = ScanError(message=error_msg, exception=e, traceback=traceback.format_exc(), is_failure=False)
+            result.error = ScanError(
+                message=error_msg,
+                exception=e,
+                traceback=traceback.format_exc(),
+                is_failure=False,
+                category="file_not_found",
+            )
         except Exception as e:
             error_msg = f"could not scan {path}" if is_direct_scan(path) else f"could not parse file {path}"
             logger.exception("%s: %s", error_msg, path)
-            result.error = ScanError(message=error_msg, exception=e, traceback=traceback.format_exc(), is_failure=True)
+            result.error = ScanError(
+                message=error_msg,
+                exception=e,
+                traceback=traceback.format_exc(),
+                is_failure=True,
+                category="parse_error",
+            )
         return result
 
     def check_server_changed(self, path_result: ScanPathResult) -> list[Issue]:
@@ -215,11 +231,23 @@ class MCPScanner:
         except HTTPStatusError as e:
             error_msg = "server returned HTTP status code"
             logger.exception("%s: %s", error_msg, server.name)
-            result.error = ScanError(message=error_msg, exception=e, traceback=traceback.format_exc(), is_failure=True)
+            result.error = ScanError(
+                message=error_msg,
+                exception=e,
+                traceback=traceback.format_exc(),
+                is_failure=True,
+                category="server_http_error",
+            )
         except Exception as e:
             error_msg = "could not start server"
             logger.exception("%s: %s", error_msg, server.name)
-            result.error = ScanError(message=error_msg, exception=e, traceback=traceback.format_exc(), is_failure=True)
+            result.error = ScanError(
+                message=error_msg,
+                exception=e,
+                traceback=traceback.format_exc(),
+                is_failure=True,
+                category="server_startup",
+            )
         await self.emit("server_scanned", result)
         return result
 
