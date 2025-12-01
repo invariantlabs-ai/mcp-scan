@@ -14,16 +14,13 @@ from mcp_scan.direct_scanner import direct_scan, is_direct_scan
 from mcp_scan.mcp_client import check_server, scan_mcp_config_file
 from mcp_scan.models import (
     Issue,
-    RemoteServer,
     ScanError,
     ScanPathResult,
     ServerScanResult,
-    StdioServer,
     UnknownMCPConfig,
 )
-from mcp_scan.redact import REDACTED, redact_server
+from mcp_scan.redact import redact_server
 from mcp_scan.Storage import Storage
-from mcp_scan.utils import get_relative_path
 from mcp_scan.verify_api import analyze_machine
 from mcp_scan.well_known_clients import get_builtin_tools
 
@@ -257,78 +254,6 @@ class MCPScanner:
         await self.emit("path_scanned", path_result)
         return path_result
 
-    def _populate_scan_metadata(self, scan_results: list[ScanPathResult]) -> None:
-        """
-        Extract and populate aggregated metadata from scan results for observability.
-
-        Populates scan_context with:
-        - scanned_files: List of successfully parsed files with server counts
-        - failed_to_parse_files: List of files that failed to parse
-        - not_found_files: List of files that don't exist
-        - failed_servers: List of servers that failed to start with details
-        """
-        scanned_files: list[dict[str, Any]] = []
-        failed_to_parse_files: list[dict[str, Any]] = []
-        not_found_files: list[dict[str, Any]] = []
-        failed_servers: list[dict[str, Any]] = []
-
-        for result in scan_results:
-            relative_path = get_relative_path(result.path)
-            error = result.error
-            error_message = error.text if error else None
-
-            # Categorize each file
-            if result.servers is not None:
-                # File was parsed (even if empty or with errors), count it as scanned
-                server_count = len(result.servers)
-                successful_server_count = sum(1 for s in result.servers if s.error is None)
-
-                scanned_files.append({
-                    "path": relative_path,
-                    "client": result.client,
-                    "server_count": server_count,
-                    "successful_server_count": successful_server_count,
-                })
-
-                # Check for server-level failures
-                for server in result.servers:
-                    if server.error is not None:
-                        server_info: dict[str, Any] = {
-                            "entry_name": server.name,
-                            "file_path": relative_path,
-                            "client": result.client,
-                            "error_message": server.error.text or "Unknown error",
-                        }
-
-                        # Add command and args for stdio servers
-                        if isinstance(server.server, StdioServer):
-                            server_info["command"] = server.server.command
-                            server_info["args"] = server.server.args or []
-
-                        failed_servers.append(server_info)
-
-            elif error_message:
-                # No servers - file couldn't be parsed or doesn't exist
-                if "not found" in error_message.lower() or "does not exist" in error_message.lower():
-                    not_found_files.append({
-                        "path": relative_path,
-                        "client": result.client,
-                    })
-                else:
-                    failed_to_parse_files.append({
-                        "path": relative_path,
-                        "client": result.client,
-                        "error_message": error_message,
-                    })
-            else:
-                # No servers and no error - shouldn't happen, but log it
-                logger.warning("File %s has no servers and no error", relative_path)
-
-        self.scan_context["scanned_files"] = scanned_files
-        self.scan_context["failed_to_parse_files"] = failed_to_parse_files
-        self.scan_context["not_found_files"] = not_found_files
-        self.scan_context["failed_servers"] = failed_servers
-
     async def scan(self) -> list[ScanPathResult]:
         logger.info("Starting scan of %d paths", len(self.paths))
         scan_start_time = time.perf_counter()
@@ -357,10 +282,6 @@ class MCPScanner:
             skip_ssl_verify=self.skip_ssl_verify,
         )
         self.scan_context["scan_time_milliseconds"] = (time.perf_counter() - scan_start_time) * 1000
-
-        # Extract aggregated metadata for observability
-        if self.control_servers:
-            self._populate_scan_metadata(result_verified)
 
         logger.debug("Result verified: %s", result_verified)
         logger.debug("Saving storage file")
