@@ -9,6 +9,17 @@ class CommandParsingError(Exception):
     pass
 
 
+def get_relative_path(path: str) -> str:
+    try:
+        expanded_path = os.path.expanduser(path)
+        home_dir = os.path.expanduser("~")
+        if expanded_path.startswith(home_dir):
+            return "~" + expanded_path[len(home_dir) :]
+        return path
+    except Exception:
+        return path
+
+
 def calculate_distance(responses: list[str], reference: str):
     return sorted([(w, Levenshtein.distance(w, reference)) for w in responses], key=lambda x: x[1])
 

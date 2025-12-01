@@ -7,7 +7,6 @@ import traceback
 from collections import defaultdict
 from collections.abc import Callable
 from typing import Any
-from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from httpx import HTTPStatusError
 
@@ -22,14 +21,14 @@ from mcp_scan.models import (
     StdioServer,
     UnknownMCPConfig,
 )
+from mcp_scan.redact import REDACTED, redact_server
 from mcp_scan.Storage import Storage
+from mcp_scan.utils import get_relative_path
 from mcp_scan.verify_api import analyze_machine
 from mcp_scan.well_known_clients import get_builtin_tools
 
 # Set up logger for this module
 logger = logging.getLogger(__name__)
-
-REDACTED = "**REDACTED**"
 
 
 class ContextManager:
@@ -227,32 +226,6 @@ class MCPScanner:
         await self.emit("server_scanned", result)
         return result
 
-    def _redact_server(self, server_scan_result: ServerScanResult) -> ServerScanResult:
-        """
-        Redact sensitive information from the server scan result.
-        """
-        if isinstance(server_scan_result.server, StdioServer):
-            # Redact all environment variables
-            if server_scan_result.server.env:
-                server_scan_result.server.env = dict.fromkeys(server_scan_result.server.env, REDACTED)
-        elif isinstance(server_scan_result.server, RemoteServer):
-            # Redact all headers
-            if server_scan_result.server.headers:
-                server_scan_result.server.headers = dict.fromkeys(server_scan_result.server.headers, REDACTED)
-            # Redact all query parameter values in the URL
-            try:
-                parts = urlsplit(server_scan_result.server.url)
-                if parts.query:
-                    qs = parse_qsl(parts.query)
-                    redacted_qs = [(k, REDACTED) for k, _ in qs]
-                    new_query = urlencode(redacted_qs)
-                    server_scan_result.server.url = urlunsplit(
-                        (parts.scheme, parts.netloc, parts.path, new_query, parts.fragment)
-                    )
-            except Exception:
-                logger.error("Failed to redact URL: %s", server_scan_result.server.url)
-        return server_scan_result
-
     async def scan_path(self, path: str, inspect_only: bool = False) -> ScanPathResult:
         logger.info("Scanning path: %s, inspect_only: %s", path, inspect_only)
         path_result = await self.get_servers_from_path(path)
@@ -266,7 +239,7 @@ class MCPScanner:
                         logger.info("Skipping scan of server %d/%d: %s", i + 1, len(path_result.servers), server.name)
                         continue
                 logger.debug("Scanning server %d/%d: %s", i + 1, len(path_result.servers), server.name)
-                path_result.servers[i] = self._redact_server(await self.scan_server(server))
+                path_result.servers[i] = redact_server(await self.scan_server(server))
 
         # add built-in tools
         if self.include_built_in:
@@ -283,6 +256,78 @@ class MCPScanner:
         path_result.issues += self.check_server_changed(path_result)
         await self.emit("path_scanned", path_result)
         return path_result
+
+    def _populate_scan_metadata(self, scan_results: list[ScanPathResult]) -> None:
+        """
+        Extract and populate aggregated metadata from scan results for observability.
+
+        Populates scan_context with:
+        - scanned_files: List of successfully parsed files with server counts
+        - failed_to_parse_files: List of files that failed to parse
+        - not_found_files: List of files that don't exist
+        - failed_servers: List of servers that failed to start with details
+        """
+        scanned_files: list[dict[str, Any]] = []
+        failed_to_parse_files: list[dict[str, Any]] = []
+        not_found_files: list[dict[str, Any]] = []
+        failed_servers: list[dict[str, Any]] = []
+
+        for result in scan_results:
+            relative_path = get_relative_path(result.path)
+            error = result.error
+            error_message = error.text if error else None
+
+            # Categorize each file
+            if result.servers is not None:
+                # File was parsed (even if empty or with errors), count it as scanned
+                server_count = len(result.servers)
+                successful_server_count = sum(1 for s in result.servers if s.error is None)
+
+                scanned_files.append({
+                    "path": relative_path,
+                    "client": result.client,
+                    "server_count": server_count,
+                    "successful_server_count": successful_server_count,
+                })
+
+                # Check for server-level failures
+                for server in result.servers:
+                    if server.error is not None:
+                        server_info: dict[str, Any] = {
+                            "entry_name": server.name,
+                            "file_path": relative_path,
+                            "client": result.client,
+                            "error_message": server.error.text or "Unknown error",
+                        }
+
+                        # Add command and args for stdio servers
+                        if isinstance(server.server, StdioServer):
+                            server_info["command"] = server.server.command
+                            server_info["args"] = server.server.args or []
+
+                        failed_servers.append(server_info)
+
+            elif error_message:
+                # No servers - file couldn't be parsed or doesn't exist
+                if "not found" in error_message.lower() or "does not exist" in error_message.lower():
+                    not_found_files.append({
+                        "path": relative_path,
+                        "client": result.client,
+                    })
+                else:
+                    failed_to_parse_files.append({
+                        "path": relative_path,
+                        "client": result.client,
+                        "error_message": error_message,
+                    })
+            else:
+                # No servers and no error - shouldn't happen, but log it
+                logger.warning("File %s has no servers and no error", relative_path)
+
+        self.scan_context["scanned_files"] = scanned_files
+        self.scan_context["failed_to_parse_files"] = failed_to_parse_files
+        self.scan_context["not_found_files"] = not_found_files
+        self.scan_context["failed_servers"] = failed_servers
 
     async def scan(self) -> list[ScanPathResult]:
         logger.info("Starting scan of %d paths", len(self.paths))
@@ -312,6 +357,10 @@ class MCPScanner:
             skip_ssl_verify=self.skip_ssl_verify,
         )
         self.scan_context["scan_time_milliseconds"] = (time.perf_counter() - scan_start_time) * 1000
+
+        # Extract aggregated metadata for observability
+        if self.control_servers:
+            self._populate_scan_metadata(result_verified)
 
         logger.debug("Result verified: %s", result_verified)
         logger.debug("Saving storage file")
