@@ -211,9 +211,8 @@ class ScanError(BaseModel):
 class Issue(BaseModel):
     code: str
     message: str
-    reference: tuple[int, int] | None = Field(
-        default=None,
-        description="The index of the tool the issue references. None if it is global",
+    reference: None | tuple[int, int | None] = Field(
+        description="The index of the tool the issue references. (server_index, entity_index) if it is a entity issue, (server_index, None) if it is a server issue, None if it is a global issue",
     )
     extra_data: dict[str, Any] | None = Field(
         default=None,
