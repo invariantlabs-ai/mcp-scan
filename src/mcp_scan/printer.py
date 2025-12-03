@@ -189,7 +189,7 @@ def format_global_issue(result: ScanPathResult, issue: Issue, show_all: bool = F
     """
     Format issues about the whole scan.
     """
-    assert issue.reference == (None, None), "Global issues should not have a reference"
+    assert issue.reference is None, "Global issues should not have a reference"
     # assert issue.code in ["TF001", "TF002", "W002"] , (
     #     f"Only issues with code TF001, TF002 or W002 can be global issues. {issue.code}"
     # )
@@ -278,7 +278,7 @@ def print_scan_path_result(
 
     # print global issues
     for issue in result.issues:
-        if issue.reference == (None, None):
+        if issue.reference is None:
             rich.print(format_global_issue(result, issue, full_toxic_flows))
 
     if print_errors and len(server_tracebacks) > 0:
