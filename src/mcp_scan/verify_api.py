@@ -218,8 +218,10 @@ async def analyze_machine(
                         return scan_paths  # Success - exit the function
 
         except TimeoutError as e:
-            logger.warning(f"Timeout while uploading scan results (attempt {attempt + 1}/{max_retries}): {e}")
-            error_text = f"Timeout while uploading scan results: {e}"
+            logger.warning(
+                f"Timeout while sending found servers (attempt {attempt + 1}/{max_retries}): {e} to analysis server."
+            )
+            error_text = f"Timeout while sending found servers to analysis server: {e}"
 
         except aiohttp.ClientResponseError as e:
             error_text = f"Could not reach analysis server: {e.status} - {e.message}"
