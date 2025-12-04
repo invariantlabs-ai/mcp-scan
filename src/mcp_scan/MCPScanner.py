@@ -19,8 +19,8 @@ from mcp_scan.models import (
     ServerScanResult,
     UnknownMCPConfig,
 )
-from mcp_scan.redact import redact_server
 from mcp_scan.Storage import Storage
+from mcp_scan.traffic_capture import TrafficCapture
 from mcp_scan.verify_api import analyze_machine
 from mcp_scan.well_known_clients import get_builtin_tools
 
@@ -218,8 +218,10 @@ class MCPScanner:
     async def scan_server(self, server: ServerScanResult) -> ServerScanResult:
         logger.info("Scanning server: %s", server.name)
         result = server.clone()
+        # Capture all MCP traffic for debugging
+        traffic_capture = TrafficCapture()
         try:
-            result.signature = await check_server(server.server, self.server_timeout, self.suppress_mcpserver_io)
+            result.signature = await check_server(server.server, self.server_timeout, traffic_capture)
             logger.debug(
                 "Server %s has %d prompts, %d resources, %d resouce templates,  %d tools",
                 server.name,
@@ -237,6 +239,7 @@ class MCPScanner:
                 traceback=traceback.format_exc(),
                 is_failure=True,
                 category="server_http_error",
+                server_output=traffic_capture.get_traffic_log(),
             )
         except Exception as e:
             error_msg = "could not start server"
@@ -247,6 +250,7 @@ class MCPScanner:
                 traceback=traceback.format_exc(),
                 is_failure=True,
                 category="server_startup",
+                server_output=traffic_capture.get_traffic_log(),
             )
         await self.emit("server_scanned", result)
         return result
@@ -264,7 +268,7 @@ class MCPScanner:
                         logger.info("Skipping scan of server %d/%d: %s", i + 1, len(path_result.servers), server.name)
                         continue
                 logger.debug("Scanning server %d/%d: %s", i + 1, len(path_result.servers), server.name)
-                path_result.servers[i] = redact_server(await self.scan_server(server))
+                path_result.servers[i] = await self.scan_server(server)
 
         # add built-in tools
         if self.include_built_in:

@@ -9,9 +9,8 @@ This module provides functions to redact sensitive data like:
 - File paths in tracebacks
 """
 
-import os
-import re
 import logging
+import re
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from mcp_scan.models import RemoteServer, ScanPathResult, ServerScanResult, StdioServer
@@ -21,33 +20,41 @@ logger = logging.getLogger(__name__)
 REDACTED = "**REDACTED**"
 
 
-def redact_traceback(traceback: str | None) -> str | None:
+def redact_absolute_paths(text: str | None) -> str | None:
     """
-    Redact absolute file paths in a traceback string.
+    Redact all absolute file paths in a string.
 
-    Replaces absolute paths (starting with / or drive letters like C:) with
-    just the filename, preserving line numbers and other context.
+    Replaces absolute paths (starting with / or drive letters like C:, or ~/)
+    with **REDACTED**, preserving the structure of the text.
 
     Args:
-        traceback: The traceback string, or None
+        text: The text string, or None
 
     Returns:
-        Traceback with paths redacted, or None if input was None
+        Text with absolute paths redacted, or None if input was None
     """
-    if not traceback:
-        return traceback
+    if not text:
+        return text
 
     # Pattern matches absolute paths:
-    # - Unix: /path/to/file.py
-    # - Windows: C:\path\to\file.py or C:/path/to/file.py
-    # Captures the filename at the end
-    path_pattern = r'(?:(?:[A-Za-z]:)?[/\\])(?:[^/\\:*?"<>|\n]+[/\\])*([^/\\:*?"<>|\n]+\.py)'
+    # - Unix: /path/to/something (but not single /)
+    # - Windows: C:\path\to\something or C:/path/to/something
+    # - Home: ~/path/to/something
+    # Stops at whitespace, quotes, or common delimiters
+    patterns = [
+        # Unix absolute paths (at least one directory component)
+        r'/(?:[^/\s"\'<>|:]+/)+[^/\s"\'<>|:]*',
+        # Home directory paths
+        r'~/[^\s"\'<>|:]+',
+        # Windows paths with drive letter
+        r'[A-Za-z]:[/\\](?:[^/\\\s"\'<>|:]+[/\\])*[^/\\\s"\'<>|:]*',
+    ]
 
-    def replace_path(match):
-        filename = match.group(1)
-        return filename
+    result = text
+    for pattern in patterns:
+        result = re.sub(pattern, REDACTED, result)
 
-    return re.sub(path_pattern, replace_path, traceback)
+    return result
 
 
 def _is_path(arg: str) -> bool:
@@ -59,9 +66,7 @@ def _is_path(arg: str) -> bool:
     if arg.startswith("~/"):
         return True
     # Windows absolute path (C:\, D:\, etc.)
-    if len(arg) >= 3 and arg[1] == ":" and arg[2] in "/\\":
-        return True
-    return False
+    return len(arg) >= 3 and arg[1] == ":" and arg[2] in "/\\"
 
 
 def redact_args(args: list[str] | None) -> list[str] | None:
@@ -163,7 +168,11 @@ def redact_server(server_scan_result: ServerScanResult) -> ServerScanResult:
 
     # Redact traceback in server error
     if server_scan_result.error and server_scan_result.error.traceback:
-        server_scan_result.error.traceback = redact_traceback(server_scan_result.error.traceback)
+        server_scan_result.error.traceback = redact_absolute_paths(server_scan_result.error.traceback)
+
+    # Redact all absolute paths in server output (stderr, protocol messages)
+    if server_scan_result.error and server_scan_result.error.server_output:
+        server_scan_result.error.server_output = redact_absolute_paths(server_scan_result.error.server_output)
 
     return server_scan_result
 
@@ -184,13 +193,11 @@ def redact_scan_result(result: ScanPathResult) -> ScanPathResult:
     """
     # Redact path-level error traceback
     if result.error and result.error.traceback:
-        result.error.traceback = redact_traceback(result.error.traceback)
+        result.error.traceback = redact_absolute_paths(result.error.traceback)
 
-    # Server-level redaction is already done in MCPScanner.scan_path()
-    # but we also redact server error tracebacks here for completeness
+    # Redact all server-level sensitive data
     if result.servers:
-        for server in result.servers:
-            if server.error and server.error.traceback:
-                server.error.traceback = redact_traceback(server.error.traceback)
+        for i, server in enumerate(result.servers):
+            result.servers[i] = redact_server(server)
 
     return result

@@ -197,6 +197,7 @@ class ScanError(BaseModel):
     traceback: str | None = None
     is_failure: bool = True
     category: ErrorCategory | None = None
+    server_output: str | None = None  # Captured MCP traffic (sent/received messages + stderr)
 
     @field_serializer("exception")
     def serialize_exception(self, exception: Exception | None, _info) -> str | None:
@@ -217,6 +218,7 @@ class ScanError(BaseModel):
             traceback=self.traceback,
             is_failure=self.is_failure,
             category=self.category,
+            server_output=self.server_output,
         )
 
 
