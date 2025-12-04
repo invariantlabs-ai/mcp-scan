@@ -14,7 +14,9 @@ def get_relative_path(path: str) -> str:
         expanded_path = os.path.expanduser(path)
         home_dir = os.path.expanduser("~")
         if expanded_path.startswith(home_dir):
-            return "~" + expanded_path[len(home_dir) :]
+            result = "~" + expanded_path[len(home_dir) :]
+            # Normalize to forward slashes for consistent display across platforms
+            return result.replace("\\", "/")
         return path
     except Exception:
         return path
