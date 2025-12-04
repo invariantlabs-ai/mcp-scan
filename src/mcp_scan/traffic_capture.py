@@ -54,7 +54,7 @@ class PipeStderrCapture:
         # Create a real OS pipe
         self._read_fd, self._write_fd = os.pipe()
         # Wrap write end as a file object for the subprocess
-        self._write_file = os.fdopen(self._write_fd, 'w')
+        self._write_file = os.fdopen(self._write_fd, "w")
         self._reader_task: asyncio.Task | None = None
         self._closed = False
 
@@ -77,14 +77,14 @@ class PipeStderrCapture:
     async def _read_stderr(self) -> None:
         """Read stderr from the pipe in a background task."""
         loop = asyncio.get_event_loop()
-        read_file = os.fdopen(self._read_fd, 'r')
+        read_file = os.fdopen(self._read_fd, "r")
         try:
             while True:
                 # Read in executor to avoid blocking the event loop
                 line = await loop.run_in_executor(None, read_file.readline)
                 if not line:
                     break
-                line = line.rstrip('\n\r')
+                line = line.rstrip("\n\r")
                 if line:
                     self._capture.stderr.append(line)
         except Exception:
@@ -131,12 +131,12 @@ class CapturingReadStream:
 
     # Delegate async context manager protocol
     async def __aenter__(self):
-        if hasattr(self._read_stream, '__aenter__'):
+        if hasattr(self._read_stream, "__aenter__"):
             await self._read_stream.__aenter__()
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        if hasattr(self._read_stream, '__aexit__'):
+        if hasattr(self._read_stream, "__aexit__"):
             return await self._read_stream.__aexit__(exc_type, exc_val, exc_tb)
         return None
 
@@ -160,18 +160,18 @@ class CapturingWriteStream:
     async def __call__(self, msg):
         """Also support callable interface for compatibility."""
         self._capture.sent.append(msg)
-        if hasattr(self._write_stream, 'send'):
+        if hasattr(self._write_stream, "send"):
             return await self._write_stream.send(msg)
         return await self._write_stream(msg)
 
     # Delegate async context manager protocol
     async def __aenter__(self):
-        if hasattr(self._write_stream, '__aenter__'):
+        if hasattr(self._write_stream, "__aenter__"):
             await self._write_stream.__aenter__()
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        if hasattr(self._write_stream, '__aexit__'):
+        if hasattr(self._write_stream, "__aexit__"):
             return await self._write_stream.__aexit__(exc_type, exc_val, exc_tb)
         return None
 
@@ -185,4 +185,3 @@ async def capturing_client(client_cm, capture: TrafficCapture) -> AsyncIterator[
     """Wrap a client context manager to capture all traffic."""
     async with client_cm as (read, write):
         yield CapturingReadStream(read, capture), CapturingWriteStream(write, capture)
-

@@ -3,9 +3,10 @@ import logging
 import os
 import shutil
 import sys
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import AsyncContextManager, Literal  # noqa: UP035
+from typing import Literal
 from urllib.parse import urlparse
 
 import pyjson5
@@ -49,7 +50,7 @@ async def get_client(
     server_config: StdioServer | RemoteServer,
     timeout: int | None = None,
     traffic_capture: TrafficCapture | None = None,
-) -> AsyncContextManager:
+) -> AsyncIterator[tuple]:
     """
     Create an MCP client for the given server config.
 
@@ -232,9 +233,7 @@ async def check_server(
                 server_config.type = protocol
                 server_config.url = url
                 logger.debug(f"Trying {protocol} with url: {url}")
-                result = await asyncio.wait_for(
-                    _check_server_pass(server_config, timeout, traffic_capture), timeout
-                )
+                result = await asyncio.wait_for(_check_server_pass(server_config, timeout, traffic_capture), timeout)
                 logger.debug("Server check completed within timeout")
                 return result
             except asyncio.TimeoutError as e:

@@ -230,4 +230,3 @@ async def test_scan_path_redacts_stdio_args():
     assert isinstance(srv.server, StdioServer)
     # Argument values should be redacted, but -y is a boolean flag so "some-server" is preserved
     assert srv.server.args == ["-y", "some-server", "--api-key", "**REDACTED**", "--token=**REDACTED**"]
-
