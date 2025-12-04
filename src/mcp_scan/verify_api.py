@@ -217,6 +217,10 @@ async def analyze_machine(
                                     server_given.signature = server_received.signature
                         return scan_paths  # Success - exit the function
 
+        except TimeoutError as e:
+            logger.warning(f"API timeout while scanning discovered servers (attempt {attempt + 1}/{max_retries}): {e}.")
+            error_text = f"API timeout while scanning discovered servers: {e}"
+
         except aiohttp.ClientResponseError as e:
             error_text = f"Could not reach analysis server: {e.status} - {e.message}"
             if 400 <= e.status < 500:
