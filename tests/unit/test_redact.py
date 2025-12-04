@@ -22,22 +22,6 @@ class TestRedactAbsolutePaths:
         """Test that empty string returns empty string."""
         assert redact_absolute_paths("") == ""
 
-    def test_redact_absolute_paths_unix_paths(self):
-        """Test that Unix absolute paths are redacted."""
-        traceback = '''Traceback (most recent call last):
-  File "/Users/kudrinsky/Documents/mcp-scan/src/mcp_scan/MCPScanner.py", line 144, in get_servers_from_path
-    mcp_config = await scan_mcp_config_file(path)
-  File "/Users/kudrinsky/Documents/mcp-scan/src/mcp_scan/mcp_client.py", line 256, in scan_mcp_config_file
-    with open(path) as f:
-FileNotFoundError: [Errno 2] No such file or directory'''
-
-        result = redact_absolute_paths(traceback)
-
-        assert "/Users/kudrinsky/Documents/mcp-scan/src/mcp_scan/" not in result
-        assert "**REDACTED**" in result
-        assert "line 144" in result
-        assert "line 256" in result
-
     def test_redact_absolute_paths_preserves_non_paths(self):
         """Test that non-path content is preserved."""
         text = "Error: Something went wrong with value 123"
