@@ -8,6 +8,7 @@ import rich
 
 from mcp_scan.identity import IdentityManager
 from mcp_scan.models import ScanPathResult, ScanPathResultsCreate, ScanUserInfo
+from mcp_scan.redact import redact_scan_result
 from mcp_scan.verify_api import setup_aiohttp_debug_logging, setup_tcp_connector
 from mcp_scan.well_known_clients import get_client_from_path
 
@@ -94,6 +95,8 @@ async def upload(
             logger.info(f"No servers and no error for path {result.path}. Skipping upload.")
             continue
         result.client = get_client_from_path(result.path) or result.client or result.path
+        # Redact sensitive information (tracebacks, etc.) before upload
+        redact_scan_result(result)
         results_with_servers.append(result)
 
     payload = ScanPathResultsCreate(

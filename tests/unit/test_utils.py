@@ -1,6 +1,33 @@
+import os
+
 import pytest
 
-from mcp_scan.utils import CommandParsingError, calculate_distance, rebalance_command_args
+from mcp_scan.utils import (
+    CommandParsingError,
+    calculate_distance,
+    get_relative_path,
+    rebalance_command_args,
+)
+
+
+class TestGetRelativePath:
+    def test_path_in_home_directory(self):
+        home = os.path.expanduser("~")
+        path = os.path.join(home, ".cursor", "mcp.json")
+        result = get_relative_path(path)
+        assert result == "~/.cursor/mcp.json"
+
+    def test_path_with_tilde(self):
+        result = get_relative_path("~/.cursor/mcp.json")
+        assert result == "~/.cursor/mcp.json"
+
+    def test_path_outside_home(self):
+        result = get_relative_path("/etc/config.json")
+        assert result == "/etc/config.json"
+
+    def test_empty_path(self):
+        result = get_relative_path("")
+        assert result == ""
 
 
 @pytest.mark.parametrize(

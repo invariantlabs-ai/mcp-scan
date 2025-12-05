@@ -2,11 +2,11 @@ import asyncio
 import logging
 import os
 import shutil
-import subprocess
 import sys
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import AsyncContextManager, Literal  # noqa: UP035
+from typing import Literal
 from urllib.parse import urlparse
 
 import pyjson5
@@ -27,6 +27,7 @@ from mcp_scan.models import (
     VSCodeConfigFile,
     VSCodeMCPConfig,
 )
+from mcp_scan.traffic_capture import PipeStderrCapture, TrafficCapture, capturing_client
 from mcp_scan.utils import rebalance_command_args
 
 # Set up logger for this module
@@ -44,14 +45,21 @@ def check_executable_exists(command: str) -> bool:
     return path.exists() or shutil.which(command) is not None
 
 
-def get_client(
+@asynccontextmanager
+async def get_client(
     server_config: StdioServer | RemoteServer,
     timeout: int | None = None,
-    verbose: bool = False,
-) -> AsyncContextManager:
+    traffic_capture: TrafficCapture | None = None,
+) -> AsyncIterator[tuple]:
+    """
+    Create an MCP client for the given server config.
+
+    If traffic_capture is provided, all MCP protocol traffic will be captured
+    for debugging purposes.
+    """
     if isinstance(server_config, RemoteServer) and server_config.type == "sse":
         logger.debug("Creating SSE client with URL: %s", server_config.url)
-        return sse_client(
+        client_cm = sse_client(
             url=server_config.url,
             headers=server_config.headers,
             # env=server_config.env, #Not supported by MCP yet, but present in vscode
@@ -61,8 +69,7 @@ def get_client(
         logger.debug(
             "Creating Streamable HTTP client with URL: %s with headers %s", server_config.url, server_config.headers
         )
-
-        return streamablehttp_client_without_session(
+        client_cm = streamablehttp_client_without_session(
             url=server_config.url,
             headers=server_config.headers,
             timeout=timeout,
@@ -87,17 +94,35 @@ def get_client(
             args=args,
             env=server_config.env,
         )
-        return stdio_client(server_params, errlog=subprocess.DEVNULL if not verbose else None)
+        # Create stderr capture with real pipe if traffic capture is enabled
+        stderr_capture = PipeStderrCapture(traffic_capture) if traffic_capture else None
+        client_cm = stdio_client(server_params, errlog=stderr_capture)
     else:
         raise ValueError(f"Invalid server config: {server_config}")
+
+    # Wrap client to capture traffic if requested
+    if traffic_capture:
+        # Start stderr reader for stdio servers
+        if isinstance(server_config, StdioServer) and stderr_capture:
+            await stderr_capture.start_reading()
+        try:
+            async with capturing_client(client_cm, traffic_capture) as streams:
+                yield streams
+        finally:
+            # Clean up stderr capture
+            if isinstance(server_config, StdioServer) and stderr_capture:
+                await stderr_capture.close()
+    else:
+        async with client_cm as streams:
+            yield streams
 
 
 async def _check_server_pass(
     server_config: StdioServer | RemoteServer | StaticToolsServer,
     timeout: int,
-    suppress_mcpserver_io: bool,
+    traffic_capture: TrafficCapture | None = None,
 ) -> ServerSignature:
-    async def _check_server(verbose: bool) -> ServerSignature:
+    async def _check_server() -> ServerSignature:
         if isinstance(server_config, StaticToolsServer):
             logger.debug("Creating static tools client")
             return ServerSignature(
@@ -113,7 +138,7 @@ async def _check_server_pass(
                 tools=server_config.signature,
             )
 
-        async with get_client(server_config, timeout=timeout, verbose=verbose) as (read, write):
+        async with get_client(server_config, timeout=timeout, traffic_capture=traffic_capture) as (read, write):
             async with ClientSession(read, write) as session:
                 meta = await session.initialize()
                 logger.debug("Server initialized with metadata: %s", meta)
@@ -165,18 +190,18 @@ async def _check_server_pass(
                     tools=tools,
                 )
 
-    return await _check_server(verbose=not suppress_mcpserver_io)
+    return await _check_server()
 
 
 async def check_server(
     server_config: StdioServer | RemoteServer | StaticToolsServer,
     timeout: int,
-    suppress_mcpserver_io: bool,
+    traffic_capture: TrafficCapture | None = None,
 ) -> ServerSignature:
     logger.debug("Checking server with timeout: %s seconds", timeout)
 
     if not isinstance(server_config, RemoteServer):
-        result = await asyncio.wait_for(_check_server_pass(server_config, timeout, suppress_mcpserver_io), timeout)
+        result = await asyncio.wait_for(_check_server_pass(server_config, timeout, traffic_capture), timeout)
         logger.debug("Server check completed within timeout")
         return result
     else:
@@ -208,9 +233,7 @@ async def check_server(
                 server_config.type = protocol
                 server_config.url = url
                 logger.debug(f"Trying {protocol} with url: {url}")
-                result = await asyncio.wait_for(
-                    _check_server_pass(server_config, timeout, suppress_mcpserver_io), timeout
-                )
+                result = await asyncio.wait_for(_check_server_pass(server_config, timeout, traffic_capture), timeout)
                 logger.debug("Server check completed within timeout")
                 return result
             except asyncio.TimeoutError as e:

@@ -7,7 +7,6 @@ import traceback
 from collections import defaultdict
 from collections.abc import Callable
 from typing import Any
-from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from httpx import HTTPStatusError
 
@@ -15,21 +14,18 @@ from mcp_scan.direct_scanner import direct_scan, is_direct_scan
 from mcp_scan.mcp_client import check_server, scan_mcp_config_file
 from mcp_scan.models import (
     Issue,
-    RemoteServer,
     ScanError,
     ScanPathResult,
     ServerScanResult,
-    StdioServer,
     UnknownMCPConfig,
 )
 from mcp_scan.Storage import Storage
+from mcp_scan.traffic_capture import TrafficCapture
 from mcp_scan.verify_api import analyze_machine
 from mcp_scan.well_known_clients import get_builtin_tools
 
 # Set up logger for this module
 logger = logging.getLogger(__name__)
-
-REDACTED = "**REDACTED**"
 
 
 class ContextManager:
@@ -144,7 +140,11 @@ class MCPScanner:
             else:
                 mcp_config = await scan_mcp_config_file(path)
                 if isinstance(mcp_config, UnknownMCPConfig):
-                    result.error = ScanError(message=f"Unknown MCP config: {path}", is_failure=False)
+                    result.error = ScanError(
+                        message=f"Unknown MCP config: {path}",
+                        is_failure=False,
+                        category="unknown_config",
+                    )
                 servers = mcp_config.get_servers()
             logger.debug("Found %d servers in path: %s", len(servers), path)
             result.servers = [
@@ -154,11 +154,23 @@ class MCPScanner:
             error_msg = f"resource {path} not found" if is_direct_scan(path) else f"file {path} does not exist"
             logger.exception("%s: %s", error_msg, path)
             # This is a non failing error, so we set is_failure to False.
-            result.error = ScanError(message=error_msg, exception=e, traceback=traceback.format_exc(), is_failure=False)
+            result.error = ScanError(
+                message=error_msg,
+                exception=e,
+                traceback=traceback.format_exc(),
+                is_failure=False,
+                category="file_not_found",
+            )
         except Exception as e:
             error_msg = f"could not scan {path}" if is_direct_scan(path) else f"could not parse file {path}"
             logger.exception("%s: %s", error_msg, path)
-            result.error = ScanError(message=error_msg, exception=e, traceback=traceback.format_exc(), is_failure=True)
+            result.error = ScanError(
+                message=error_msg,
+                exception=e,
+                traceback=traceback.format_exc(),
+                is_failure=True,
+                category="parse_error",
+            )
         return result
 
     def check_server_changed(self, path_result: ScanPathResult) -> list[Issue]:
@@ -206,8 +218,10 @@ class MCPScanner:
     async def scan_server(self, server: ServerScanResult) -> ServerScanResult:
         logger.info("Scanning server: %s", server.name)
         result = server.clone()
+        # Capture all MCP traffic for debugging
+        traffic_capture = TrafficCapture()
         try:
-            result.signature = await check_server(server.server, self.server_timeout, self.suppress_mcpserver_io)
+            result.signature = await check_server(server.server, self.server_timeout, traffic_capture)
             logger.debug(
                 "Server %s has %d prompts, %d resources, %d resouce templates,  %d tools",
                 server.name,
@@ -219,39 +233,27 @@ class MCPScanner:
         except HTTPStatusError as e:
             error_msg = "server returned HTTP status code"
             logger.exception("%s: %s", error_msg, server.name)
-            result.error = ScanError(message=error_msg, exception=e, traceback=traceback.format_exc(), is_failure=True)
+            result.error = ScanError(
+                message=error_msg,
+                exception=e,
+                traceback=traceback.format_exc(),
+                is_failure=True,
+                category="server_http_error",
+                server_output=traffic_capture.get_traffic_log(),
+            )
         except Exception as e:
             error_msg = "could not start server"
             logger.exception("%s: %s", error_msg, server.name)
-            result.error = ScanError(message=error_msg, exception=e, traceback=traceback.format_exc(), is_failure=True)
+            result.error = ScanError(
+                message=error_msg,
+                exception=e,
+                traceback=traceback.format_exc(),
+                is_failure=True,
+                category="server_startup",
+                server_output=traffic_capture.get_traffic_log(),
+            )
         await self.emit("server_scanned", result)
         return result
-
-    def _redact_server(self, server_scan_result: ServerScanResult) -> ServerScanResult:
-        """
-        Redact sensitive information from the server scan result.
-        """
-        if isinstance(server_scan_result.server, StdioServer):
-            # Redact all environment variables
-            if server_scan_result.server.env:
-                server_scan_result.server.env = dict.fromkeys(server_scan_result.server.env, REDACTED)
-        elif isinstance(server_scan_result.server, RemoteServer):
-            # Redact all headers
-            if server_scan_result.server.headers:
-                server_scan_result.server.headers = dict.fromkeys(server_scan_result.server.headers, REDACTED)
-            # Redact all query parameter values in the URL
-            try:
-                parts = urlsplit(server_scan_result.server.url)
-                if parts.query:
-                    qs = parse_qsl(parts.query)
-                    redacted_qs = [(k, REDACTED) for k, _ in qs]
-                    new_query = urlencode(redacted_qs)
-                    server_scan_result.server.url = urlunsplit(
-                        (parts.scheme, parts.netloc, parts.path, new_query, parts.fragment)
-                    )
-            except Exception:
-                logger.error("Failed to redact URL: %s", server_scan_result.server.url)
-        return server_scan_result
 
     async def scan_path(self, path: str, inspect_only: bool = False) -> ScanPathResult:
         logger.info("Scanning path: %s, inspect_only: %s", path, inspect_only)
@@ -266,7 +268,7 @@ class MCPScanner:
                         logger.info("Skipping scan of server %d/%d: %s", i + 1, len(path_result.servers), server.name)
                         continue
                 logger.debug("Scanning server %d/%d: %s", i + 1, len(path_result.servers), server.name)
-                path_result.servers[i] = self._redact_server(await self.scan_server(server))
+                path_result.servers[i] = await self.scan_server(server)
 
         # add built-in tools
         if self.include_built_in:
