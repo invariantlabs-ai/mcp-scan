@@ -208,7 +208,18 @@ async def analyze_machine(
                         ):
                             sent_scan_path_result.issues = response_scan_path_result.issues
                             sent_scan_path_result.labels = response_scan_path_result.labels
+                            for server_given, server_received in zip(
+                                sent_scan_path_result.servers or [],
+                                response_scan_path_result.servers or [],
+                                strict=True,
+                            ):
+                                if server_given.signature is None:
+                                    server_given.signature = server_received.signature
                         return scan_paths  # Success - exit the function
+
+        except TimeoutError as e:
+            logger.warning(f"API timeout while scanning discovered servers (attempt {attempt + 1}/{max_retries}): {e}.")
+            error_text = f"API timeout while scanning discovered servers: {e}"
 
         except aiohttp.ClientResponseError as e:
             error_text = f"Could not reach analysis server: {e.status} - {e.message}"

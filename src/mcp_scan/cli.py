@@ -792,7 +792,6 @@ async def run_scan_inspect(mode="scan", args=None):
             result = await scanner.inspect()
         else:
             raise ValueError(f"Unknown mode: {mode}, expected 'scan' or 'inspect'")
-
     # upload scan result to control servers if specified
     if hasattr(args, "control_servers") and args.control_servers:
         for server_config in args.control_servers:
@@ -820,6 +819,7 @@ async def print_scan_inspect(mode="scan", args=None):
             args.print_errors,
             args.full_toxic_flows if hasattr(args, "full_toxic_flows") else False,
             mode == "inspect",
+            args.verbose,
         )
 
 
