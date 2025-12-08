@@ -95,6 +95,7 @@ class StdioServer(BaseModel):
     args: list[str] | None = None
     type: Literal["stdio"] | None = "stdio"
     env: dict[str, str] | None = None
+    binary_identifier: str | None = None
 
 
 class StaticToolsServer(BaseModel):
