@@ -49,3 +49,4 @@
 - `0.3.31` Add metadata on push and more detailed error logging
 - `0.3.32` Adaptivly support sse urls.
 - `0.3.33` Support server-level issues. Retry on analysis api timing out.
+- `0.3.34` Error categories & server args. Enhanced redaction and traffic capturing.
