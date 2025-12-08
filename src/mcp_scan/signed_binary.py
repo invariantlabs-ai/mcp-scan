@@ -1,6 +1,7 @@
 import logging
 import re
 import subprocess
+import sys
 
 from mcp_scan.models import ScanPathResult, StdioServer
 
@@ -9,6 +10,9 @@ logger = logging.getLogger(__name__)
 
 def check_server_signature(server: StdioServer) -> StdioServer:
     """Get detailed code signing information."""
+    if sys.platform != "darwin":
+        logger.info(f"Binary signature check not supported on {sys.platform}. Only supported on macOS.")
+        return server
     try:
         result = subprocess.run(["codesign", "-dvvv", server.command], capture_output=True, text=True, check=False)
         if result.returncode != 0:
@@ -18,14 +22,15 @@ def check_server_signature(server: StdioServer) -> StdioServer:
 
         if match := re.search(r"Identifier=(.+)", output):
             binary_identifier = match.group(1)
-            logger.info(f"Server {server.command} is signed by {binary_identifier}")
-            server.signed_by = binary_identifier
+            logger.info(f"Binary {server.command} is signed as {binary_identifier}")
+            assert isinstance(binary_identifier, str), f"Binary identifier is not a string: {binary_identifier}"
+            server.binary_identifier = binary_identifier
         else:
-            logger.info(f"Server {server.command} is signed but could not get identifier. Output: {output}")
+            logger.info(f"Binary {server.command} is signed but could not get identifier. Output: {output}")
         return server
 
     except Exception as e:
-        logger.error(f"Error checking signature of server {server.command}: {e}")
+        logger.info(f"Error checking binary signature of server {server.command}: {e}")
         return server
 
 
