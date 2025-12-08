@@ -15,6 +15,16 @@ from pydantic import (
     field_validator,
 )
 
+# Error categories for structured error classification
+ErrorCategory = Literal[
+    "file_not_found",  # Config file does not exist (not a failure)
+    "unknown_config",  # Unknown/unsupported MCP config format (not a failure)
+    "parse_error",  # Config file exists but couldn't be parsed
+    "server_startup",  # MCP server failed to start
+    "server_http_error",  # MCP server returned HTTP error
+    "analysis_error",  # Could not reach/use analysis server
+]
+
 logger = logging.getLogger(__name__)
 
 Entity: TypeAlias = Prompt | Resource | Tool | ResourceTemplate | Completion
@@ -186,6 +196,8 @@ class ScanError(BaseModel):
     exception: Exception | str | None = None
     traceback: str | None = None
     is_failure: bool = True
+    category: ErrorCategory | None = None
+    server_output: str | None = None  # Captured MCP traffic (sent/received messages + stderr)
 
     @field_serializer("exception")
     def serialize_exception(self, exception: Exception | None, _info) -> str | None:
@@ -205,6 +217,8 @@ class ScanError(BaseModel):
             exception=self.exception,
             traceback=self.traceback,
             is_failure=self.is_failure,
+            category=self.category,
+            server_output=self.server_output,
         )
 
 
