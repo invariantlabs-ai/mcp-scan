@@ -19,6 +19,7 @@ from mcp_scan.models import (
     ServerScanResult,
     UnknownMCPConfig,
 )
+from mcp_scan.signed_binary import check_signed_binary
 from mcp_scan.Storage import Storage
 from mcp_scan.traffic_capture import TrafficCapture
 from mcp_scan.verify_api import analyze_machine
@@ -302,9 +303,12 @@ class MCPScanner:
             result = [self.scan_path(path) for path in self.paths]
             result_awaited = await asyncio.gather(*result)
 
+        logger.debug("Checking signed binary")
+        result_verified = await check_signed_binary(result_awaited)
+
         logger.debug("Calling Backend")
         result_verified = await analyze_machine(
-            result_awaited,
+            result_verified,
             analysis_url=self.analysis_url,
             identifier=None,
             additional_headers=self.additional_headers,
