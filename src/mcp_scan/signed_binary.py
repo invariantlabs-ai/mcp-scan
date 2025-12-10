@@ -4,6 +4,7 @@ import subprocess
 import sys
 
 from mcp_scan.models import ScanPathResult, StdioServer
+from mcp_scan.utils import check_executable_exists, rebalance_command_args
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +15,18 @@ def check_server_signature(server: StdioServer) -> StdioServer:
         logger.info(f"Binary signature check not supported on {sys.platform}. Only supported on macOS.")
         return server
     try:
-        result = subprocess.run(["codesign", "-dvvv", server.command], capture_output=True, text=True, check=False)
+        # check that the binary exists
+        if not check_executable_exists(server.command):
+            logger.info(f"Binary {server.command} does not exist. Rebalancing command and args.")
+
+            command, _ = rebalance_command_args(server.command, server.args)
+            if not check_executable_exists(command):
+                logger.info(f"Binary {command} does not exist. Cannot check signature for aliases.")
+                return server
+        else:
+            command = server.command
+
+        result = subprocess.run(["codesign", "-dvvv", command], capture_output=True, text=True, check=False)
         if result.returncode != 0:
             return server
 

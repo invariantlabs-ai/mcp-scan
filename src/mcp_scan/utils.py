@@ -1,5 +1,7 @@
 import os
+import shutil
 import tempfile
+from pathlib import Path
 
 from lark import Lark
 from rapidfuzz.distance import Levenshtein
@@ -87,3 +89,8 @@ def parse_headers(headers: list[str] | None) -> dict:
         if ":" not in header:
             raise ValueError(f"Invalid header: {header}")
     return {header.split(":")[0]: header.split(":")[1] for header in headers}
+
+
+def check_executable_exists(command: str) -> bool:
+    path = Path(command)
+    return path.exists() or shutil.which(command) is not None

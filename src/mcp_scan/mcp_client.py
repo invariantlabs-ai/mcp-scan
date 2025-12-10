@@ -1,11 +1,9 @@
 import asyncio
 import logging
 import os
-import shutil
 import sys
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from pathlib import Path
 from typing import Literal
 from urllib.parse import urlparse
 
@@ -28,7 +26,7 @@ from mcp_scan.models import (
     VSCodeMCPConfig,
 )
 from mcp_scan.traffic_capture import PipeStderrCapture, TrafficCapture, capturing_client
-from mcp_scan.utils import rebalance_command_args
+from mcp_scan.utils import check_executable_exists, rebalance_command_args
 
 # Set up logger for this module
 logger = logging.getLogger(__name__)
@@ -38,11 +36,6 @@ logger = logging.getLogger(__name__)
 async def streamablehttp_client_without_session(*args, **kwargs):
     async with streamablehttp_client(*args, **kwargs) as (read, write, _):
         yield read, write
-
-
-def check_executable_exists(command: str) -> bool:
-    path = Path(command)
-    return path.exists() or shutil.which(command) is not None
 
 
 @asynccontextmanager
