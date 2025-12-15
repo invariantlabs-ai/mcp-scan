@@ -272,9 +272,16 @@ async def scan_mcp_config_file(path: str) -> MCPConfig:
         with open(path) as f:
             content = f.read()
         logger.debug("Config file read successfully")
+
+        # if content is empty, return an empty MCPConfig
+        if content is None or content.strip() == "" or not content:
+            logger.warning("Config file is empty")
+            return parse_and_validate({})
+
         # use json5 to support comments as in vscode
         config = pyjson5.loads(content)
         logger.debug("Config JSON parsed successfully")
+
         # try to parse model
         result = parse_and_validate(config)
         logger.info("Config file parsed and validated successfully")
