@@ -92,7 +92,7 @@ class TestFullScanFlow:
         assert result.returncode == 0, f"Command failed with error: {result.stderr}"
         output = json.loads(result.stdout)
         assert len(output) == 1, "Output should contain exactly one entry for the config file"
-        url = "http://localhost:8124/sse" if transport == "sse" else "http://localhost:8124/mcp"
+        url = f"http://localhost:{port}/sse" if transport == "sse" else f"http://localhost:{port}/mcp"
         assert output[file_name]["servers"][0]["server"]["type"] == transport, json.dumps(output, indent=4)
         assert output[file_name]["servers"][0]["server"]["url"] == url, json.dumps(output, indent=4)
 
