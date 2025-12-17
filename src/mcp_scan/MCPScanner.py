@@ -222,7 +222,7 @@ class MCPScanner:
         # Capture all MCP traffic for debugging
         traffic_capture = TrafficCapture()
         try:
-            result.signature = await check_server(server.server, self.server_timeout, traffic_capture)
+            result.signature, result.server = await check_server(server.server, self.server_timeout, traffic_capture)
             logger.debug(
                 "Server %s has %d prompts, %d resources, %d resouce templates,  %d tools",
                 server.name,
