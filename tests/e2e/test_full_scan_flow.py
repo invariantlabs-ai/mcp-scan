@@ -70,6 +70,33 @@ class TestFullScanFlow:
         print(output)
 
     @pytest.mark.parametrize(
+        "sample_config_file, transport, port",
+        [
+            (lf("streamable_http_transport_config_file"), "http", 8124),
+            (lf("sse_transport_config_file"), "sse", 8123),
+        ],
+    )
+    def test_infer_transport(self, sample_config_file, transport, port):
+        """Test inferring the transport from the config file."""
+        config = {"mcp": {"servers": {"http_server": {"url": f"http://localhost:{port}"}}}}
+        file_name: str
+        with TempFile(mode="w") as temp_file:
+            file_name = temp_file.name
+            temp_file.write(json.dumps(config))
+            temp_file.flush()
+            result = subprocess.run(
+                ["uv", "run", "-m", "src.mcp_scan.run", "scan", "--json", file_name],
+                capture_output=True,
+                text=True,
+            )
+        assert result.returncode == 0, f"Command failed with error: {result.stderr}"
+        output = json.loads(result.stdout)
+        assert len(output) == 1, "Output should contain exactly one entry for the config file"
+        url = "http://localhost:8124/sse" if transport == "sse" else "http://localhost:8124/mcp"
+        assert output[file_name]["servers"][0]["server"]["type"] == transport, json.dumps(output, indent=4)
+        assert output[file_name]["servers"][0]["server"]["url"] == url, json.dumps(output, indent=4)
+
+    @pytest.mark.parametrize(
         "path, server_names",
         [
             ("tests/mcp_servers/configs_files/weather_config.json", ["Weather"]),
