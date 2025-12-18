@@ -190,34 +190,43 @@ async def check_server(
     server_config: StdioServer | RemoteServer | StaticToolsServer,
     timeout: int,
     traffic_capture: TrafficCapture | None = None,
-) -> ServerSignature:
+) -> tuple[ServerSignature, StdioServer | RemoteServer | StaticToolsServer]:
     logger.debug("Checking server with timeout: %s seconds", timeout)
 
     if not isinstance(server_config, RemoteServer):
         result = await asyncio.wait_for(_check_server_pass(server_config, timeout, traffic_capture), timeout)
         logger.debug("Server check completed within timeout")
-        return result
+        return result, server_config
     else:
         logger.debug(f"Remote server with url: {server_config.url}, type: {server_config.type or 'none'}")
         strategy: list[tuple[Literal["sse", "http"], str]] = []
         url_path = urlparse(server_config.url).path
-        has_sse_in_url = url_path.endswith("/sse")
-        if has_sse_in_url:
+        if url_path.endswith("/sse"):
             url_with_sse = server_config.url
-            url_without_sse = server_config.url.replace("/sse", "")
+            url_without_end = server_config.url.replace("/sse", "")
+            url_with_mcp = server_config.url.replace("/sse", "/mcp")
+        elif url_path.endswith("/mcp"):
+            url_with_mcp = server_config.url
+            url_without_end = server_config.url.replace("/mcp", "")
+            url_with_sse = server_config.url.replace("/mcp", "/sse")
         else:
+            url_without_end = server_config.url
+            url_with_mcp = server_config.url + "/mcp"
             url_with_sse = server_config.url + "/sse"
-            url_without_sse = server_config.url
 
         if server_config.type == "http" or server_config.type is None:
-            strategy.append(("http", url_without_sse))
+            strategy.append(("http", url_with_mcp))
+            strategy.append(("http", url_without_end))
+            strategy.append(("sse", url_with_mcp))
+            strategy.append(("sse", url_without_end))
             strategy.append(("http", url_with_sse))
             strategy.append(("sse", url_with_sse))
-            strategy.append(("sse", url_without_sse))
         else:
+            strategy.append(("sse", url_with_mcp))
+            strategy.append(("sse", url_without_end))
+            strategy.append(("http", url_with_mcp))
+            strategy.append(("http", url_without_end))
             strategy.append(("sse", url_with_sse))
-            strategy.append(("sse", url_without_sse))
-            strategy.append(("http", url_without_sse))
             strategy.append(("http", url_with_sse))
 
         exceptions: list[Exception] = []
@@ -228,7 +237,7 @@ async def check_server(
                 logger.debug(f"Trying {protocol} with url: {url}")
                 result = await asyncio.wait_for(_check_server_pass(server_config, timeout, traffic_capture), timeout)
                 logger.debug("Server check completed within timeout")
-                return result
+                return result, server_config
             except asyncio.TimeoutError as e:
                 logger.debug("Server check timed out")
                 exceptions.append(e)

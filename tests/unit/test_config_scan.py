@@ -98,7 +98,7 @@ async def test_check_server_mocked(mock_stdio_client):
     # Test function with mocks
     with patch("mcp_scan.mcp_client.ClientSession", MockClientSession):
         server = StdioServer(command="mcp", args=["run", "some_file.py"])
-        signature = await check_server(server, 2, True)
+        signature, _ = await check_server(server, 2, True)
 
     # Verify the results
     assert len(signature.prompts) == 2
@@ -111,7 +111,7 @@ async def test_math_server():
     path = "tests/mcp_servers/configs_files/math_config.json"
     servers = (await scan_mcp_config_file(path)).get_servers()
     for name, server in servers.items():
-        signature = await check_server(server, 5, False)
+        signature, _ = await check_server(server, 5, False)
         if name == "Math":
             assert len(signature.prompts) == 1
             assert len(signature.resources) == 0
@@ -129,7 +129,7 @@ async def test_all_server():
     path = "tests/mcp_servers/configs_files/all_config.json"
     servers = (await scan_mcp_config_file(path)).get_servers()
     for name, server in servers.items():
-        signature = await check_server(server, 5, False)
+        signature, _ = await check_server(server, 5, False)
         if name == "Math":
             assert len(signature.prompts) == 1
             assert len(signature.resources) == 0
@@ -152,7 +152,7 @@ async def test_weather_server():
     path = "tests/mcp_servers/configs_files/weather_config.json"
     servers = (await scan_mcp_config_file(path)).get_servers()
     for name, server in servers.items():
-        signature = await check_server(server, 5, False)
+        signature, _ = await check_server(server, 5, False)
         if name == "Weather":
             assert {t.name for t in signature.tools} == {"weather"}
             assert {p.name for p in signature.prompts} == {"good_morning"}
