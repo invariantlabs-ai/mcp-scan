@@ -19,6 +19,7 @@ from mcp_scan.models import (
     ServerScanResult,
     UnknownMCPConfig,
 )
+from mcp_scan.redact import redact_scan_result
 from mcp_scan.signed_binary import check_signed_binary
 from mcp_scan.Storage import Storage
 from mcp_scan.traffic_capture import TrafficCapture
@@ -305,6 +306,9 @@ class MCPScanner:
 
         logger.debug("Checking signed binary")
         result_verified = await check_signed_binary(result_awaited)
+
+        logger.debug("Redacting secrets")
+        result_verified = [redact_scan_result(rv) for rv in result_verified]
 
         logger.debug("Calling Backend")
         result_verified = await analyze_machine(

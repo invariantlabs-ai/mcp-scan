@@ -1,5 +1,6 @@
 """Unit tests for the redaction module."""
 
+import json
 import sys
 from unittest.mock import patch
 from urllib.parse import parse_qsl, urlsplit
@@ -7,8 +8,9 @@ from urllib.parse import parse_qsl, urlsplit
 import pytest
 
 from mcp_scan.MCPScanner import MCPScanner
-from mcp_scan.models import RemoteServer, StdioServer
+from mcp_scan.models import RemoteServer, ScanPathResult, StdioServer
 from mcp_scan.redact import redact_absolute_paths, redact_args, redact_scan_result
+from tests.conftest import TempFile
 
 
 class TestRedactAbsolutePaths:
@@ -230,3 +232,48 @@ async def test_scan_path_redacts_stdio_args():
     assert isinstance(srv.server, StdioServer)
     # Argument values should be redacted, but -y is a boolean flag so "some-server" is preserved
     assert srv.server.args == ["-y", "some-server", "--api-key", "**REDACTED**", "--token=**REDACTED**"]
+
+
+FAKE_API_KEY = "sk-this-is-a-fake-api-key"
+
+
+@pytest.mark.parametrize(
+    "configs",
+    [
+        {
+            "mcpServers": {
+                "Weather": {
+                    "command": "uv run python",
+                    "args": ["tests/mcp_servers/weather_server.py"],
+                    "env": {"API_KEY": FAKE_API_KEY},
+                }
+            }
+        },
+        {
+            "mcpServers": {
+                "Math": {
+                    "command": "uv run python",
+                    "args": ["tests/mcp_servers/math_server.py", f"--api-key={FAKE_API_KEY}"],
+                }
+            }
+        },
+    ],
+)
+@pytest.mark.asyncio
+async def test_analysis_machine_get_redacted_payload(configs):
+    """
+    Ensure the payload sent to the analysis machine is redacted.
+    """
+
+    async def check_redacted_payload(scan_paths: list[ScanPathResult], *args, **kwargs):
+        for path in scan_paths:
+            dump = path.model_dump_json()
+            assert FAKE_API_KEY not in dump
+        return scan_paths
+
+    with TempFile(mode="w") as temp_file:
+        temp_file.write(json.dumps(configs))
+        temp_file.flush()
+        with patch("mcp_scan.MCPScanner.analyze_machine", side_effect=check_redacted_payload):
+            async with MCPScanner(files=[temp_file.name]) as scanner:
+                _ = await scanner.scan()
