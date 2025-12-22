@@ -51,3 +51,4 @@
 - `0.3.33` Support server-level issues. Retry on analysis api timing out.
 - `0.3.34` Error categories & server args. Enhanced redaction and traffic capturing.
 - `0.3.35` Fixes. Send push-key to analysis server. This guarantees authentication for enterprise users. Empty config causing erros. Redacting secrets before pushing to analysis server.
+- `0.3.36` Add fallback to check command in well known directories to reduce path not found errors.
