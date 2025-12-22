@@ -131,6 +131,7 @@ def resolve_command_and_args(server_config: StdioServer) -> tuple[str, list[str]
         os.path.expanduser("~/.yarn/bin"),
         os.path.expanduser("~/.local/share/pnpm"),
         os.path.expanduser("~/.config/yarn/global/node_modules/.bin"),
+        # python / uvx
         os.path.expanduser("~/.cargo/bin"),
         os.path.expanduser("~/.pyenv/shims"),
         # user local paths
