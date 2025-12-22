@@ -26,7 +26,7 @@ from mcp_scan.models import (
     VSCodeMCPConfig,
 )
 from mcp_scan.traffic_capture import PipeStderrCapture, TrafficCapture, capturing_client
-from mcp_scan.utils import check_executable_exists, rebalance_command_args
+from mcp_scan.utils import resolve_command_and_args
 
 # Set up logger for this module
 logger = logging.getLogger(__name__)
@@ -70,18 +70,7 @@ async def get_client(
     elif isinstance(server_config, StdioServer):
         logger.debug("Creating stdio client")
 
-        # check if command points to an executable and wether it exists absolute or on the path
-        if not check_executable_exists(server_config.command):
-            # attempt to rebalance the command/arg structure
-            logger.debug(f"Command does not exist: {server_config.command}, attempting to rebalance")
-            command, args = rebalance_command_args(server_config.command, server_config.args)
-            if not check_executable_exists(command):
-                logger.warning(f"Path does not exist: {command}")
-                raise ValueError(f"Path does not exist: {command}")
-        else:
-            command = server_config.command
-            args = server_config.args
-
+        command, args = resolve_command_and_args(server_config)
         server_params = StdioServerParameters(
             command=command,
             args=args,
