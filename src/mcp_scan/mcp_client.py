@@ -1,5 +1,4 @@
 import asyncio
-import glob
 import logging
 import os
 import sys
@@ -27,7 +26,7 @@ from mcp_scan.models import (
     VSCodeMCPConfig,
 )
 from mcp_scan.traffic_capture import PipeStderrCapture, TrafficCapture, capturing_client
-from mcp_scan.utils import check_executable_exists, rebalance_command_args
+from mcp_scan.utils import resolve_command_and_args
 
 # Set up logger for this module
 logger = logging.getLogger(__name__)
@@ -37,65 +36,6 @@ logger = logging.getLogger(__name__)
 async def streamablehttp_client_without_session(*args, **kwargs):
     async with streamablehttp_client(*args, **kwargs) as (read, write, _):
         yield read, write
-
-
-def resolve_command_and_args(server_config: StdioServer) -> tuple[str, list[str] | None]:
-    """
-    Resolve the command and arguments for a StdioServer.
-    """
-    # check if command points to an executable and whether it exists absolute or on the path
-    if check_executable_exists(server_config.command):
-        return server_config.command, server_config.args
-
-    # attempt to rebalance the command/arg structure
-    logger.debug(f"Command does not exist: {server_config.command}, attempting to rebalance")
-    command, args = rebalance_command_args(server_config.command, server_config.args)
-    if check_executable_exists(command):
-        return command, args
-
-    if os.path.sep in command:
-        logger.warning(f"Path does not exist: {command}")
-        raise ValueError(f"Path does not exist: {command}")
-
-    # attempt to find the command in well-known directories
-    # npx via nvm - look for node versions directory
-    nvm_pattern = os.path.expanduser("~/.nvm/versions/node/*/bin")
-    nvm_dirs = sorted(glob.glob(nvm_pattern), reverse=True)
-    fallback_dirs = [
-        # node / npx
-        *nvm_dirs,
-        os.path.expanduser("~/.npm-global/bin"),
-        os.path.expanduser("~/.yarn/bin"),
-        os.path.expanduser("~/.local/share/pnpm"),
-        os.path.expanduser("~/.config/yarn/global/node_modules/.bin"),
-        os.path.expanduser("~/.cargo/bin"),
-        os.path.expanduser("~/.pyenv/shims"),
-        # user local paths
-        os.path.expanduser("~/.local/bin"),
-        os.path.expanduser("~/.bin"),
-        os.path.expanduser("~/bin"),
-        # package manager paths
-        "/opt/homebrew/bin",
-        "/opt/local/bin",
-        "/snap/bin",
-        # system paths
-        "/usr/local/bin",
-        "/usr/bin",
-        "/bin",
-        "/usr/sbin",
-        "/sbin",
-        # docker path
-        "/Applications/Docker.app/Contents/Resources/bin",
-    ]
-
-    for d in fallback_dirs:
-        potential_path = os.path.join(d, command)
-        if check_executable_exists(potential_path):
-            logger.debug(f"Found {command} at fallback location: {potential_path}")
-            return potential_path, args
-
-    logger.warning(f"Command {command} not found in any fallback location")
-    raise ValueError(f"Command {command} not found")
 
 
 @asynccontextmanager
