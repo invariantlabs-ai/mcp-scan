@@ -318,6 +318,7 @@ class MCPScanner:
             additional_headers=self.additional_headers,
             opt_out_of_identity=self.opt_out_of_identity,
             skip_pushing=bool(self.control_servers),
+            control_servers=self.control_servers,
             verbose=self.verbose,
             skip_ssl_verify=self.skip_ssl_verify,
         )
