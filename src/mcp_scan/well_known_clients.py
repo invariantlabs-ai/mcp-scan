@@ -72,7 +72,11 @@ if sys.platform == "linux" or sys.platform == "linux2":
     CLIENT_PATHS = {
         "windsurf": ["~/.codeium/windsurf/mcp_config.json"],
         "cursor": ["~/.cursor/mcp.json"],
+        "claude": [
+            "~/.claude.json",
+        ],
         "vscode": ["~/.vscode/mcp.json", "~/.config/Code/User/settings.json", "~/.config/Code/User/mcp.json"],
+        "gemini": ["~/.gemini/settings.json"],
     }
     WELL_KNOWN_MCP_PATHS = [path for client, paths in CLIENT_PATHS.items() for path in paths]
 elif sys.platform == "darwin":
@@ -80,24 +84,32 @@ elif sys.platform == "darwin":
     CLIENT_PATHS = {
         "windsurf": ["~/.codeium/windsurf/mcp_config.json"],
         "cursor": ["~/.cursor/mcp.json"],
-        "claude": ["~/Library/Application Support/Claude/claude_desktop_config.json"],
+        "claude": [
+            "~/Library/Application Support/Claude/claude_desktop_config.json",
+            "~/.claude.json",
+        ],
         "vscode": [
             "~/.vscode/mcp.json",
             "~/Library/Application Support/Code/User/settings.json",
             "~/Library/Application Support/Code/User/mcp.json",
         ],
+        "gemini": ["~/.gemini/settings.json"],
     }
     WELL_KNOWN_MCP_PATHS = [path for client, paths in CLIENT_PATHS.items() for path in paths]
 elif sys.platform == "win32":
     CLIENT_PATHS = {
         "windsurf": ["~/.codeium/windsurf/mcp_config.json"],
         "cursor": ["~/.cursor/mcp.json"],
-        "claude": ["~/AppData/Roaming/Claude/claude_desktop_config.json"],
+        "claude": [
+            "~/AppData/Roaming/Claude/claude_desktop_config.json",
+            "~/.claude.json",
+        ],
         "vscode": [
             "~/.vscode/mcp.json",
             "~/AppData/Roaming/Code/User/settings.json",
             "~/AppData/Roaming/Code/User/mcp.json",
         ],
+        "gemini": ["~/.gemini/settings.json"],
     }
 
     WELL_KNOWN_MCP_PATHS = [path for client, paths in CLIENT_PATHS.items() for path in paths]
