@@ -80,7 +80,10 @@ elif sys.platform == "darwin":
     CLIENT_PATHS = {
         "windsurf": ["~/.codeium/windsurf/mcp_config.json"],
         "cursor": ["~/.cursor/mcp.json"],
-        "claude": ["~/Library/Application Support/Claude/claude_desktop_config.json"],
+        "claude": [
+            "~/Library/Application Support/Claude/claude_desktop_config.json",
+            "~/.claude.json",
+        ],
         "vscode": [
             "~/.vscode/mcp.json",
             "~/Library/Application Support/Code/User/settings.json",
@@ -92,7 +95,10 @@ elif sys.platform == "win32":
     CLIENT_PATHS = {
         "windsurf": ["~/.codeium/windsurf/mcp_config.json"],
         "cursor": ["~/.cursor/mcp.json"],
-        "claude": ["~/AppData/Roaming/Claude/claude_desktop_config.json"],
+        "claude": [
+            "~/AppData/Roaming/Claude/claude_desktop_config.json",
+            "~/.claude.json",
+        ],
         "vscode": [
             "~/.vscode/mcp.json",
             "~/AppData/Roaming/Code/User/settings.json",
