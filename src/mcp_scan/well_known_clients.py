@@ -72,6 +72,9 @@ if sys.platform == "linux" or sys.platform == "linux2":
     CLIENT_PATHS = {
         "windsurf": ["~/.codeium/windsurf/mcp_config.json"],
         "cursor": ["~/.cursor/mcp.json"],
+        "claude": [
+            "~/.claude.json",
+        ],
         "vscode": ["~/.vscode/mcp.json", "~/.config/Code/User/settings.json", "~/.config/Code/User/mcp.json"],
         "gemini": ["~/.gemini/settings.json"],
     }
