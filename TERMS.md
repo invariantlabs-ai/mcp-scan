@@ -1,5 +1,5 @@
 Terms and Conditions
-Last updated: November 09, 2024
+Last updated: January 12, 2025
 
 Please read these terms and conditions carefully before using Our Service.
 
@@ -16,7 +16,7 @@ Account means a unique account created for You to access our Service or parts of
 
 Country refers to: Switzerland
 
-Company (referred to as either "the Company", "We", "Us" or "Our" in this Agreement) refers to Invariant Labs AG, Josefstrasse 219, 8005 Zurich.
+Company (referred to as either "the Company", "We", "Us" or "Our" in this Agreement) refers to Invariant Labs AG, c/o Westhive AG, Seestrasse 353, 8038 Zurich.
 
 Content refers to content such as text, images, or other information that can be posted, uploaded, linked to or otherwise made available by You, regardless of the form of that content.
 
