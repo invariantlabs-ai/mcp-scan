@@ -52,7 +52,7 @@ mcp-scan ~/.vscode/mcp.json
 
 ## MCP Security Scanner Capabilities
 
-MCP-Scan is a security scanning tool to both statically and dynamically scan and monitor your MCP connections. It checks them for common security vulnerabilities like [prompt injections](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks), [tool poisoning](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks) and [toxic flows](https://invariantlabs.ai/blog/mcp-github-vulnerability). Consult our detailed [Documentation](https://explorer.invariantlabs.ai/docs/mcp-scan) for more information.
+MCP-Scan is a security scanning tool to both statically and dynamically scan and monitor your MCP connections. It checks them for common security vulnerabilities like [prompt injections](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks), [tool poisoning](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks) and [toxic flows](https://invariantlabs.ai/blog/mcp-github-vulnerability). Consult our detailed [Documentation](https://invariantlabs-ai.github.io/docs/mcp-scan) for more information.
 
 MCp-Scan operates in two main modes which can be used jointly or separately:
 
@@ -68,7 +68,7 @@ MCp-Scan operates in two main modes which can be used jointly or separately:
 <br/>
 
 <div align="center">
-<img src="https://explorer.invariantlabs.ai/docs/mcp-scan/assets/proxy.svg" width="420pt" align="center"/>
+<img src="https://invariantlabs-ai.github.io/docs/mcp-scan/assets/proxy.svg" width="420pt" align="center"/>
 <br/>
 <br/>
 
@@ -80,7 +80,7 @@ _mcp-scan in proxy mode._
 
 - Scanning of Claude, Cursor, Windsurf, and other file-based MCP client configurations
 - Scanning for prompt injection attacks in tools and [tool poisoning attacks](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks) using [Guardrails](https://github.com/invariantlabs-ai/invariant?tab=readme-ov-file#analyzer)
-- [Enforce guardrailing policies](https://explorer.invariantlabs.ai/docs/mcp-scan/guardrails) on MCP tool calls and responses, including PII detection, secrets detection, tool restrictions and entirely custom guardrailing policies.
+- [Enforce guardrailing policies](https://invariantlabs-ai.github.io/docs/mcp-scan/guardrails-reference/) on MCP tool calls and responses, including PII detection, secrets detection, tool restrictions and entirely custom guardrailing policies.
 - Audit and log MCP traffic in real-time via [`mcp-scan proxy`](#proxy)
 - Detect cross-origin escalation attacks (e.g. [tool shadowing](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks)), and detect and prevent [MCP rug pull attacks](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks), i.e. mcp-scan detects changes to MCP tools via hashing
 
@@ -117,7 +117,7 @@ For this, create a `~/.mcp-scan/guardrails_config.yml` with the following conten
 ```
 From then on, all calls proxied via `mcp-scan proxy` will be checked against your configured guardrailing rules for the current client/server.
 
-Custom guardrails are implemented using Invariant Guardrails. To learn more about these rules, [see this playground environment](https://explorer.invariantlabs.ai/docs/guardrails/) and the [official documentation](https://explorer.invariantlabs.ai/docs/).
+Custom guardrails are implemented using Invariant Guardrails. To learn more about these rules, see the [official documentation](https://invariantlabs-ai.github.io/docs/mcp-scan/guardrails-reference/).
 
 ## How It Works
 
@@ -125,7 +125,7 @@ Custom guardrails are implemented using Invariant Guardrails. To learn more abou
 
 MCP-Scan `scan` searches through your configuration files to find MCP server configurations. It connects to these servers and retrieves tool descriptions.
 
-It then scans tool descriptions, both with local checks and by invoking Invariant Guardrailing via an API. For this, tool names and descriptions are shared with invariantlabs.ai. By using MCP-Scan, you agree to the invariantlabs.ai [terms of use](https://explorer.invariantlabs.ai/terms) and [privacy policy](https://invariantlabs.ai/privacy-policy).
+It then scans tool descriptions, both with local checks and by invoking Invariant Guardrailing via an API. For this, tool names and descriptions are shared with invariantlabs.ai. By using MCP-Scan, you agree to the invariantlabs.ai [terms of use](./TERMS.md) and [privacy policy](https://invariantlabs.ai/privacy-policy).
 
 Invariant Labs is collecting data for security research purposes (only about tool descriptions and how they change over time, not your user data). Don't use MCP-scan if you don't want to share your tools. Additionally, a unique, persistent, and anonymous ID is assigned to your scans for analysis. You can opt out of sending this information using the `--opt-out` flag.
 
