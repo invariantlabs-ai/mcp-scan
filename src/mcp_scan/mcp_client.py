@@ -7,20 +7,25 @@ from contextlib import asynccontextmanager
 from typing import Literal
 from urllib.parse import urlparse
 
+import httpx
 import pyjson5
 from mcp import ClientSession, StdioServerParameters
+from mcp.client.auth import OAuthClientProvider
 from mcp.client.sse import sse_client
 from mcp.client.stdio import stdio_client
-from mcp.client.streamable_http import streamablehttp_client
+from mcp.client.streamable_http import streamable_http_client
+from mcp.shared.auth import OAuthClientMetadata
 from mcp.types import Implementation, InitializeResult, ServerCapabilities, ToolsCapability
 
 from mcp_scan.models import (
     ClaudeConfigFile,
+    FileTokenStorage,
     MCPConfig,
     RemoteServer,
     ServerSignature,
     StaticToolsServer,
     StdioServer,
+    TokenAndClientInfo,
     UnknownMCPConfig,
     VSCodeConfigFile,
     VSCodeMCPConfig,
@@ -33,9 +38,38 @@ logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
-async def streamablehttp_client_without_session(*args, **kwargs):
-    async with streamablehttp_client(*args, **kwargs) as (read, write, _):
-        yield read, write
+async def streamablehttp_client_without_session(
+    url: str,
+    headers: dict[str, str],
+    timeout: int,
+    token: TokenAndClientInfo | None = None,
+):
+    async def handle_redirect(auth_url: str) -> None:
+        raise NotImplementedError(f"handle_redirect is not implemented {auth_url}")
+
+    async def handle_callback(auth_code: str, state: str | None) -> tuple[str, str | None]:
+        raise NotImplementedError(f"handle_callback is not implemented {auth_code} {state}")
+
+    if token:
+        oauth_client_provider = OAuthClientProvider(
+            server_url=token.mcp_server_url,
+            client_metadata=OAuthClientMetadata(
+                client_name="mcp-scan",
+                grant_types=["authorization_code", "refresh_token"],
+                response_types=["code"],
+                redirect_uris=["http://localhost:3030/callback"],
+            ),
+            storage=FileTokenStorage(data=token),
+            redirect_handler=handle_redirect,
+            callback_handler=handle_callback,
+        )
+    else:
+        oauth_client_provider = None
+    async with httpx.AsyncClient(
+        auth=oauth_client_provider, follow_redirects=True, headers=headers, timeout=timeout
+    ) as custom_client:
+        async with streamable_http_client(url=url, http_client=custom_client) as (read, write, _):
+            yield read, write
 
 
 @asynccontextmanager
@@ -43,6 +77,7 @@ async def get_client(
     server_config: StdioServer | RemoteServer,
     timeout: int | None = None,
     traffic_capture: TrafficCapture | None = None,
+    token: TokenAndClientInfo | None = None,
 ) -> AsyncIterator[tuple]:
     """
     Create an MCP client for the given server config.
@@ -65,7 +100,8 @@ async def get_client(
         client_cm = streamablehttp_client_without_session(
             url=server_config.url,
             headers=server_config.headers,
-            timeout=timeout,
+            timeout=timeout or 60,
+            token=token,
         )
     elif isinstance(server_config, StdioServer):
         logger.debug("Creating stdio client")
@@ -103,6 +139,7 @@ async def _check_server_pass(
     server_config: StdioServer | RemoteServer | StaticToolsServer,
     timeout: int,
     traffic_capture: TrafficCapture | None = None,
+    token: TokenAndClientInfo | None = None,
 ) -> ServerSignature:
     async def _check_server() -> ServerSignature:
         if isinstance(server_config, StaticToolsServer):
@@ -120,7 +157,10 @@ async def _check_server_pass(
                 tools=server_config.signature,
             )
 
-        async with get_client(server_config, timeout=timeout, traffic_capture=traffic_capture) as (read, write):
+        async with get_client(server_config, timeout=timeout, traffic_capture=traffic_capture, token=token) as (
+            read,
+            write,
+        ):
             async with ClientSession(read, write) as session:
                 meta = await session.initialize()
                 logger.debug("Server initialized with metadata: %s", meta)
@@ -179,6 +219,7 @@ async def check_server(
     server_config: StdioServer | RemoteServer | StaticToolsServer,
     timeout: int,
     traffic_capture: TrafficCapture | None = None,
+    token: TokenAndClientInfo | None = None,
 ) -> tuple[ServerSignature, StdioServer | RemoteServer | StaticToolsServer]:
     logger.debug("Checking server with timeout: %s seconds", timeout)
 
@@ -224,7 +265,9 @@ async def check_server(
                 server_config.type = protocol
                 server_config.url = url
                 logger.debug(f"Trying {protocol} with url: {url}")
-                result = await asyncio.wait_for(_check_server_pass(server_config, timeout, traffic_capture), timeout)
+                result = await asyncio.wait_for(
+                    _check_server_pass(server_config, timeout, traffic_capture, token), timeout
+                )
                 logger.debug("Server check completed within timeout")
                 return result, server_config
             except asyncio.TimeoutError as e:
