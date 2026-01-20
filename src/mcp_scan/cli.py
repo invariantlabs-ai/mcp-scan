@@ -816,7 +816,7 @@ async def print_scan_inspect(mode="scan", args=None):
     # With --json enabled, we suppress all stdout
     # to ensure we produce a valid JSON output.
     if args.json:
-        with suppress_stdout:
+        with suppress_stdout():
             result = await run_scan_inspect(mode, args)
         result = {r.path: r.model_dump(mode="json") for r in result}
         print(json.dumps(result, indent=2))
