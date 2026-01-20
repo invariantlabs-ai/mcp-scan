@@ -1,4 +1,6 @@
+import io
 import os
+import sys
 
 import pytest
 
@@ -7,6 +9,7 @@ from mcp_scan.utils import (
     calculate_distance,
     get_relative_path,
     rebalance_command_args,
+    suppress_stdout,
 )
 
 
@@ -58,3 +61,60 @@ def test_rebalance_command_args(
 
 def test_calculate_distance():
     assert calculate_distance(["a", "b", "c"], "b")[0] == ("b", 0)
+
+
+class TestSuppressStdout:
+    """Test suite for suppress_stdout context manager."""
+
+    def test_suppress_stdout_suppresses_print(self):
+        """Test that suppress_stdout suppresses print statements."""
+        # Capture what would be printed to stdout
+        captured_output = io.StringIO()
+        original_stdout = sys.stdout
+
+        try:
+            sys.stdout = captured_output
+            with suppress_stdout():
+                print("This should be suppressed")
+                print("This too")
+            # After context, stdout should be restored
+            print("This should appear")
+        finally:
+            sys.stdout = original_stdout
+
+        # Only the print after the context should appear
+        assert captured_output.getvalue() == "This should appear\n"
+
+    def test_suppress_stdout_restores_stdout_after_context(self):
+        """Test that stdout is properly restored after suppress_stdout context."""
+        original_stdout = sys.stdout
+        captured_output = io.StringIO()
+
+        try:
+            sys.stdout = captured_output
+            with suppress_stdout():
+                pass
+            # After context, stdout should be the same as before
+            assert sys.stdout is captured_output
+            print("Restored stdout works")
+        finally:
+            sys.stdout = original_stdout
+
+        assert captured_output.getvalue() == "Restored stdout works\n"
+
+    def test_suppress_stdout_works_with_multiple_prints(self):
+        """Test that suppress_stdout works with multiple print statements."""
+        captured_output = io.StringIO()
+        original_stdout = sys.stdout
+
+        try:
+            sys.stdout = captured_output
+            with suppress_stdout():
+                for i in range(10):
+                    print(f"Line {i}")
+            print("Final line")
+        finally:
+            sys.stdout = original_stdout
+
+        # Only the final print should appear
+        assert captured_output.getvalue() == "Final line\n"
