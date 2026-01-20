@@ -10,7 +10,6 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "mcp[cli]==1.16.0",
     "rich>=14.0.0",
     "pyjson5>=1.6.8",
     "aiofiles>=23.1.0",
@@ -27,6 +26,7 @@ dependencies = [
     "filelock>=3.18.0",
     "truststore>=0.10.4",
     "pydantic-core>=2.41.4",
+    "mcp[cli]==1.25.0",
 ]
 
 [project.scripts]
