@@ -531,7 +531,7 @@ class TestJSONOutput:
             def mock_upload_with_print(*args, **kwargs):
                 import rich
 
-                rich.print("✅ Successfully uploaded scan results")
+                rich.print("Successfully uploaded scan results")
 
             mock_upload.side_effect = mock_upload_with_print
 
@@ -555,7 +555,7 @@ class TestJSONOutput:
                 sys.stdout = original_stdout
 
             output = captured_output.getvalue()
-            assert "✅ Successfully uploaded scan results" not in output
+            assert "Successfully uploaded scan results" not in output
 
             parsed = json.loads(output)
             assert isinstance(parsed, dict)
