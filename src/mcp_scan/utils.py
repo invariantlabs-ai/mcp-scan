@@ -1,3 +1,4 @@
+import contextlib
 import glob
 import logging
 import os
@@ -160,3 +161,10 @@ def resolve_command_and_args(server_config: StdioServer) -> tuple[str, list[str]
 
     logger.warning(f"Command {command} not found in any fallback location")
     raise ValueError(f"Command {command} not found")
+
+
+@contextlib.contextmanager
+def suppress_stdout():
+    with open(os.devnull, "w") as devnull:
+        with contextlib.redirect_stdout(devnull):
+            yield
