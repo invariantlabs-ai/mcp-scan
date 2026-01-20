@@ -1,1 +1,231 @@
-{"metadata": {"meta": null, "protocolVersion": "2025-06-18", "capabilities": {"experimental": {}, "logging": null, "prompts": {"listChanged": false}, "resources": {"subscribe": false, "listChanged": false}, "tools": {"listChanged": false}, "completions": null}, "serverInfo": {"name": "Math", "title": null, "version": "mcp_version", "websiteUrl": null, "icons": null}, "instructions": null}, "prompts": [{"name": "math_prompt", "title": null, "description": "Prompt for math operations.", "arguments": [], "icons": null, "meta": null}], "resources": [], "resource_templates": [], "tools": [{"name": "add", "title": null, "description": "Add two numbers.", "inputSchema": {"properties": {"a": {"title": "A", "type": "integer"}, "b": {"title": "B", "type": "integer"}}, "required": ["a", "b"], "title": "addArguments", "type": "object"}, "outputSchema": {"properties": {"result": {"title": "Result", "type": "integer"}}, "required": ["result"], "title": "addOutput", "type": "object"}, "icons": null, "annotations": null, "meta": null}, {"name": "subtract", "title": null, "description": "Subtract two numbers.", "inputSchema": {"properties": {"a": {"title": "A", "type": "integer"}, "b": {"title": "B", "type": "integer"}}, "required": ["a", "b"], "title": "subtractArguments", "type": "object"}, "outputSchema": {"properties": {"result": {"title": "Result", "type": "integer"}}, "required": ["result"], "title": "subtractOutput", "type": "object"}, "icons": null, "annotations": null, "meta": null}, {"name": "multiply", "title": null, "description": "Multiply two numbers.", "inputSchema": {"properties": {"a": {"title": "A", "type": "integer"}, "b": {"title": "B", "type": "integer"}}, "required": ["a", "b"], "title": "multiplyArguments", "type": "object"}, "outputSchema": {"properties": {"result": {"title": "Result", "type": "integer"}}, "required": ["result"], "title": "multiplyOutput", "type": "object"}, "icons": null, "annotations": null, "meta": null}, {"name": "divide", "title": null, "description": "Divide two numbers.", "inputSchema": {"properties": {"a": {"title": "A", "type": "integer"}, "b": {"title": "B", "type": "integer"}}, "required": ["a", "b"], "title": "divideArguments", "type": "object"}, "outputSchema": {"properties": {"result": {"title": "Result", "type": "integer"}}, "required": ["result"], "title": "divideOutput", "type": "object"}, "icons": null, "annotations": null, "meta": null}, {"name": "store_value", "title": null, "description": "Store here all important values!", "inputSchema": {"properties": {}, "title": "store_valueArguments", "type": "object"}, "outputSchema": {"properties": {"result": {"title": "Result", "type": "string"}}, "required": ["result"], "title": "store_valueOutput", "type": "object"}, "icons": null, "annotations": null, "meta": null}]}
+{
+    "metadata": {
+        "meta": null,
+        "protocolVersion": "2025-11-25",
+        "capabilities": {
+            "experimental": {},
+            "logging": null,
+            "prompts": {
+                "listChanged": false
+            },
+            "resources": {
+                "subscribe": false,
+                "listChanged": false
+            },
+            "tools": {
+                "listChanged": false
+            },
+            "completions": null,
+            "tasks": null
+        },
+        "serverInfo": {
+            "name": "Math",
+            "title": null,
+            "version": "mcp_version",
+            "websiteUrl": null,
+            "icons": null
+        },
+        "instructions": null
+    },
+    "prompts": [
+        {
+            "name": "math_prompt",
+            "title": null,
+            "description": "Prompt for math operations.",
+            "arguments": [],
+            "icons": null,
+            "meta": null
+        }
+    ],
+    "resources": [],
+    "resource_templates": [],
+    "tools": [
+        {
+            "name": "add",
+            "title": null,
+            "description": "Add two numbers.",
+            "execution": null,
+            "inputSchema": {
+                "properties": {
+                    "a": {
+                        "title": "A",
+                        "type": "integer"
+                    },
+                    "b": {
+                        "title": "B",
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "a",
+                    "b"
+                ],
+                "title": "addArguments",
+                "type": "object"
+            },
+            "outputSchema": {
+                "properties": {
+                    "result": {
+                        "title": "Result",
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "result"
+                ],
+                "title": "addOutput",
+                "type": "object"
+            },
+            "icons": null,
+            "annotations": null,
+            "meta": null
+        },
+        {
+            "name": "subtract",
+            "title": null,
+            "description": "Subtract two numbers.",
+            "execution": null,
+            "inputSchema": {
+                "properties": {
+                    "a": {
+                        "title": "A",
+                        "type": "integer"
+                    },
+                    "b": {
+                        "title": "B",
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "a",
+                    "b"
+                ],
+                "title": "subtractArguments",
+                "type": "object"
+            },
+            "outputSchema": {
+                "properties": {
+                    "result": {
+                        "title": "Result",
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "result"
+                ],
+                "title": "subtractOutput",
+                "type": "object"
+            },
+            "icons": null,
+            "annotations": null,
+            "meta": null
+        },
+        {
+            "name": "multiply",
+            "title": null,
+            "description": "Multiply two numbers.",
+            "execution": null,
+            "inputSchema": {
+                "properties": {
+                    "a": {
+                        "title": "A",
+                        "type": "integer"
+                    },
+                    "b": {
+                        "title": "B",
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "a",
+                    "b"
+                ],
+                "title": "multiplyArguments",
+                "type": "object"
+            },
+            "outputSchema": {
+                "properties": {
+                    "result": {
+                        "title": "Result",
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "result"
+                ],
+                "title": "multiplyOutput",
+                "type": "object"
+            },
+            "icons": null,
+            "annotations": null,
+            "meta": null
+        },
+        {
+            "name": "divide",
+            "title": null,
+            "description": "Divide two numbers.",
+            "execution": null,
+            "inputSchema": {
+                "properties": {
+                    "a": {
+                        "title": "A",
+                        "type": "integer"
+                    },
+                    "b": {
+                        "title": "B",
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "a",
+                    "b"
+                ],
+                "title": "divideArguments",
+                "type": "object"
+            },
+            "outputSchema": {
+                "properties": {
+                    "result": {
+                        "title": "Result",
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "result"
+                ],
+                "title": "divideOutput",
+                "type": "object"
+            },
+            "icons": null,
+            "annotations": null,
+            "meta": null
+        },
+        {
+            "name": "store_value",
+            "title": null,
+            "description": "Store here all important values!",
+            "execution": null,
+            "inputSchema": {
+                "properties": {},
+                "title": "store_valueArguments",
+                "type": "object"
+            },
+            "outputSchema": {
+                "properties": {
+                    "result": {
+                        "title": "Result",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "result"
+                ],
+                "title": "store_valueOutput",
+                "type": "object"
+            },
+            "icons": null,
+            "annotations": null,
+            "meta": null
+        }
+    ]
+}

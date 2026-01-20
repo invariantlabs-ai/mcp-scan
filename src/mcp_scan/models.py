@@ -5,6 +5,8 @@ from hashlib import md5
 from itertools import chain
 from typing import Any, Literal, TypeAlias
 
+from mcp.client.auth import TokenStorage
+from mcp.shared.auth import OAuthClientInformationFull, OAuthToken
 from mcp.types import Completion, InitializeResult, Prompt, Resource, ResourceTemplate, Tool
 from pydantic import (
     BaseModel,
@@ -14,6 +16,7 @@ from pydantic import (
     field_serializer,
     field_validator,
 )
+from pydantic.alias_generators import to_camel
 
 # Error categories for structured error classification
 ErrorCategory = Literal[
@@ -390,3 +393,61 @@ class ScanPathResultsCreate(BaseModel):
     scan_path_results: list[ScanPathResult]
     scan_user_info: ScanUserInfo
     scan_metadata: dict[str, Any] | None = None
+
+
+class TokenAndClientInfo(BaseModel):
+    # Use Field(alias=...) for the 'token' because OAuthToken's
+    # internal fields (accessToken) are also camelCase.
+    token: OAuthToken = Field(alias="token")
+
+    server_name: str
+    client_id: str
+    token_url: str
+    mcp_server_url: str
+    updated_at: int
+
+    model_config = ConfigDict(
+        # This converts snake_case to camelCase for lookup
+        alias_generator=to_camel,
+        # This allows you to still populate via snake_case in Python
+        populate_by_name=True,
+    )
+
+    @field_validator("token", mode="before")
+    @classmethod
+    def map_token_keys(cls, v: Any) -> Any:
+        if isinstance(v, dict):
+            # Map the camelCase keys to snake_case for the OAuthToken model
+            mapping = {
+                "accessToken": "access_token",
+                "tokenType": "token_type",
+                "refreshToken": "refresh_token",
+                "expiresIn": "expires_in",
+            }
+            return {mapping.get(k, k): val for k, val in v.items()}
+        return v
+
+
+class TokenAndClientInfoList(RootModel):
+    root: list[TokenAndClientInfo]
+
+
+class FileTokenStorage(TokenStorage):
+    def __init__(self, data: TokenAndClientInfo):
+        self.data = data
+
+    async def get_tokens(self) -> OAuthToken | None:
+        return self.data.token
+
+    async def set_tokens(self, tokens: OAuthToken) -> None:
+        raise NotImplementedError("set_tokens is not supported for FileTokenStorage")
+
+    async def get_client_info(self) -> OAuthClientInformationFull | None:
+        return OAuthClientInformationFull(
+            client_id=self.data.client_id,
+            redirect_uris=["http://localhost:3030/callback"],
+        )
+
+    async def set_client_info(self, client_info: OAuthClientInformationFull) -> None:
+        """Store client information."""
+        raise NotImplementedError("set_client_info is not supported for FileTokenStorage")

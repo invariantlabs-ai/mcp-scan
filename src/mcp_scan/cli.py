@@ -193,7 +193,11 @@ def add_common_arguments(parser):
         action="append",
         help="Additional headers for the verification server",
     )
-
+    parser.add_argument(
+        "--mcp-oauth-tokens-path",
+        type=str,
+        help="Path of the file where the MCP OAuth tokens are stored.",
+    )
     parser.add_argument(
         "--verbose",
         default=False,

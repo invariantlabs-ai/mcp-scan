@@ -9,6 +9,7 @@ from collections.abc import Callable
 from typing import Any
 
 from httpx import HTTPStatusError
+from pydantic import ValidationError
 
 from mcp_scan.direct_scanner import direct_scan, is_direct_scan
 from mcp_scan.mcp_client import check_server, scan_mcp_config_file
@@ -17,6 +18,8 @@ from mcp_scan.models import (
     ScanError,
     ScanPathResult,
     ServerScanResult,
+    TokenAndClientInfo,
+    TokenAndClientInfoList,
     UnknownMCPConfig,
 )
 from mcp_scan.redact import redact_scan_result
@@ -78,6 +81,7 @@ class MCPScanner:
         control_servers: list | None = None,
         skip_ssl_verify: bool = False,
         scan_context: dict | None = None,
+        mcp_oauth_tokens_path: str | None = None,
         **kwargs: Any,
     ):
         logger.info("Initializing MCPScanner")
@@ -101,6 +105,20 @@ class MCPScanner:
         logger.debug(
             "MCPScanner initialized with timeout: %d, checks_per_server: %d", server_timeout, checks_per_server
         )
+        self.mcp_oauth_tokens_path = mcp_oauth_tokens_path
+        if self.mcp_oauth_tokens_path:
+            if os.path.exists(self.mcp_oauth_tokens_path):
+                with open(self.mcp_oauth_tokens_path) as f:
+                    try:
+                        self.mcp_oauth_tokens = TokenAndClientInfoList.model_validate_json(f.read()).root
+                    except ValidationError as e:
+                        logger.error(f"Error loading MCP OAuth tokens from {self.mcp_oauth_tokens_path}: {e}")
+                        self.mcp_oauth_tokens = None
+            else:
+                logger.error(f"MCP OAuth tokens file {self.mcp_oauth_tokens_path} does not exist. Skipping MCP OAuth")
+                self.mcp_oauth_tokens = None
+        else:
+            self.mcp_oauth_tokens = None
 
     def __enter__(self):
         logger.debug("Entering MCPScanner context")
@@ -217,13 +235,15 @@ class MCPScanner:
         if self.context_manager is not None:
             await self.context_manager.emit(signal, data)
 
-    async def scan_server(self, server: ServerScanResult) -> ServerScanResult:
+    async def scan_server(self, server: ServerScanResult, token: TokenAndClientInfo | None = None) -> ServerScanResult:
         logger.info("Scanning server: %s", server.name)
         result = server.clone()
         # Capture all MCP traffic for debugging
         traffic_capture = TrafficCapture()
         try:
-            result.signature, result.server = await check_server(server.server, self.server_timeout, traffic_capture)
+            result.signature, result.server = await check_server(
+                server.server, self.server_timeout, traffic_capture, token
+            )
             logger.debug(
                 "Server %s has %d prompts, %d resources, %d resouce templates,  %d tools",
                 server.name,
@@ -257,7 +277,9 @@ class MCPScanner:
         await self.emit("server_scanned", result)
         return result
 
-    async def scan_path(self, path: str, inspect_only: bool = False) -> ScanPathResult:
+    async def scan_path(
+        self, path: str, inspect_only: bool = False, mcp_oauth_tokens: list[TokenAndClientInfo] | None = None
+    ) -> ScanPathResult:
         logger.info("Scanning path: %s, inspect_only: %s", path, inspect_only)
         path_result = await self.get_servers_from_path(path)
 
@@ -270,7 +292,9 @@ class MCPScanner:
                         logger.info("Skipping scan of server %d/%d: %s", i + 1, len(path_result.servers), server.name)
                         continue
                 logger.debug("Scanning server %d/%d: %s", i + 1, len(path_result.servers), server.name)
-                path_result.servers[i] = await self.scan_server(server)
+                token = next((token for token in mcp_oauth_tokens or [] if token.server_name == server.name), None)
+
+                path_result.servers[i] = await self.scan_server(server, token)
 
         # add built-in tools
         if self.include_built_in:
@@ -332,7 +356,9 @@ class MCPScanner:
 
     async def inspect(self) -> list[ScanPathResult]:
         logger.info("Starting inspection of %d paths", len(self.paths))
-        result = [self.scan_path(path, inspect_only=True) for path in self.paths]
+        result = [
+            self.scan_path(path, inspect_only=True, mcp_oauth_tokens=self.mcp_oauth_tokens) for path in self.paths
+        ]
         result_awaited = await asyncio.gather(*result)
         logger.debug("Saving storage file")
         self.storage_file.save()

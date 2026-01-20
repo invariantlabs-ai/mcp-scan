@@ -2,7 +2,6 @@
 
 import argparse
 
-import uvicorn
 from mcp.server.fastmcp import FastMCP
 
 # Initialize FastMCP server for Weather tools.
@@ -45,14 +44,11 @@ if __name__ == "__main__":
     parser.add_argument(
         "--transport",
         type=str,
-        default="streamable_http",
+        default="streamable-http",
     )
     args = parser.parse_args()
-    if args.transport not in ["sse", "stdio", "streamable_http"]:
-        raise ValueError("Invalid transport type. Choose from 'sse', 'stdio', or 'streamable_http'.")
-    if args.transport == "sse":
-        uvicorn.run(mcp.sse_app, host="localhost", port=args.port)
-    elif args.transport == "streamable_http":
-        uvicorn.run(mcp.streamable_http_app, host="localhost", port=args.port)
-    elif args.transport == "stdio":
-        mcp.run()
+    mcp.settings.port = args.port
+    assert args.transport in ["sse", "stdio", "streamable-http"], (
+        "Invalid transport type. Choose from 'sse', 'stdio', or 'streamable-http'."
+    )
+    mcp.run(transport=args.transport)
