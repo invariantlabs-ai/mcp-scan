@@ -197,7 +197,7 @@ def streamable_http_transport_config_file(streamable_http_transport_config):
                 "python",
                 "tests/mcp_servers/multiple_transport_server.py",
                 "--transport",
-                "streamable_http",
+                "streamable-http",
                 "--port",
                 "8124",
             ],

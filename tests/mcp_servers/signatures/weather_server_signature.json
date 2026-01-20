@@ -1,1 +1,113 @@
-{"metadata": {"meta": null, "protocolVersion": "2025-06-18", "capabilities": {"experimental": {}, "logging": null, "prompts": {"listChanged": false}, "resources": {"subscribe": false, "listChanged": false}, "tools": {"listChanged": false}, "completions": {}}, "serverInfo": {"name": "Weather", "title": null, "version": "mcp_version", "websiteUrl": null, "icons": null}, "instructions": null}, "prompts": [{"name": "good_morning", "title": null, "description": "Prompt to generate a good morning message for the user.", "arguments": [{"name": "name", "description": null, "required": true}, {"name": "weather", "description": null, "required": false}], "icons": null, "meta": null}], "resources": [{"name": "weathers", "title": null, "uri": "weather://list", "description": "List of possible weather supported by the server.", "mimeType": "text/plain", "size": null, "icons": null, "annotations": null, "meta": null}], "resource_templates": [{"name": "weather_description", "title": null, "uriTemplate": "weather://{weather}/description", "description": "Description of a weather.", "mimeType": "text/plain", "icons": null, "annotations": null, "meta": null}], "tools": [{"name": "weather", "title": null, "description": "Get current weather for a location.", "inputSchema": {"properties": {"location": {"title": "Location", "type": "string"}}, "required": ["location"], "title": "weatherArguments", "type": "object"}, "outputSchema": {"properties": {"result": {"title": "Result", "type": "string"}}, "required": ["result"], "title": "weatherOutput", "type": "object"}, "icons": null, "annotations": null, "meta": null}]}
+{
+    "metadata": {
+        "meta": null,
+        "protocolVersion": "2025-11-25",
+        "capabilities": {
+            "experimental": {},
+            "logging": null,
+            "prompts": {
+                "listChanged": false
+            },
+            "resources": {
+                "subscribe": false,
+                "listChanged": false
+            },
+            "tools": {
+                "listChanged": false
+            },
+            "completions": {},
+            "tasks": null
+        },
+        "serverInfo": {
+            "name": "Weather",
+            "title": null,
+            "version": "mcp_version",
+            "websiteUrl": null,
+            "icons": null
+        },
+        "instructions": null
+    },
+    "prompts": [
+        {
+            "name": "good_morning",
+            "title": null,
+            "description": "Prompt to generate a good morning message for the user.",
+            "arguments": [
+                {
+                    "name": "name",
+                    "description": null,
+                    "required": true
+                },
+                {
+                    "name": "weather",
+                    "description": null,
+                    "required": false
+                }
+            ],
+            "icons": null,
+            "meta": null
+        }
+    ],
+    "resources": [
+        {
+            "name": "weathers",
+            "title": null,
+            "uri": "weather://list",
+            "description": "List of possible weather supported by the server.",
+            "mimeType": "text/plain",
+            "size": null,
+            "icons": null,
+            "annotations": null,
+            "meta": null
+        }
+    ],
+    "resource_templates": [
+        {
+            "name": "weather_description",
+            "title": null,
+            "uriTemplate": "weather://{weather}/description",
+            "description": "Description of a weather.",
+            "mimeType": "text/plain",
+            "icons": null,
+            "annotations": null,
+            "meta": null
+        }
+    ],
+    "tools": [
+        {
+            "name": "weather",
+            "title": null,
+            "description": "Get current weather for a location.",
+            "execution": null,
+            "inputSchema": {
+                "properties": {
+                    "location": {
+                        "title": "Location",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "location"
+                ],
+                "title": "weatherArguments",
+                "type": "object"
+            },
+            "outputSchema": {
+                "properties": {
+                    "result": {
+                        "title": "Result",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "result"
+                ],
+                "title": "weatherOutput",
+                "type": "object"
+            },
+            "icons": null,
+            "annotations": null,
+            "meta": null
+        }
+    ]
+}
