@@ -264,6 +264,9 @@ class MCPScanner:
                 server_output=traffic_capture.get_traffic_log(),
             )
         except Exception as e:
+            # Default to http if the server type is not set, and we could not run the server.
+            if result.server.type is None:
+                result.server.type = "http"
             error_msg = "could not start server"
             logger.exception("%s: %s", error_msg, server.name)
             result.error = ScanError(

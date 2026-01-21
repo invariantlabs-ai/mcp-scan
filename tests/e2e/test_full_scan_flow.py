@@ -97,6 +97,40 @@ class TestFullScanFlow:
         assert output[file_name]["servers"][0]["server"]["url"] == url, json.dumps(output, indent=4)
 
     @pytest.mark.parametrize(
+        "config, transport",
+        [
+            (
+                json.dumps({"mcp": {"servers": {"http_server": {"url": "http://localhost:8124/mcp", "type": "http"}}}}),
+                "http",
+            ),
+            (
+                json.dumps({"mcp": {"servers": {"http_server": {"url": "http://localhost:8123/sse", "type": "sse"}}}}),
+                "sse",
+            ),
+            (
+                json.dumps({"mcp": {"servers": {"http_server": {"url": "http://localhost:8123/mcp"}}}}),
+                "http",
+            ),  # default to http
+        ],
+    )
+    def test_infer_transport_server_not_working(self, config: str, transport: str | None):
+        """Test that the server not working is detected."""
+        file_name: str
+        with TempFile(mode="w") as temp_file:
+            file_name = temp_file.name
+            temp_file.write(config)
+            temp_file.flush()
+            result = subprocess.run(
+                ["uv", "run", "-m", "src.mcp_scan.run", "scan", "--json", file_name],
+                capture_output=True,
+                text=True,
+            )
+        assert result.returncode == 0, f"Command failed with error: {result.stderr}"
+        output = json.loads(result.stdout)
+        assert len(output) == 1, "Output should contain exactly one entry for the config file"
+        assert output[file_name]["servers"][0]["server"]["type"] == transport, json.dumps(output, indent=4)
+
+    @pytest.mark.parametrize(
         "path, server_names",
         [
             ("tests/mcp_servers/configs_files/weather_config.json", ["Weather"]),
