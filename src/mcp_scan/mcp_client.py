@@ -229,7 +229,6 @@ async def check_server(
         return result, server_config
     else:
         logger.debug(f"Remote server with url: {server_config.url}, type: {server_config.type or 'none'}")
-        changed_server_config = RemoteServer.model_validate_json(server_config.model_dump_json())
         strategy: list[tuple[Literal["sse", "http"], str]] = []
         url_path = urlparse(server_config.url).path
         if url_path.endswith("/sse"):
@@ -263,14 +262,14 @@ async def check_server(
         exceptions: list[Exception] = []
         for protocol, url in strategy:
             try:
-                changed_server_config.type = protocol
-                changed_server_config.url = url
+                server_config.type = protocol
+                server_config.url = url
                 logger.debug(f"Trying {protocol} with url: {url}")
                 result = await asyncio.wait_for(
-                    _check_server_pass(changed_server_config, timeout, traffic_capture, token), timeout
+                    _check_server_pass(server_config, timeout, traffic_capture, token), timeout
                 )
                 logger.debug("Server check completed within timeout")
-                return result, changed_server_config
+                return result, server_config
             except asyncio.TimeoutError as e:
                 logger.debug("Server check timed out")
                 exceptions.append(e)
