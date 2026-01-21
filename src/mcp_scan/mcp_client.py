@@ -229,7 +229,11 @@ async def check_server(
         return result, server_config
     else:
         logger.debug(f"Remote server with url: {server_config.url}, type: {server_config.type or 'none'}")
-        changed_server_config = server_config.model_copy(deep=True)
+        changed_server_config = RemoteServer(
+            url=server_config.url,
+            type=server_config.type,
+            headers=server_config.headers,
+        )
         strategy: list[tuple[Literal["sse", "http"], str]] = []
         url_path = urlparse(server_config.url).path
         if url_path.endswith("/sse"):
