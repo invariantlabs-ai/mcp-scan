@@ -100,15 +100,19 @@ class TestFullScanFlow:
         "config, transport",
         [
             (
-                json.dumps({"mcp": {"servers": {"http_server": {"url": "http://localhost:8124/mcp", "type": "http"}}}}),
+                json.dumps(
+                    {"mcp": {"servers": {"http_server": {"url": "http://www.mcp-scan.com/mcp", "type": "http"}}}}
+                ),
                 "http",
             ),
             (
-                json.dumps({"mcp": {"servers": {"http_server": {"url": "http://localhost:8123/sse", "type": "sse"}}}}),
+                json.dumps(
+                    {"mcp": {"servers": {"http_server": {"url": "http://www.mcp-scan.com/sse", "type": "sse"}}}}
+                ),
                 "sse",
             ),
             (
-                json.dumps({"mcp": {"servers": {"http_server": {"url": "http://localhost:8123/mcp"}}}}),
+                json.dumps({"mcp": {"servers": {"http_server": {"url": "http://www.mcp-scan.com/mcp"}}}}),
                 "http",
             ),  # default to http
         ],
