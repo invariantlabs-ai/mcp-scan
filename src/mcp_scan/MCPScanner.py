@@ -15,6 +15,7 @@ from mcp_scan.direct_scanner import direct_scan, is_direct_scan
 from mcp_scan.mcp_client import check_server, scan_mcp_config_file
 from mcp_scan.models import (
     Issue,
+    RemoteServer,
     ScanError,
     ScanPathResult,
     ServerScanResult,
@@ -264,6 +265,9 @@ class MCPScanner:
                 server_output=traffic_capture.get_traffic_log(),
             )
         except Exception as e:
+            # Default to http if the server type is not set, and we could not run the server.
+            if result.server.type is None and isinstance(server.server, RemoteServer):
+                result.server.type = "http"
             error_msg = "could not start server"
             logger.exception("%s: %s", error_msg, server.name)
             result.error = ScanError(
