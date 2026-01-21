@@ -121,10 +121,12 @@ class TestFullScanFlow:
             temp_file.write(config)
             temp_file.flush()
             result = subprocess.run(
-                ["uv", "run", "-m", "src.mcp_scan.run", "scan", "--json", file_name],
+                ["uv", "run", "-m", "src.mcp_scan.run", "scan", "--json", file_name, "--verbose"],
                 capture_output=True,
                 text=True,
             )
+            print(result.stdout)
+            print(result.stderr)
         assert result.returncode == 0, f"Command failed with error: {result.stderr}"
         output = json.loads(result.stdout)
         assert len(output) == 1, "Output should contain exactly one entry for the config file"
