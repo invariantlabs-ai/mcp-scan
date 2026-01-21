@@ -225,11 +225,11 @@ async def check_server(
 
     if not isinstance(server_config, RemoteServer):
         result = await asyncio.wait_for(_check_server_pass(server_config, timeout, traffic_capture), timeout)
-        changed_server_config = server_config.model_copy(deep=True)
         logger.debug("Server check completed within timeout")
         return result, server_config
     else:
         logger.debug(f"Remote server with url: {server_config.url}, type: {server_config.type or 'none'}")
+        changed_server_config = server_config.model_copy(deep=True)
         strategy: list[tuple[Literal["sse", "http"], str]] = []
         url_path = urlparse(server_config.url).path
         if url_path.endswith("/sse"):
