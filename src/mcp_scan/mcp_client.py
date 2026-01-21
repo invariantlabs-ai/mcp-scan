@@ -225,6 +225,7 @@ async def check_server(
 
     if not isinstance(server_config, RemoteServer):
         result = await asyncio.wait_for(_check_server_pass(server_config, timeout, traffic_capture), timeout)
+        changed_server_config = server_config.model_copy(deep=True)
         logger.debug("Server check completed within timeout")
         return result, server_config
     else:
@@ -262,14 +263,14 @@ async def check_server(
         exceptions: list[Exception] = []
         for protocol, url in strategy:
             try:
-                server_config.type = protocol
-                server_config.url = url
+                changed_server_config.type = protocol
+                changed_server_config.url = url
                 logger.debug(f"Trying {protocol} with url: {url}")
                 result = await asyncio.wait_for(
-                    _check_server_pass(server_config, timeout, traffic_capture, token), timeout
+                    _check_server_pass(changed_server_config, timeout, traffic_capture, token), timeout
                 )
                 logger.debug("Server check completed within timeout")
-                return result, server_config
+                return result, changed_server_config
             except asyncio.TimeoutError as e:
                 logger.debug("Server check timed out")
                 exceptions.append(e)
