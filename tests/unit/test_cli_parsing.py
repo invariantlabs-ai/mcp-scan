@@ -455,3 +455,107 @@ class TestControlServerUploadIntegration:
             assert mock_upload.call_count == 2
             _, kwargs = mock_upload.call_args
             assert kwargs.get("skip_ssl_verify") is True
+
+
+class TestJSONOutput:
+    """Test suite for JSON output functionality."""
+
+    @pytest.mark.asyncio
+    async def test_json_output_suppresses_stdout_during_scan(self):
+        """Test that when --json is enabled, stdout is suppressed during scan."""
+        import io
+        import json
+        import sys
+        from argparse import Namespace
+
+        from mcp_scan.cli import print_scan_inspect
+        from mcp_scan.models import ScanPathResult
+
+        mock_result = ScanPathResult(path="/test/path.json")
+
+        with patch("mcp_scan.cli.MCPScanner") as MockScanner, patch("mcp_scan.cli.upload"):
+            # Setup scanner mock
+            mock_scanner_instance = AsyncMock()
+            mock_scanner_instance.scan = AsyncMock(return_value=[mock_result])
+            mock_scanner_instance.__aenter__ = AsyncMock(return_value=mock_scanner_instance)
+            mock_scanner_instance.__aexit__ = AsyncMock(return_value=None)
+            MockScanner.return_value = mock_scanner_instance
+
+            # Create args with json enabled
+            args = Namespace(
+                json=True,
+                verification_H=None,
+                control_servers=[],
+                print_errors=False,
+                full_toxic_flows=False,
+                verbose=False,
+            )
+
+            captured_output = io.StringIO()
+            original_stdout = sys.stdout
+
+            try:
+                sys.stdout = captured_output
+                await print_scan_inspect(mode="scan", args=args)
+            finally:
+                sys.stdout = original_stdout
+
+            output = captured_output.getvalue()
+            assert output.strip()
+            parsed = json.loads(output)
+            assert isinstance(parsed, dict)
+            assert "/test/path.json" in parsed
+
+    @pytest.mark.asyncio
+    async def test_json_output_only_contains_json(self):
+        """Test that JSON output mode only outputs JSON, no rich.print messages."""
+        import io
+        import json
+        import sys
+        from argparse import Namespace
+
+        from mcp_scan.cli import print_scan_inspect
+        from mcp_scan.models import ScanPathResult
+
+        mock_result = ScanPathResult(path="/test/path.json")
+
+        with patch("mcp_scan.cli.MCPScanner") as MockScanner, patch("mcp_scan.cli.upload") as mock_upload:
+            # Setup scanner mock
+            mock_scanner_instance = AsyncMock()
+            mock_scanner_instance.scan = AsyncMock(return_value=[mock_result])
+            mock_scanner_instance.__aenter__ = AsyncMock(return_value=mock_scanner_instance)
+            mock_scanner_instance.__aexit__ = AsyncMock(return_value=None)
+            MockScanner.return_value = mock_scanner_instance
+
+            # Setup upload to print (which should be suppressed)
+            def mock_upload_with_print(*args, **kwargs):
+                import rich
+
+                rich.print("Successfully uploaded scan results")
+
+            mock_upload.side_effect = mock_upload_with_print
+
+            args = Namespace(
+                json=True,
+                verification_H=None,
+                control_servers=[{"url": "https://test.com", "headers": [], "identifier": None, "opt_out": False}],
+                print_errors=False,
+                full_toxic_flows=False,
+                verbose=False,
+            )
+
+            # Capture stdout
+            captured_output = io.StringIO()
+            original_stdout = sys.stdout
+
+            try:
+                sys.stdout = captured_output
+                await print_scan_inspect(mode="scan", args=args)
+            finally:
+                sys.stdout = original_stdout
+
+            output = captured_output.getvalue()
+            assert "Successfully uploaded scan results" not in output
+
+            parsed = json.loads(output)
+            assert isinstance(parsed, dict)

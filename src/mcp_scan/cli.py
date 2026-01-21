@@ -20,7 +20,7 @@ from mcp_scan.MCPScanner import MCPScanner
 from mcp_scan.printer import print_scan_result
 from mcp_scan.Storage import Storage
 from mcp_scan.upload import get_hostname, upload
-from mcp_scan.utils import parse_headers
+from mcp_scan.utils import parse_headers, suppress_stdout
 from mcp_scan.version import version_info
 from mcp_scan.well_known_clients import WELL_KNOWN_MCP_PATHS, client_shorthands_to_paths
 
@@ -813,11 +813,15 @@ async def run_scan_inspect(mode="scan", args=None):
 
 
 async def print_scan_inspect(mode="scan", args=None):
-    result = await run_scan_inspect(mode, args)
+    # With --json enabled, we suppress all stdout
+    # to ensure we produce a valid JSON output.
     if args.json:
+        with suppress_stdout():
+            result = await run_scan_inspect(mode, args)
         result = {r.path: r.model_dump(mode="json") for r in result}
         print(json.dumps(result, indent=2))
     else:
+        result = await run_scan_inspect(mode, args)
         print_scan_result(
             result,
             args.print_errors,
