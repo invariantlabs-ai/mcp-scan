@@ -9,13 +9,24 @@ from urllib.parse import urlparse
 
 import httpx
 import pyjson5
+import yaml  # type: ignore
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.auth import OAuthClientProvider
 from mcp.client.sse import sse_client
 from mcp.client.stdio import stdio_client
 from mcp.client.streamable_http import streamable_http_client
 from mcp.shared.auth import OAuthClientMetadata
-from mcp.types import Implementation, InitializeResult, ServerCapabilities, ToolsCapability
+from mcp.types import (
+    Implementation,
+    InitializeResult,
+    Prompt,
+    PromptsCapability,
+    Resource,
+    ResourcesCapability,
+    ServerCapabilities,
+    Tool,
+    ToolsCapability,
+)
 
 from mcp_scan.models import (
     ClaudeConfigFile,
@@ -23,6 +34,7 @@ from mcp_scan.models import (
     MCPConfig,
     RemoteServer,
     ServerSignature,
+    SkillServer,
     StaticToolsServer,
     StdioServer,
     TokenAndClientInfo,
@@ -330,3 +342,122 @@ async def scan_mcp_config_file(path: str) -> MCPConfig:
     except Exception:
         logger.exception("Error processing config file")
         raise
+
+
+async def scan_skill(config: SkillServer) -> ServerSignature:
+    logger.info(f"Scanning skill at path: {config.path}")
+    with open(os.path.join(config.path, "SKILL.md")) as f:
+        content = f.read()
+    logger.debug("Skill file read successfully")
+
+    # parse SKILL.md file
+    content_chunks = content.split("---")
+    if len(content_chunks) <= 2:
+        raise Exception(
+            f"Invalid SKILL.md file: {config.path}. Could not find the YAML and the MD parts in the SKILL.md file."
+        )
+    yaml_content = content_chunks[1].strip()
+    text_content = "---".join(content_chunks[2:])
+
+    yaml_data = yaml.safe_load(yaml_content)
+    if "name" not in yaml_data:
+        raise Exception(f"Invalid SKILL.md file: {config.path}. Missing name in the YAML frontmatter.")
+    name = yaml_data["name"]
+    if "description" not in yaml_data:
+        raise Exception(f"Invalid SKILL.md file: {config.path}. Missing description in the YAML frontmatter.")
+    description = yaml_data["description"]
+    base_prompt = Prompt(
+        name="SKILL.md",
+        description=text_content,
+        arguments=[],
+    )
+    prompts, resources, tools = traverse_skill_tree(config.path, None)
+    return ServerSignature(
+        metadata=InitializeResult(
+            protocolVersion="built-in",
+            instructions=description,
+            capabilities=ServerCapabilities(tools=ToolsCapability(listChanged=False)),
+            prompts=PromptsCapability(listChanged=False),
+            resources=ResourcesCapability(listChanged=False),
+            serverInfo=Implementation(name=name, version="skills"),
+        ),
+        prompts=[base_prompt, *prompts],
+        resources=resources,
+        tools=tools,
+    )
+
+    # skill tree traversal
+
+
+def traverse_skill_tree(skill_path: str, relative_path: str | None) -> tuple[list[Prompt], list[Resource], list[Tool]]:
+    path = os.path.join(skill_path, relative_path) if relative_path else skill_path
+
+    prompts: list[Prompt] = []
+    resources: list[Resource] = []
+    tools: list[Tool] = []
+
+    for file in os.listdir(path):
+        full_path = os.path.join(path, file)
+        relative_full_path = os.path.join(relative_path, file) if relative_path else file
+        if os.path.isdir(full_path):
+            prompts_sub, resources_sub, tools_sub = traverse_skill_tree(skill_path, relative_full_path)
+            prompts.extend(prompts_sub)
+            resources.extend(resources_sub)
+            tools.extend(tools_sub)
+            continue
+        elif file == "SKILL.md" and not relative_path:
+            continue
+
+        elif file.endswith(".md"):
+            with open(full_path) as f:
+                content = f.read()
+                prompts.append(
+                    Prompt(
+                        name=os.path.join(path, file),
+                        description=content,
+                    )
+                )
+
+        elif file.split(".")[-1] in ["py", "js", "ts", "sh"]:
+            with open(full_path) as f:
+                code = f.read()
+            tools.append(
+                Tool(
+                    name=file,
+                    description=f"Script: {file}. Code:\n{code or 'No code available'}",
+                    inputSchema={},
+                    outputSchema=None,
+                    annotations=None,
+                )
+            )
+
+        else:
+            try:
+                with open(full_path) as f:
+                    content = f.read()
+            except UnicodeDecodeError:
+                logger.exception(f"Error reading file: {file}. The file is not a bianry")
+                content = "Binary file. No content available."
+            resources.append(
+                Resource(
+                    name=file,
+                    uri=f"skill://{relative_full_path}",
+                    description=content,
+                )
+            )
+
+    return prompts, resources, tools
+
+
+def scan_skills_dir(path: str) -> list[tuple[str, SkillServer]]:
+    logger.info("Scanning skills dir: %s", path)
+
+    candidate_skills_dirs = os.listdir(path)
+    skills_servers: list[tuple[str, SkillServer]] = []
+    for candidate_skills_dir in candidate_skills_dirs:
+        if os.path.isdir(os.path.join(path, candidate_skills_dir)) and os.path.exists(
+            os.path.join(path, candidate_skills_dir, "SKILL.md")
+        ):
+            skills_servers.append((path, SkillServer(path=os.path.join(path, candidate_skills_dir))))
+    logger.info("Found %d skills servers", len(skills_servers))
+    return skills_servers

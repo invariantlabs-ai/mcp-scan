@@ -26,6 +26,7 @@ ErrorCategory = Literal[
     "server_startup",  # MCP server failed to start
     "server_http_error",  # MCP server returned HTTP error
     "analysis_error",  # Could not reach/use analysis server
+    "skill_scan_error",  # Could not scan skill
 ]
 
 logger = logging.getLogger(__name__)
@@ -109,6 +110,12 @@ class StdioServer(BaseModel):
     type: Literal["stdio"] | None = "stdio"
     env: dict[str, str] | None = None
     binary_identifier: str | None = None
+
+
+class SkillServer(BaseModel):
+    model_config = ConfigDict()
+    path: str
+    type: Literal["skill"] | None = "skill"
 
 
 class StaticToolsServer(BaseModel):
@@ -253,7 +260,7 @@ class ServerSignature(BaseModel):
 class ServerScanResult(BaseModel):
     model_config = ConfigDict()
     name: str | None = None
-    server: StdioServer | RemoteServer | StaticToolsServer
+    server: StdioServer | RemoteServer | StaticToolsServer | SkillServer
     signature: ServerSignature | None = None
     error: ScanError | None = None
 
@@ -451,3 +458,105 @@ class FileTokenStorage(TokenStorage):
     async def set_client_info(self, client_info: OAuthClientInformationFull) -> None:
         """Store client information."""
         raise NotImplementedError("set_client_info is not supported for FileTokenStorage")
+
+
+class SerializedException(BaseModel):
+    message: str
+    traceback: str | None = None
+    is_failure: bool = True
+    sub_exception_message: str | None = None
+    category: ErrorCategory
+
+
+class FileNotFoundConfig(SerializedException):
+    category: Literal["file_not_found"] = "file_not_found"
+    is_failure: Literal[False] = False
+
+
+class UnknownConfigFormat(SerializedException):
+    category: Literal["unknown_config"] = "unknown_config"
+    is_failure: Literal[False] = False
+
+
+class CouldNotParseMCPConfig(SerializedException):
+    category: Literal["parse_error"] = "parse_error"
+
+
+class ServerStartupError(SerializedException):
+    category: Literal["server_startup"] = "server_startup"
+    server_output: str | None = None
+
+
+class SkillScannError(SerializedException):
+    category: Literal["skill_scan_error"] = "skill_scan_error"
+
+
+class ServerHTTPError(SerializedException):
+    category: Literal["server_http_error"] = "server_http_error"
+    server_output: str | None = None
+
+
+class AnalysisError(SerializedException):
+    category: Literal["analysis_error"] = "analysis_error"
+
+
+class CandidateClient(BaseModel):
+    model_config = ConfigDict()
+    name: str
+    client_exists_paths: list[str]
+    mcp_config_paths: list[str]
+    skills_dir_paths: list[str]
+
+
+class ClientToScan(BaseModel):
+    name: str
+    client_path: str
+    mcp_configs: dict[
+        str,
+        list[tuple[str, StdioServer | RemoteServer]]
+        | FileNotFoundConfig
+        | UnknownConfigFormat
+        | CouldNotParseMCPConfig,
+    ]
+    skills_dirs: dict[str, list[tuple[str, SkillServer]] | FileNotFoundConfig]
+
+
+class ScannedExtension(BaseModel):
+    name: str  # ignore if name is available in the config
+    config: StdioServer | RemoteServer | SkillServer
+    signature_or_error: ServerSignature | ServerStartupError | ServerHTTPError | SkillScannError
+
+
+class ScannedClient(BaseModel):
+    name: str
+    client_path: str
+    extensions: dict[
+        str,
+        list[ScannedExtension] | FileNotFoundConfig | UnknownConfigFormat | CouldNotParseMCPConfig | SkillScannError,
+    ]
+
+
+class ScannedMachine(BaseModel):
+    clients: list[ScannedClient]
+
+
+class NewIssue(BaseModel):
+    code: str
+    message: str
+    reference: None | tuple[tuple[str, int], int | None] = Field(
+        description="The index of the tool the issue references. ((config_path, server_index), entity_index) if it is a entity issue, ((config_path, server_index), None) if it is a server issue, None if it is a global issue",
+    )
+    extra_data: dict[str, Any] | None = Field(
+        default=None,
+        description="Extra data to provide more context about the issue.",
+    )
+
+
+class ClientAnalysis(BaseModel):
+    labels: list[list[ScalarToolLabels]]
+    issues: list[NewIssue]
+
+
+class AnalyzedClient(BaseModel):
+    client: ScannedClient
+    analysis: ClientAnalysis | AnalysisError

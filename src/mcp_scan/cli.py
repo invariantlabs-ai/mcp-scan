@@ -16,6 +16,7 @@ import psutil
 import rich
 from rich.logging import RichHandler
 
+from mcp_scan.inspect import scan_machine
 from mcp_scan.MCPScanner import MCPScanner
 from mcp_scan.printer import print_scan_result
 from mcp_scan.Storage import Storage
@@ -404,6 +405,7 @@ def main():
             f"  {program_name}                     # Scan all known MCP configs\n"
             f"  {program_name} ~/custom/config.json # Scan a specific config file\n"
             f"  {program_name} inspect             # Just inspect tools without verification\n"
+            f"  {program_name} insp                # Run the scan in the background\n"
             f"  {program_name} whitelist           # View whitelisted tools\n"
             f'  {program_name} whitelist tool "add" "a1b2c3..." # Whitelist the \'add\' tool\n'
             f"  {program_name} --verbose           # Enable detailed logging output\n"
@@ -585,6 +587,10 @@ def main():
 
     # EVO command
     evo_parser = subparsers.add_parser("evo", help="Push scan results to Snyk Evo")
+
+    # INSP command
+    _ = subparsers.add_parser("insp", help="Run the scan in the background")
+
     # use the same parser as scan
     setup_scan_parser(evo_parser)
 
@@ -710,6 +716,10 @@ def main():
     elif args.command == "evo":
         asyncio.run(evo(args))
         sys.exit(0)
+    elif args.command == "insp":
+        asyncio.run(insp(args))
+        sys.exit(0)
+
     else:
         # This shouldn't happen due to argparse's handling
         rich.print(f"[bold red]Unknown command: {args.command}[/bold red]")
@@ -781,6 +791,12 @@ async def evo(args):
                 rich.print("Client ID revoked")
     except Exception as e:
         rich.print(f"[bold red]Error revoking client_id[/bold red]: {e}")
+
+
+async def insp(args):
+    setup_logging(True, True)
+    scanned_machine = await scan_machine()
+    rich.print(scanned_machine.model_dump_json(indent=2))
 
 
 async def run_scan_inspect(mode="scan", args=None):
