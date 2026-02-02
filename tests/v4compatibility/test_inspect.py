@@ -5,9 +5,10 @@ from unittest.mock import patch
 
 import pytest
 
-from mcp_scan.inspect import scan_machine, scanned_machine_to_analyzed_machine
-from mcp_scan.mcp_client import scan_skill, scan_skills_dir
+from mcp_scan.inspect import inspect_machine, inspected_client_to_scan_path_result
+from mcp_scan.mcp_client import inspect_skill, inspect_skills_dir
 from mcp_scan.models import CandidateClient, ScanError, ScanPathResult, ServerScanResult, SkillServer
+from mcp_scan.signed_binary import check_signed_binary
 
 TEST_CANDIDATE_CLIENTS = [
     CandidateClient(
@@ -103,7 +104,6 @@ def compare_scan_path_results(
     if len(servers_0) != len(servers_1):
         raise ValueError(f"Number of servers mismatch: {len(servers_0)} != {len(servers_1)}")
     for server_0, server_1 in zip(servers_0, servers_1, strict=True):
-        print(f"compare_scan_server: server_0: {server_0.name}, server_1: {server_1.name}")
         compare_scan_server(server_0, server_1, traceback_flexible=traceback_flexible)
 
     if not ignore_issues and spr_0.issues != spr_1.issues:
@@ -124,6 +124,7 @@ async def test_inspect_clients(mock_get_well_known_clients):
     result_test_client = ScanPathResult.model_validate(
         result_test_client_dict["tests/mcp_servers/.test-client/mcp.json"], by_alias=False, by_name=True
     )
+    result_test_client = (await check_signed_binary([result_test_client]))[0]
     result_test_client_invalid_stdout = subprocess.run(
         ["uv", "run", "-m", "src.mcp_scan.run", "inspect", "--json", "tests/mcp_servers/.test-client-invalid/mcp.json"],
         capture_output=True,
@@ -133,10 +134,11 @@ async def test_inspect_clients(mock_get_well_known_clients):
     result_test_client_invalid = ScanPathResult.model_validate(
         result_test_client_invalid_dict["tests/mcp_servers/.test-client-invalid/mcp.json"], by_alias=False, by_name=True
     )
+    result_test_client_invalid = (await check_signed_binary([result_test_client_invalid]))[0]
 
-    scanned_machine = await scan_machine()
-    spr_0 = await scanned_machine_to_analyzed_machine(scanned_machine.clients[0])
-    spr_1 = await scanned_machine_to_analyzed_machine(scanned_machine.clients[1])
+    inspected_machine = await inspect_machine()
+    spr_0 = inspected_client_to_scan_path_result(inspected_machine.clients[0])
+    spr_1 = inspected_client_to_scan_path_result(inspected_machine.clients[1])
 
     assert spr_0.client == "test-client"
     assert spr_1.client == "test-client-invalid"
@@ -164,9 +166,9 @@ async def test_inspect_clients(mock_get_well_known_clients):
     )
 
 
-def test_scan_skills_dir():
+def test_inspect_skills_dir():
     skills_dir = "tests/skills"
-    skills_servers = scan_skills_dir(skills_dir)
+    skills_servers = inspect_skills_dir(skills_dir)
     sub_dirs = [
         os.path.join(skills_dir, sub_dir)
         for sub_dir in os.listdir(skills_dir)
@@ -180,6 +182,6 @@ def test_scan_skills_dir():
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("path, skill_server", scan_skills_dir("tests/skills"))
-async def test_scan_skill(path: str, skill_server: SkillServer):
-    await scan_skill(skill_server)
+@pytest.mark.parametrize("path, skill_server", inspect_skills_dir("tests/skills"))
+async def test_inspect_skill(path: str, skill_server: SkillServer):
+    await inspect_skill(skill_server)

@@ -27,6 +27,7 @@ from mcp_scan.redact import redact_scan_result
 from mcp_scan.signed_binary import check_signed_binary
 from mcp_scan.Storage import Storage
 from mcp_scan.traffic_capture import TrafficCapture
+from mcp_scan.utils import get_push_key
 from mcp_scan.verify_api import analyze_machine
 from mcp_scan.well_known_clients import get_builtin_tools
 
@@ -346,7 +347,7 @@ class MCPScanner:
             additional_headers=self.additional_headers,
             opt_out_of_identity=self.opt_out_of_identity,
             skip_pushing=bool(self.control_servers),
-            control_servers=self.control_servers,
+            push_key=get_push_key(self.control_servers),  # type: ignore[arg-type]
             verbose=self.verbose,
             skip_ssl_verify=self.skip_ssl_verify,
         )

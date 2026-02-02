@@ -508,7 +508,7 @@ class CandidateClient(BaseModel):
     skills_dir_paths: list[str]
 
 
-class ClientToScan(BaseModel):
+class ClientToInspect(BaseModel):
     name: str
     client_path: str
     mcp_configs: dict[
@@ -521,23 +521,23 @@ class ClientToScan(BaseModel):
     skills_dirs: dict[str, list[tuple[str, SkillServer]] | FileNotFoundConfig]
 
 
-class ScannedExtension(BaseModel):
+class InspectedExtensions(BaseModel):
     name: str  # ignore if name is available in the config
     config: StdioServer | RemoteServer | SkillServer
     signature_or_error: ServerSignature | ServerStartupError | ServerHTTPError | SkillScannError
 
 
-class ScannedClient(BaseModel):
+class InspectedClient(BaseModel):
     name: str
     client_path: str
     extensions: dict[
         str,
-        list[ScannedExtension] | FileNotFoundConfig | UnknownConfigFormat | CouldNotParseMCPConfig | SkillScannError,
+        list[InspectedExtensions] | FileNotFoundConfig | UnknownConfigFormat | CouldNotParseMCPConfig | SkillScannError,
     ]
 
 
-class ScannedMachine(BaseModel):
-    clients: list[ScannedClient]
+class InspectedMachine(BaseModel):
+    clients: list[InspectedClient]
 
 
 class NewIssue(BaseModel):
@@ -558,5 +558,16 @@ class ClientAnalysis(BaseModel):
 
 
 class AnalyzedClient(BaseModel):
-    client: ScannedClient
+    client: InspectedClient
     analysis: ClientAnalysis | AnalysisError
+
+
+class AnalyzedMachine(BaseModel):
+    clients: list[AnalyzedClient]
+
+
+class ControlServer(BaseModel):
+    url: str
+    headers: dict[str, str]
+    identifier: str | None = None
+    opt_out: bool = False

@@ -4,7 +4,6 @@ import logging
 import os
 import ssl
 import traceback
-from typing import Any
 
 import aiohttp
 import certifi
@@ -153,7 +152,7 @@ async def analyze_machine(
     opt_out_of_identity: bool = False,
     verbose: bool = False,
     skip_pushing: bool = False,
-    control_servers: list[dict[str, Any]] | None = None,
+    push_key: str | None = None,
     max_retries: int = 3,
     skip_ssl_verify: bool = False,
 ) -> list[ScanPathResult]:
@@ -184,17 +183,6 @@ async def analyze_machine(
         "Content-Type": "application/json",
         "X-Environment": os.getenv("MCP_SCAN_ENVIRONMENT", "production"),
     }
-
-    # look for push key in control_servers and add it to headers.
-    push_key = None
-    if control_servers:
-        for control_server in control_servers:
-            for header in control_server.get("headers", []):
-                if header.startswith("x-client-id:"):
-                    push_key = header.split(":")[1].strip()
-                    break
-            if push_key:
-                break
 
     if additional_headers:
         headers.update(additional_headers)

@@ -16,8 +16,9 @@ import psutil
 import rich
 from rich.logging import RichHandler
 
-from mcp_scan.inspect import scan_machine
 from mcp_scan.MCPScanner import MCPScanner
+from mcp_scan.models import ControlServer, TokenAndClientInfo, TokenAndClientInfoList
+from mcp_scan.pipelines import AnalyzeArgs, PushArgs, ScanArgs, pipeline_scan_and_analyze
 from mcp_scan.printer import print_scan_result
 from mcp_scan.Storage import Storage
 from mcp_scan.upload import get_hostname, upload
@@ -405,7 +406,7 @@ def main():
             f"  {program_name}                     # Scan all known MCP configs\n"
             f"  {program_name} ~/custom/config.json # Scan a specific config file\n"
             f"  {program_name} inspect             # Just inspect tools without verification\n"
-            f"  {program_name} insp                # Run the scan in the background\n"
+            f"  {program_name} scan-legacy         # Run the scan in the background\n"
             f"  {program_name} whitelist           # View whitelisted tools\n"
             f'  {program_name} whitelist tool "add" "a1b2c3..." # Whitelist the \'add\' tool\n'
             f"  {program_name} --verbose           # Enable detailed logging output\n"
@@ -426,6 +427,10 @@ def main():
         description="Available commands (default: scan)",
         metavar="COMMAND",
     )
+
+    # SCAN-LEGACY command
+    scan_machine_parser = subparsers.add_parser("scan-machine", help="Run the scan in the background")
+    setup_scan_parser(scan_machine_parser, add_files=False)
 
     # SCAN command
     scan_parser = subparsers.add_parser(
@@ -588,9 +593,6 @@ def main():
     # EVO command
     evo_parser = subparsers.add_parser("evo", help="Push scan results to Snyk Evo")
 
-    # INSP command
-    _ = subparsers.add_parser("insp", help="Run the scan in the background")
-
     # use the same parser as scan
     setup_scan_parser(evo_parser)
 
@@ -690,6 +692,9 @@ def main():
     elif args.command == "uninstall-proxy" or args.command == "uninstall":
         asyncio.run(uninstall())
         sys.exit(0)
+    elif args.command == "scan-machine":
+        asyncio.run(scan_machine(args))
+        sys.exit(0)
     elif args.command == "scan" or args.command is None:  # default to scan
         asyncio.run(print_scan_inspect(args=args))
         sys.exit(0)
@@ -715,9 +720,6 @@ def main():
         sys.exit(install_mcp_server(args))
     elif args.command == "evo":
         asyncio.run(evo(args))
-        sys.exit(0)
-    elif args.command == "insp":
-        asyncio.run(insp(args))
         sys.exit(0)
 
     else:
@@ -793,10 +795,63 @@ async def evo(args):
         rich.print(f"[bold red]Error revoking client_id[/bold red]: {e}")
 
 
-async def insp(args):
-    setup_logging(True, True)
-    scanned_machine = await scan_machine()
-    rich.print(scanned_machine.model_dump_json(indent=2))
+async def scan_machine(args):
+    verbose: bool = hasattr(args, "verbose") and args.verbose
+    json_output: bool = hasattr(args, "json") and args.json
+    if not hasattr(args, "analysis_url"):
+        raise ValueError("analysis_url is required")
+    analysis_url: str = args.analysis_url
+    server_timeout: int = args.server_timeout if hasattr(args, "server_timeout") else 10
+    opt_out_of_identity: bool = bool(hasattr(args, "opt_out_of_identity") and args.opt_out_of_identity)
+    skip_ssl_verify: bool = bool(hasattr(args, "skip_ssl_verify") and args.skip_ssl_verify)
+    additional_headers: dict | None = parse_headers(args.verification_H)
+    identifier: None = None
+
+    control_servers: list[ControlServer] = [
+        ControlServer(
+            url=server_config["url"],
+            headers=parse_headers(server_config["headers"]),
+            identifier=server_config["identifier"],
+            opt_out=server_config["opt_out"],
+        )
+        for server_config in args.control_servers
+    ]
+    tokens: list[TokenAndClientInfo] = []
+    if args.mcp_oauth_tokens_path:
+        with open(args.mcp_oauth_tokens_path) as f:
+            tokens = TokenAndClientInfoList.model_validate_json(f.read()).root
+    scan_args = ScanArgs(
+        timeout=server_timeout,
+        tokens=tokens,
+    )
+    analyze_args = AnalyzeArgs(
+        analysis_url=analysis_url,
+        identifier=identifier,
+        additional_headers=additional_headers,
+        opt_out_of_identity=opt_out_of_identity,
+        control_servers=control_servers,
+        max_retries=3,
+        skip_ssl_verify=skip_ssl_verify,
+    )
+    push_args = PushArgs(
+        control_servers=control_servers,
+        skip_ssl_verify=skip_ssl_verify,
+        version=version_info,
+    )
+    if json_output:
+        with suppress_stdout():
+            analyzed_machine = await pipeline_scan_and_analyze(scan_args, analyze_args, push_args, verbose=verbose)
+            result = {r.path: r.model_dump(mode="json") for r in analyzed_machine}
+            print(json.dumps(result, indent=2))
+    else:
+        analyzed_machine = await pipeline_scan_and_analyze(scan_args, analyze_args, push_args, verbose=verbose)
+        print_scan_result(
+            analyzed_machine,
+            args.print_errors,
+            args.full_toxic_flows if hasattr(args, "full_toxic_flows") else False,
+            inspect_mode=False,
+            internal_issues=False,
+        )
 
 
 async def run_scan_inspect(mode="scan", args=None):
@@ -823,7 +878,7 @@ async def run_scan_inspect(mode="scan", args=None):
                 verbose=getattr(args, "verbose", False),
                 additional_headers=parse_headers(server_config["headers"]),
                 skip_ssl_verify=getattr(args, "skip_ssl_verify", False),
-                scan_context=scan_context,
+                scanversion_context=scan_context,
             )
     return result
 

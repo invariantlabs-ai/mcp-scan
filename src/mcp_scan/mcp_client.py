@@ -322,7 +322,7 @@ async def scan_mcp_config_file(path: str) -> MCPConfig:
 
     try:
         logger.debug("Opening config file")
-        with open(path) as f:
+        with open(os.path.expanduser(path)) as f:
             content = f.read()
         logger.debug("Config file read successfully")
 
@@ -344,9 +344,9 @@ async def scan_mcp_config_file(path: str) -> MCPConfig:
         raise
 
 
-async def scan_skill(config: SkillServer) -> ServerSignature:
+async def inspect_skill(config: SkillServer) -> ServerSignature:
     logger.info(f"Scanning skill at path: {config.path}")
-    with open(os.path.join(config.path, "SKILL.md")) as f:
+    with open(os.path.expanduser(os.path.join(config.path, "SKILL.md"))) as f:
         content = f.read()
     logger.debug("Skill file read successfully")
 
@@ -396,10 +396,10 @@ def traverse_skill_tree(skill_path: str, relative_path: str | None) -> tuple[lis
     resources: list[Resource] = []
     tools: list[Tool] = []
 
-    for file in os.listdir(path):
+    for file in os.listdir(os.path.expanduser(path)):
         full_path = os.path.join(path, file)
         relative_full_path = os.path.join(relative_path, file) if relative_path else file
-        if os.path.isdir(full_path):
+        if os.path.isdir(os.path.expanduser(full_path)):
             prompts_sub, resources_sub, tools_sub = traverse_skill_tree(skill_path, relative_full_path)
             prompts.extend(prompts_sub)
             resources.extend(resources_sub)
@@ -409,7 +409,7 @@ def traverse_skill_tree(skill_path: str, relative_path: str | None) -> tuple[lis
             continue
 
         elif file.endswith(".md"):
-            with open(full_path) as f:
+            with open(os.path.expanduser(full_path)) as f:
                 content = f.read()
                 prompts.append(
                     Prompt(
@@ -419,7 +419,7 @@ def traverse_skill_tree(skill_path: str, relative_path: str | None) -> tuple[lis
                 )
 
         elif file.split(".")[-1] in ["py", "js", "ts", "sh"]:
-            with open(full_path) as f:
+            with open(os.path.expanduser(full_path)) as f:
                 code = f.read()
             tools.append(
                 Tool(
@@ -433,7 +433,7 @@ def traverse_skill_tree(skill_path: str, relative_path: str | None) -> tuple[lis
 
         else:
             try:
-                with open(full_path) as f:
+                with open(os.path.expanduser(full_path)) as f:
                     content = f.read()
             except UnicodeDecodeError:
                 logger.exception(f"Error reading file: {file}. The file is not a bianry")
@@ -449,14 +449,14 @@ def traverse_skill_tree(skill_path: str, relative_path: str | None) -> tuple[lis
     return prompts, resources, tools
 
 
-def scan_skills_dir(path: str) -> list[tuple[str, SkillServer]]:
+def inspect_skills_dir(path: str) -> list[tuple[str, SkillServer]]:
     logger.info("Scanning skills dir: %s", path)
 
-    candidate_skills_dirs = os.listdir(path)
+    candidate_skills_dirs = os.listdir(os.path.expanduser(path))
     skills_servers: list[tuple[str, SkillServer]] = []
     for candidate_skills_dir in candidate_skills_dirs:
-        if os.path.isdir(os.path.join(path, candidate_skills_dir)) and os.path.exists(
-            os.path.join(path, candidate_skills_dir, "SKILL.md")
+        if os.path.isdir(os.path.expanduser(os.path.join(path, candidate_skills_dir))) and os.path.exists(
+            os.path.expanduser(os.path.join(path, candidate_skills_dir, "SKILL.md"))
         ):
             skills_servers.append((path, SkillServer(path=os.path.join(path, candidate_skills_dir))))
     logger.info("Found %d skills servers", len(skills_servers))
