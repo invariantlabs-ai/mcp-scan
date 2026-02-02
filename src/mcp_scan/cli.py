@@ -18,7 +18,7 @@ from rich.logging import RichHandler
 
 from mcp_scan.MCPScanner import MCPScanner
 from mcp_scan.models import ControlServer, TokenAndClientInfo, TokenAndClientInfoList
-from mcp_scan.pipelines import AnalyzeArgs, PushArgs, ScanArgs, pipeline_scan_and_analyze
+from mcp_scan.pipelines import AnalyzeArgs, InspectArgs, PushArgs, inspect_analyze_paths, inspect_analyze_upload_machine
 from mcp_scan.printer import print_scan_result
 from mcp_scan.Storage import Storage
 from mcp_scan.upload import get_hostname, upload
@@ -313,6 +313,12 @@ def add_scan_arguments(scan_parser):
         metavar="NUM",
     )
     scan_parser.add_argument(
+        "--skills",
+        default=False,
+        action="store_true",
+        help="Scan skills beyond mcp servers.",
+    )
+    scan_parser.add_argument(
         "--full-toxic-flows",
         default=False,
         action="store_true",
@@ -427,11 +433,6 @@ def main():
         description="Available commands (default: scan)",
         metavar="COMMAND",
     )
-
-    # SCAN-LEGACY command
-    scan_machine_parser = subparsers.add_parser("scan-machine", help="Run the scan in the background")
-    setup_scan_parser(scan_machine_parser, add_files=False)
-
     # SCAN command
     scan_parser = subparsers.add_parser(
         "scan",
@@ -692,9 +693,6 @@ def main():
     elif args.command == "uninstall-proxy" or args.command == "uninstall":
         asyncio.run(uninstall())
         sys.exit(0)
-    elif args.command == "scan-machine":
-        asyncio.run(scan_machine(args))
-        sys.exit(0)
     elif args.command == "scan" or args.command is None:  # default to scan
         asyncio.run(print_scan_inspect(args=args))
         sys.exit(0)
@@ -795,8 +793,15 @@ async def evo(args):
         rich.print(f"[bold red]Error revoking client_id[/bold red]: {e}")
 
 
-async def scan_machine(args):
+async def scan_with_skills(args):
+    """
+    Scan the machine with skills. Eventually this should replace run_scan_inspect
+    """
+    # collecting common args
     verbose: bool = hasattr(args, "verbose") and args.verbose
+
+    files: list[str] | None = args.files
+
     json_output: bool = hasattr(args, "json") and args.json
     if not hasattr(args, "analysis_url"):
         raise ValueError("analysis_url is required")
@@ -820,7 +825,7 @@ async def scan_machine(args):
     if args.mcp_oauth_tokens_path:
         with open(args.mcp_oauth_tokens_path) as f:
             tokens = TokenAndClientInfoList.model_validate_json(f.read()).root
-    scan_args = ScanArgs(
+    scan_args = InspectArgs(
         timeout=server_timeout,
         tokens=tokens,
     )
@@ -838,18 +843,23 @@ async def scan_machine(args):
         skip_ssl_verify=skip_ssl_verify,
         version=version_info,
     )
+    if isinstance(files, list):
+        task = inspect_analyze_paths(files, scan_args, analyze_args, verbose=verbose)
+    else:
+        task = inspect_analyze_upload_machine(scan_args, analyze_args, push_args, verbose=verbose)
+
     if json_output:
         with suppress_stdout():
-            analyzed_machine = await pipeline_scan_and_analyze(scan_args, analyze_args, push_args, verbose=verbose)
-            result = {r.path: r.model_dump(mode="json") for r in analyzed_machine}
-            print(json.dumps(result, indent=2))
+            result = await task
+            result_dict = {r.path: r.model_dump(mode="json") for r in result}
+            print(json.dumps(result_dict, indent=2))
     else:
-        analyzed_machine = await pipeline_scan_and_analyze(scan_args, analyze_args, push_args, verbose=verbose)
+        result = await task
         print_scan_result(
-            analyzed_machine,
+            result,
             args.print_errors,
             args.full_toxic_flows if hasattr(args, "full_toxic_flows") else False,
-            inspect_mode=False,
+            inspect_mode=True,
             internal_issues=False,
         )
 
@@ -886,6 +896,9 @@ async def run_scan_inspect(mode="scan", args=None):
 async def print_scan_inspect(mode="scan", args=None):
     # With --json enabled, we suppress all stdout
     # to ensure we produce a valid JSON output.
+    if args.skills:
+        await scan_with_skills(args)
+        return
     if args.json:
         with suppress_stdout():
             result = await run_scan_inspect(mode, args)

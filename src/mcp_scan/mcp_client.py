@@ -458,6 +458,6 @@ def inspect_skills_dir(path: str) -> list[tuple[str, SkillServer]]:
         if os.path.isdir(os.path.expanduser(os.path.join(path, candidate_skills_dir))) and os.path.exists(
             os.path.expanduser(os.path.join(path, candidate_skills_dir, "SKILL.md"))
         ):
-            skills_servers.append((path, SkillServer(path=os.path.join(path, candidate_skills_dir))))
+            skills_servers.append((candidate_skills_dir, SkillServer(path=os.path.join(path, candidate_skills_dir))))
     logger.info("Found %d skills servers", len(skills_servers))
     return skills_servers
