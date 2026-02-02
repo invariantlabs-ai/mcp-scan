@@ -859,8 +859,8 @@ async def scan_with_skills(args):
             result,
             args.print_errors,
             args.full_toxic_flows if hasattr(args, "full_toxic_flows") else False,
-            inspect_mode=True,
-            internal_issues=False,
+            inspect_mode=False,
+            internal_issues=verbose,
         )
 
 

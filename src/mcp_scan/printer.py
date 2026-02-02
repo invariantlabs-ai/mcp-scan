@@ -152,7 +152,10 @@ def format_entity_line(entity: Entity, issues: list[Issue], inspect_mode: bool =
 
     if include_description:
         if hasattr(entity, "description") and entity.description is not None:
-            description = textwrap.dedent(entity.description)
+            description = entity.description
+            if len(description) > 100:
+                description = description[:95] + "..."
+            description = textwrap.dedent(description)
         else:
             description = "<no description available>"
         text += f"\n[gray62][bold]Current description:[/bold]\n{description}[/gray62]"
@@ -169,7 +172,6 @@ def format_entity_line(entity: Entity, issues: list[Issue], inspect_mode: bool =
     if len(messages) > 0:
         message = "\n".join(messages)
         text += f"\n\n[gray62]{message}[/gray62]"
-
     formatted_text = Text.from_markup(text)
     return formatted_text
 
