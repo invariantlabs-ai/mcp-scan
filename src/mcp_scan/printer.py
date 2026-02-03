@@ -85,26 +85,28 @@ def format_issues(issues: list[Issue], new_line: bool = False) -> str:
     status_text = separator.join(
         [
             ISSUE_COLOR_MAP["analysis_error"]
-            + rf"\[{issue.code}]: {issue.message}"
+            + rf"● \[{issue.code}]: {issue.message}"
             + ISSUE_COLOR_MAP["analysis_error"].replace("[", "[/")
             for issue in issues
             if issue.code.startswith("X")
         ]
         + [
             ISSUE_COLOR_MAP["issue"]
-            + rf"\[{issue.code}]: {issue.message}"
+            + rf"● \[{issue.code}]: {issue.message}"
             + ISSUE_COLOR_MAP["issue"].replace("[", "[/")
             for issue in issues
             if issue.code.startswith("E")
         ]
         + [
             ISSUE_COLOR_MAP["warning"]
-            + rf"\[{issue.code}]: {issue.message}"
+            + rf"● \[{issue.code}]: {issue.message}"
             + ISSUE_COLOR_MAP["warning"].replace("[", "[/")
             for issue in issues
             if issue.code.startswith("W")
         ]
     )
+    if new_line:
+        status_text = "\n" + status_text
     return status_text
 
 
