@@ -511,7 +511,7 @@ The evaluation script generates a detailed report including:
 - **Per-Task Results**:
   - Prompt and expected response
   - Actual response from the agent
-  - Whether the answer was correct (✅/❌)
+  - Whether the answer was correct (/)
   - Duration and tool call details
   - Agent's summary of its approach
   - Agent's feedback on the tools

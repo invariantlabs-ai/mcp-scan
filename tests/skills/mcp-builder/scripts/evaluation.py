@@ -266,7 +266,7 @@ async def run_evaluation(
                 question=qa_pair["question"],
                 expected_answer=qa_pair["answer"],
                 actual_answer=result["actual"] or "N/A",
-                correct_indicator="✅" if result["score"] else "❌",
+                correct_indicator="" if result["score"] else "",
                 total_duration=result["total_duration"],
                 tool_calls=json.dumps(result["tool_calls"], indent=2),
                 summary=result["summary"] or "N/A",
@@ -375,12 +375,12 @@ Examples:
     print(f"🔗 Connecting to MCP server via {args.transport}...")
 
     async with connection:
-        print("✅ Connected successfully")
+        print(" Connected successfully")
         report = await run_evaluation(args.eval_file, connection, args.model)
 
         if args.output:
             args.output.write_text(report)
-            print(f"\n✅ Report saved to {args.output}")
+            print(f"\n Report saved to {args.output}")
         else:
             print("\n" + report)
 

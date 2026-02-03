@@ -5,13 +5,13 @@ echo "📦 Bundling React app to single HTML artifact..."
 
 # Check if we're in a project directory
 if [ ! -f "package.json" ]; then
-  echo "❌ Error: No package.json found. Run this script from your project root."
+  echo " Error: No package.json found. Run this script from your project root."
   exit 1
 fi
 
 # Check if index.html exists
 if [ ! -f "index.html" ]; then
-  echo "❌ Error: No index.html found in project root."
+  echo " Error: No index.html found in project root."
   echo "   This script requires an index.html entry point."
   exit 1
 fi
@@ -47,7 +47,7 @@ pnpm exec html-inline dist/index.html > bundle.html
 FILE_SIZE=$(du -h bundle.html | cut -f1)
 
 echo ""
-echo "✅ Bundle complete!"
+echo " Bundle complete!"
 echo "📄 Output: bundle.html ($FILE_SIZE)"
 echo ""
 echo "You can now use this single HTML file as an artifact in Claude conversations."

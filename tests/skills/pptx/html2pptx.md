@@ -36,16 +36,16 @@ Every HTML slide must include proper body dimensions:
 ### Critical Text Rules
 
 **ALL text MUST be inside `<p>`, `<h1>`-`<h6>`, `<ul>`, or `<ol>` tags:**
-- ✅ Correct: `<div><p>Text here</p></div>`
-- ❌ Wrong: `<div>Text here</div>` - **Text will NOT appear in PowerPoint**
-- ❌ Wrong: `<span>Text</span>` - **Text will NOT appear in PowerPoint**
+-  Correct: `<div><p>Text here</p></div>`
+-  Wrong: `<div>Text here</div>` - **Text will NOT appear in PowerPoint**
+-  Wrong: `<span>Text</span>` - **Text will NOT appear in PowerPoint**
 - Text in `<div>` or `<span>` without a text tag will be silently ignored
 
 **NEVER use manual bullet symbols (•, -, *, etc.)** - Use `<ul>` or `<ol>` lists instead
 
 **ONLY use web-safe fonts that are universally available:**
-- ✅ Web-safe fonts: `Arial`, `Helvetica`, `Times New Roman`, `Georgia`, `Courier New`, `Verdana`, `Tahoma`, `Trebuchet MS`, `Impact`, `Comic Sans MS`
-- ❌ Wrong: `'Segoe UI'`, `'SF Pro'`, `'Roboto'`, custom fonts - **Might cause rendering issues**
+-  Web-safe fonts: `Arial`, `Helvetica`, `Times New Roman`, `Georgia`, `Courier New`, `Verdana`, `Tahoma`, `Trebuchet MS`, `Impact`, `Comic Sans MS`
+-  Wrong: `'Segoe UI'`, `'SF Pro'`, `'Roboto'`, custom fonts - **Might cause rendering issues**
 
 ### Styling
 
@@ -307,8 +307,8 @@ After converting HTML to slides with `html2pptx`, you'll use PptxGenJS to add dy
 
 #### Colors
 - **NEVER use `#` prefix** with hex colors in PptxGenJS - causes file corruption
-- ✅ Correct: `color: "FF0000"`, `fill: { color: "0066CC" }`
-- ❌ Wrong: `color: "#FF0000"` (breaks document)
+-  Correct: `color: "FF0000"`, `fill: { color: "0066CC" }`
+-  Wrong: `color: "#FF0000"` (breaks document)
 
 ### Adding Images
 

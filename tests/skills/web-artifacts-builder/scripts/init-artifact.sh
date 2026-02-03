@@ -9,7 +9,7 @@ NODE_VERSION=$(node -v | cut -d'v' -f2 | cut -d'.' -f1)
 echo "🔍 Detected Node.js version: $NODE_VERSION"
 
 if [ "$NODE_VERSION" -lt 18 ]; then
-  echo "❌ Error: Node.js 18 or higher is required"
+  echo " Error: Node.js 18 or higher is required"
   echo "   Current version: $(node -v)"
   exit 1
 fi
@@ -17,10 +17,10 @@ fi
 # Set Vite version based on Node version
 if [ "$NODE_VERSION" -ge 20 ]; then
   VITE_VERSION="latest"
-  echo "✅ Using Vite latest (Node 20+)"
+  echo " Using Vite latest (Node 20+)"
 else
   VITE_VERSION="5.4.11"
-  echo "✅ Using Vite $VITE_VERSION (Node 18 compatible)"
+  echo " Using Vite $VITE_VERSION (Node 18 compatible)"
 fi
 
 # Detect OS and set sed syntax
@@ -38,7 +38,7 @@ fi
 
 # Check if project name is provided
 if [ -z "$1" ]; then
-  echo "❌ Usage: ./create-react-shadcn-complete.sh <project-name>"
+  echo " Usage: ./create-react-shadcn-complete.sh <project-name>"
   exit 1
 fi
 
@@ -48,7 +48,7 @@ COMPONENTS_TARBALL="$SCRIPT_DIR/shadcn-components.tar.gz"
 
 # Check if components tarball exists
 if [ ! -f "$COMPONENTS_TARBALL" ]; then
-  echo "❌ Error: shadcn-components.tar.gz not found in script directory"
+  echo " Error: shadcn-components.tar.gz not found in script directory"
   echo "   Expected location: $COMPONENTS_TARBALL"
   exit 1
 fi
@@ -301,7 +301,7 @@ cat > components.json << 'EOF'
 }
 EOF
 
-echo "✅ Setup complete! You can now use Tailwind CSS and shadcn/ui in your project."
+echo " Setup complete! You can now use Tailwind CSS and shadcn/ui in your project."
 echo ""
 echo "📦 Included components (40+ total):"
 echo "  - accordion, alert, aspect-ratio, avatar, badge, breadcrumb"

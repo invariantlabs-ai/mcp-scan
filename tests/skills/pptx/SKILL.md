@@ -57,11 +57,11 @@ When creating a new PowerPoint presentation from scratch, use the **html2pptx** 
 4. **State your approach**: Explain your design choices before writing code
 
 **Requirements**:
-- ✅ State your content-informed design approach BEFORE writing code
-- ✅ Use web-safe fonts only: Arial, Helvetica, Times New Roman, Georgia, Courier New, Verdana, Tahoma, Trebuchet MS, Impact
-- ✅ Create clear visual hierarchy through size, weight, and color
-- ✅ Ensure readability: strong contrast, appropriately sized text, clean alignment
-- ✅ Be consistent: repeat patterns, spacing, and visual language across slides
+-  State your content-informed design approach BEFORE writing code
+-  Use web-safe fonts only: Arial, Helvetica, Times New Roman, Georgia, Courier New, Verdana, Tahoma, Trebuchet MS, Impact
+-  Create clear visual hierarchy through size, weight, and color
+-  Ensure readability: strong contrast, appropriately sized text, clean alignment
+-  Be consistent: repeat patterns, spacing, and visual language across slides
 
 #### Color Palette Selection
 

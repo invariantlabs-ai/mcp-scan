@@ -24,8 +24,8 @@ Packer.toBlob(doc).then(blob => { /* download logic */ }); // Browser
 ## Text & Formatting
 ```javascript
 // IMPORTANT: Never use \n for line breaks - always use separate Paragraph elements
-// ❌ WRONG: new TextRun("Line 1\nLine 2")
-// ✅ CORRECT: new Paragraph({ children: [new TextRun("Line 1")] }), new Paragraph({ children: [new TextRun("Line 2")] })
+//  WRONG: new TextRun("Line 1\nLine 2")
+//  CORRECT: new Paragraph({ children: [new TextRun("Line 1")] }), new Paragraph({ children: [new TextRun("Line 2")] })
 
 // Basic text with all formatting options
 new Paragraph({
@@ -152,7 +152,7 @@ const doc = new Document({
 // ⚠️ CRITICAL: NEVER use unicode bullets - they create fake lists that don't work properly
 // new TextRun("• Item")           // WRONG
 // new SymbolRun({ char: "2022" }) // WRONG
-// ✅ ALWAYS use numbering config with LevelFormat.BULLET for real Word lists
+//  ALWAYS use numbering config with LevelFormat.BULLET for real Word lists
 ```
 
 ## Tables
@@ -229,8 +229,8 @@ new Table({
 ## Links & Navigation
 ```javascript
 // TOC (requires headings) - CRITICAL: Use HeadingLevel only, NOT custom styles
-// ❌ WRONG: new Paragraph({ heading: HeadingLevel.HEADING_1, style: "customHeader", children: [new TextRun("Title")] })
-// ✅ CORRECT: new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun("Title")] })
+//  WRONG: new Paragraph({ heading: HeadingLevel.HEADING_1, style: "customHeader", children: [new TextRun("Title")] })
+//  CORRECT: new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun("Title")] })
 new TableOfContents("Table of Contents", { hyperlink: true, headingStyleRange: "1-3" }),
 
 // External link
@@ -281,8 +281,8 @@ new Paragraph({
 })
 
 // ⚠️ CRITICAL: NEVER use PageBreak standalone - it will create invalid XML that Word cannot open
-// ❌ WRONG: new PageBreak()
-// ✅ CORRECT: new Paragraph({ children: [new PageBreak()] })
+//  WRONG: new PageBreak()
+//  CORRECT: new Paragraph({ children: [new PageBreak()] })
 ```
 
 ## Headers/Footers & Page Setup

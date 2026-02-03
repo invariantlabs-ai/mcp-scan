@@ -113,16 +113,16 @@ With the philosophy AND conceptual framework established, express it through cod
 5. **Replace only the VARIABLE sections** marked in the file's comments (algorithm, parameters, UI controls for parameters)
 
 **Avoid:**
-- ❌ Creating HTML from scratch
-- ❌ Inventing custom styling or color schemes
-- ❌ Using system fonts or dark themes
-- ❌ Changing the sidebar structure
+-  Creating HTML from scratch
+-  Inventing custom styling or color schemes
+-  Using system fonts or dark themes
+-  Changing the sidebar structure
 
 **Follow these practices:**
-- ✅ Copy the template's exact HTML structure
-- ✅ Keep Anthropic branding (Poppins/Lora fonts, light colors, gradient backdrop)
-- ✅ Maintain the sidebar layout (Seed → Parameters → Colors? → Actions)
-- ✅ Replace only the p5.js algorithm and parameter controls
+-  Copy the template's exact HTML structure
+-  Keep Anthropic branding (Poppins/Lora fonts, light colors, gradient backdrop)
+-  Maintain the sidebar layout (Seed → Parameters → Colors? → Actions)
+-  Replace only the p5.js algorithm and parameter controls
 
 The template is the foundation. Build on it, don't rebuild it.
 
