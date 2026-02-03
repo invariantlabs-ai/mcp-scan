@@ -94,7 +94,7 @@ def main():
     skill_path = sys.argv[1]
     output_dir = sys.argv[2] if len(sys.argv) > 2 else None
 
-    print(f"📦 Packaging skill: {skill_path}")
+    print(f"Packaging skill: {skill_path}")
     if output_dir:
         print(f"   Output directory: {output_dir}")
     print()

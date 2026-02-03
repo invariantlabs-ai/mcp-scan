@@ -32,7 +32,7 @@ fi
 
 # Check if pnpm is installed
 if ! command -v pnpm &> /dev/null; then
-  echo "📦 pnpm not found. Installing pnpm..."
+  echo "pnpm not found. Installing pnpm..."
   npm install -g pnpm
 fi
 
@@ -65,7 +65,7 @@ echo "🧹 Cleaning up Vite template..."
 $SED_INPLACE '/<link rel="icon".*vite\.svg/d' index.html
 $SED_INPLACE 's/<title>.*<\/title>/<title>'"$PROJECT_NAME"'<\/title>/' index.html
 
-echo "📦 Installing base dependencies..."
+echo "Installing base dependencies..."
 pnpm install
 
 # Pin Vite version for Node 18
@@ -74,7 +74,7 @@ if [ "$NODE_VERSION" -lt 20 ]; then
   pnpm add -D vite@$VITE_VERSION
 fi
 
-echo "📦 Installing Tailwind CSS and dependencies..."
+echo "Installing Tailwind CSS and dependencies..."
 pnpm install -D tailwindcss@3.4.1 postcss autoprefixer @types/node tailwindcss-animate
 pnpm install class-variance-authority clsx tailwind-merge lucide-react next-themes
 
@@ -268,12 +268,12 @@ export default defineConfig({
 EOF
 
 # Install all shadcn/ui dependencies
-echo "📦 Installing shadcn/ui dependencies..."
+echo "Installing shadcn/ui dependencies..."
 pnpm install @radix-ui/react-accordion @radix-ui/react-aspect-ratio @radix-ui/react-avatar @radix-ui/react-checkbox @radix-ui/react-collapsible @radix-ui/react-context-menu @radix-ui/react-dialog @radix-ui/react-dropdown-menu @radix-ui/react-hover-card @radix-ui/react-label @radix-ui/react-menubar @radix-ui/react-navigation-menu @radix-ui/react-popover @radix-ui/react-progress @radix-ui/react-radio-group @radix-ui/react-scroll-area @radix-ui/react-select @radix-ui/react-separator @radix-ui/react-slider @radix-ui/react-slot @radix-ui/react-switch @radix-ui/react-tabs @radix-ui/react-toast @radix-ui/react-toggle @radix-ui/react-toggle-group @radix-ui/react-tooltip
 pnpm install sonner cmdk vaul embla-carousel-react react-day-picker react-resizable-panels date-fns react-hook-form @hookform/resolvers zod
 
 # Extract shadcn components from tarball
-echo "📦 Extracting shadcn/ui components..."
+echo "Extracting shadcn/ui components..."
 tar -xzf "$COMPONENTS_TARBALL" -C src/
 
 # Create components.json for reference
@@ -303,7 +303,7 @@ EOF
 
 echo " Setup complete! You can now use Tailwind CSS and shadcn/ui in your project."
 echo ""
-echo "📦 Included components (40+ total):"
+echo "Included components (40+ total):"
 echo "  - accordion, alert, aspect-ratio, avatar, badge, breadcrumb"
 echo "  - button, calendar, card, carousel, checkbox, collapsible"
 echo "  - command, context-menu, dialog, drawer, dropdown-menu"

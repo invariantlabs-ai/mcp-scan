@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-echo "📦 Bundling React app to single HTML artifact..."
+echo "Bundling React app to single HTML artifact..."
 
 # Check if we're in a project directory
 if [ ! -f "package.json" ]; then
@@ -17,7 +17,7 @@ if [ ! -f "index.html" ]; then
 fi
 
 # Install bundling dependencies
-echo "📦 Installing bundling dependencies..."
+echo "Installing bundling dependencies..."
 pnpm add -D parcel @parcel/config-default parcel-resolver-tspaths html-inline
 
 # Create Parcel config with tspaths resolver
