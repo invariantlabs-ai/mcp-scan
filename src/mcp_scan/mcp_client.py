@@ -322,7 +322,7 @@ async def scan_mcp_config_file(path: str) -> MCPConfig:
 
     try:
         logger.debug("Opening config file")
-        with open(os.path.expanduser(path)) as f:
+        with open(os.path.expanduser(path), encoding="utf-8") as f:
             content = f.read()
         logger.debug("Config file read successfully")
 
@@ -346,7 +346,7 @@ async def scan_mcp_config_file(path: str) -> MCPConfig:
 
 def inspect_skill(config: SkillServer) -> ServerSignature:
     logger.info(f"Scanning skill at path: {config.path}")
-    with open(os.path.expanduser(os.path.join(config.path, "SKILL.md"))) as f:
+    with open(os.path.expanduser(os.path.join(config.path, "SKILL.md")), encoding="utf-8") as f:
         content = f.read()
     logger.debug("Skill file read successfully")
 
@@ -409,7 +409,7 @@ def traverse_skill_tree(skill_path: str, relative_path: str | None) -> tuple[lis
             continue
 
         elif file.endswith(".md"):
-            with open(os.path.expanduser(full_path)) as f:
+            with open(os.path.expanduser(full_path), encoding="utf-8") as f:
                 content = f.read()
                 prompts.append(
                     Prompt(
@@ -419,7 +419,7 @@ def traverse_skill_tree(skill_path: str, relative_path: str | None) -> tuple[lis
                 )
 
         elif file.split(".")[-1] in ["py", "js", "ts", "sh"]:
-            with open(os.path.expanduser(full_path)) as f:
+            with open(os.path.expanduser(full_path), encoding="utf-8") as f:
                 code = f.read()
             tools.append(
                 Tool(
@@ -433,7 +433,7 @@ def traverse_skill_tree(skill_path: str, relative_path: str | None) -> tuple[lis
 
         else:
             try:
-                with open(os.path.expanduser(full_path)) as f:
+                with open(os.path.expanduser(full_path), encoding="utf-8") as f:
                     content = f.read()
             except UnicodeDecodeError:
                 logger.exception(f"Error reading file: {file}. The file is not a bianry")
