@@ -149,6 +149,18 @@ async def client_to_inspect_from_path(path: str, use_path_as_client_name: bool =
                 skills_dir_paths=[path],
             )
             return await get_mcp_config_per_client(candidate_client)
+    elif os.path.basename(os.path.normpath(path)) == "SKILL.md":
+        skill_directory = os.path.basename(os.path.dirname(os.path.normpath(path)))
+        parent_of_skill_directory = os.path.dirname(os.path.dirname(os.path.normpath(path)))
+
+        return ClientToInspect(
+            name="not-available" if use_path_as_client_name else path,
+            client_path=parent_of_skill_directory,
+            mcp_configs={},
+            skills_dirs={
+                parent_of_skill_directory: [(skill_directory, SkillServer(path=os.path.dirname(path)))],
+            },
+        )
     else:
         candidate_client = CandidateClient(
             name="not-available" if use_path_as_client_name else path,
