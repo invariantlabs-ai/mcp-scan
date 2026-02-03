@@ -413,7 +413,7 @@ def traverse_skill_tree(skill_path: str, relative_path: str | None) -> tuple[lis
                 content = f.read()
                 prompts.append(
                     Prompt(
-                        name=os.path.join(path, file),
+                        name=os.path.join(relative_path or "", file),
                         description=content,
                     )
                 )

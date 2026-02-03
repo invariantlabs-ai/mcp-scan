@@ -215,6 +215,12 @@ def add_common_arguments(parser):
         help="Show error details and tracebacks",
     )
     parser.add_argument(
+        "--print-full-descriptions",
+        default=False,
+        action="store_true",
+        help="Show error details and tracebacks",
+    )
+    parser.add_argument(
         "--json",
         action="store_true",
         default=False,
@@ -802,6 +808,9 @@ async def scan_with_skills(args, mode: Literal["scan", "inspect"]):
     # collecting common args
     verbose: bool = hasattr(args, "verbose") and args.verbose
     json_output: bool = hasattr(args, "json") and args.json
+    print_errors: bool = hasattr(args, "print_errors") and args.print_errors
+    full_toxic_flows: bool = hasattr(args, "full_toxic_flows") and args.full_toxic_flows
+    full_description: bool = hasattr(args, "print_full_descriptions") and args.print_full_descriptions
 
     # collect inspect args
     server_timeout: int = args.server_timeout if hasattr(args, "server_timeout") else 10
@@ -865,10 +874,11 @@ async def scan_with_skills(args, mode: Literal["scan", "inspect"]):
         result = await task
         print_scan_result(
             result,
-            args.print_errors,
-            args.full_toxic_flows if hasattr(args, "full_toxic_flows") else False,
+            print_errors,
+            full_toxic_flows,
             inspect_mode=mode == "inspect",
             internal_issues=verbose,
+            full_description=full_description,
         )
 
 

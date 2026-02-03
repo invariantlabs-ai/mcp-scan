@@ -1,7 +1,7 @@
 import builtins
-import textwrap
 
 import rich
+from mcp.types import Prompt, Resource, ResourceTemplate, Tool
 from rich.text import Text
 from rich.traceback import Traceback as rTraceback
 from rich.tree import Tree
@@ -17,6 +17,7 @@ from mcp_scan.models import (
 )
 
 MAX_ENTITY_NAME_LENGTH = 25
+MAX_ENTITY_NAME_LENGTH_SKILL = 35
 MAX_ENTITY_NAME_TOXIC_FLOW_LENGTH = 30
 
 ISSUE_COLOR_MAP = {
@@ -52,6 +53,8 @@ def format_error(e: ScanError) -> tuple[str, rTraceback | None]:
     status, traceback = format_exception(e.exception)
     if e.message:
         status = e.message
+    if e.traceback:
+        traceback = e.traceback
     return status, traceback
 
 
@@ -104,7 +107,26 @@ def format_issues(issues: list[Issue]) -> str:
     return status_text
 
 
-def format_entity_line(entity: Entity, issues: list[Issue], inspect_mode: bool = False) -> Text:
+def format_entity_type(entity: Entity, is_skill: bool = False) -> str:
+    if isinstance(entity, Prompt):
+        return "prompt" if not is_skill else "instruction"
+    elif isinstance(entity, Tool):
+        return "tool" if not is_skill else "script"
+    elif isinstance(entity, Resource):
+        return "resource" if not is_skill else "asset"
+    elif isinstance(entity, ResourceTemplate):
+        return "res. temp." if not is_skill else "asset"
+    else:
+        raise ValueError(f"Unknown entity type: {type(entity)}")
+
+
+def format_entity_line(
+    entity: Entity,
+    issues: list[Issue],
+    inspect_mode: bool = False,
+    is_skill: bool = False,
+    full_description: bool = False,
+) -> Text:
     # is_verified = verified.value
     # if is_verified is not None and changed.value is not None:
     #     is_verified = is_verified and not changed.value
@@ -129,35 +151,36 @@ def format_entity_line(entity: Entity, issues: list[Issue], inspect_mode: bool =
         "inspect_mode": "  ",
     }
     icon = icon_map[status] if not inspect_mode else icon_map["inspect_mode"]
-    include_description = inspect_mode or (status not in ["whitelisted", "analysis_error", "successful"])
+    include_description = status not in ["whitelisted", "analysis_error", "successful"]
 
     # right-pad & truncate name
     name = entity.name
-    if len(name) > MAX_ENTITY_NAME_LENGTH:
-        name = name[: (MAX_ENTITY_NAME_LENGTH - 3)] + "..."
-    name = name + " " * (MAX_ENTITY_NAME_LENGTH - len(name))
+    if not full_description:
+        max_name_length = MAX_ENTITY_NAME_LENGTH_SKILL if is_skill else MAX_ENTITY_NAME_LENGTH
+        if len(name) > max_name_length:
+            name = name[: (max_name_length - 3)] + "..."
+        name = name + " " * (max_name_length - len(name))
 
     # right-pad type
-    type = entity_type_to_str(entity)
-    if type == "resource template":
-        type = "res. temp."
-    # resouce
-    # tool
-    # prompt
-    # res. temp.
-    type = type + " " * (len("res. temp.") - len(type))
+    type_str = format_entity_type(entity, is_skill)
+    type_str = type_str + " " * (len("instruction") - len(type_str))
+    # prompt     / instruction
+    # tool       / script
+    # resouce    / asset
+    # res. temp. / asset
 
     status_text = format_issues(issues)
-    text = f"{type} {color}[bold]{name}[/bold] {icon} {status_text}"
+    text = f"{type_str} {color}[bold]{name}[/bold] {icon} {status_text}"
 
     if include_description:
         if hasattr(entity, "description") and entity.description is not None:
             description = entity.description
-            if len(description) > 100:
-                description = description[:95] + "..."
-            description = textwrap.dedent(description)
         else:
             description = "<no description available>"
+        if not full_description:
+            description = description[:200] + "..."
+        # escape markdown in the description
+        description = description.replace("[", r"\[").replace("]", r"\]")
         text += f"\n[gray62][bold]Current description:[/bold]\n{description}[/gray62]"
 
     messages = []
@@ -247,6 +270,7 @@ def print_scan_path_result(
     print_errors: bool = False,
     full_toxic_flows: bool = False,
     inspect_mode: bool = False,
+    full_description: bool = False,
 ) -> None:
     if result.error is not None:
         err_status, traceback = format_error(result.error)
@@ -256,7 +280,21 @@ def print_scan_path_result(
             console.print(traceback)
         return
 
-    message = f"found {len(result.servers or [])} server{'' if len(result.servers or []) == 1 else 's'}"
+    server_count = 0
+    skill_count = 0
+    for server in result.servers or []:
+        if server.server.type == "skill":
+            skill_count += 1
+        else:
+            server_count += 1
+    if server_count > 0 and skill_count > 0:
+        message = f"found {server_count} mcp server{'' if server_count == 1 else 's'} and {skill_count} skill{'' if skill_count == 1 else 's'}"
+    elif server_count > 0:
+        message = f"found {server_count} mcp server{'' if server_count == 1 else 's'}"
+    elif skill_count > 0:
+        message = f"found {skill_count} skill{'' if skill_count == 1 else 's'}"
+    else:
+        message = "no servers or skills found"
     rich.print(format_path_line(result.path, message))
     path_print_tree = Tree("│")
     server_tracebacks = []
@@ -273,7 +311,15 @@ def print_scan_path_result(
             server_print = path_print_tree.add(format_servers_line(server.name or "", None, server_issues))
         for entity_idx, entity in enumerate(server.entities):
             issues = [issue for issue in result.issues if issue.reference == (server_idx, entity_idx)]
-            server_print.add(format_entity_line(entity, issues, inspect_mode))
+            server_print.add(
+                format_entity_line(
+                    entity,
+                    issues,
+                    inspect_mode,
+                    is_skill=server.server.type == "skill",
+                    full_description=full_description,
+                )
+            )
 
     if result.servers is not None and len(result.servers) > 0:
         rich.print(path_print_tree)
@@ -298,12 +344,13 @@ def print_scan_result(
     full_toxic_flows: bool = False,
     inspect_mode: bool = False,
     internal_issues: bool = False,
+    full_description: bool = False,
 ) -> None:
     if not internal_issues:
         for res in result:
             res.issues = [issue for issue in res.issues if issue.code not in ["W003", "W004", "W005", "W006"]]
     for i, path_result in enumerate(result):
-        print_scan_path_result(path_result, print_errors, full_toxic_flows, inspect_mode)
+        print_scan_path_result(path_result, print_errors, full_toxic_flows, inspect_mode, full_description)
         if i < len(result) - 1:
             rich.print()
     print(end="", flush=True)
