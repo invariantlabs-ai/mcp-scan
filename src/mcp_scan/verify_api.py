@@ -4,7 +4,6 @@ import logging
 import os
 import ssl
 import traceback
-from typing import Any
 
 import aiohttp
 import certifi
@@ -153,9 +152,10 @@ async def analyze_machine(
     opt_out_of_identity: bool = False,
     verbose: bool = False,
     skip_pushing: bool = False,
-    control_servers: list[dict[str, Any]] | None = None,
+    push_key: str | None = None,
     max_retries: int = 3,
     skip_ssl_verify: bool = False,
+    raise_on_error: bool = False,
 ) -> list[ScanPathResult]:
     """
     Analyze the scan paths with the analysis server.
@@ -184,17 +184,6 @@ async def analyze_machine(
         "Content-Type": "application/json",
         "X-Environment": os.getenv("MCP_SCAN_ENVIRONMENT", "production"),
     }
-
-    # look for push key in control_servers and add it to headers.
-    push_key = None
-    if control_servers:
-        for control_server in control_servers:
-            for header in control_server.get("headers", []):
-                if header.startswith("x-client-id:"):
-                    push_key = header.split(":")[1].strip()
-                    break
-            if push_key:
-                break
 
     if additional_headers:
         headers.update(additional_headers)
@@ -267,6 +256,10 @@ async def analyze_machine(
             logger.info(f"Retrying in {backoff_time} seconds...")
             await asyncio.sleep(backoff_time)
 
+    if raise_on_error:
+        raise RuntimeError(
+            f"Tried calling verification api {max_retries} times. Could not reach analysis server. Last error: {error_text}"
+        )
     # failed even after all retries
     for scan_path in scan_paths:
         if scan_path.servers is not None and scan_path.error is None:

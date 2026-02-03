@@ -1,0 +1,29 @@
+{
+    "mcpServers": {
+        "Weather": {
+            "command": "uv run python",
+            "args": ["tests/mcp_servers/weather_server.py"]
+        },
+        "Math": {
+            "command": "uv run python",
+            "args": ["tests/mcp_servers/math_server.py"]
+        },
+        "Invalid": {
+            "command": "uv run python",
+            "args": ["-c", "'raise Exception(\"Invalid Server\")'"]
+        },
+        "Snyk": {
+            "command": "~/Library/Application Support/snyk/vscode-cli/snyk-macos-arm64",
+            "args": [
+              "mcp",
+              "-t",
+              "stdio"
+            ],
+            "env": {
+              "SNYK_API": "https://api.snyk.io",
+              "TRUSTED_FOLDERS": "~/Documents/snyk/invariant-mcp-scan-backend;~/Documents/personal/probable-spork-web",
+              "IDE_CONFIG_PATH": "Cursor"
+            }
+        }
+    }
+}

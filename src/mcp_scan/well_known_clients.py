@@ -6,10 +6,65 @@ import sys
 from mcp.types import Implementation, InitializeResult, ServerCapabilities, Tool, ToolsCapability
 
 from mcp_scan.mcp_client import ServerSignature, StdioServer
-from mcp_scan.models import ScanPathResult, ServerScanResult
+from mcp_scan.models import CandidateClient, ScanPathResult, ServerScanResult
 
 # Set up logger for this module
 logger = logging.getLogger(__name__)
+
+
+MACOS_WELL_KNOWN_CLIENTS: list[CandidateClient] = [
+    CandidateClient(
+        name="windsurf",
+        client_exists_paths=["~/.codeium"],
+        mcp_config_paths=["~/.codeium/windsurf/mcp_config.json"],
+        skills_dir_paths=["~/.codeium/windsurf/skills"],
+    ),
+    CandidateClient(
+        name="cursor",
+        client_exists_paths=["~/.cursor"],
+        mcp_config_paths=["~/.cursor/mcp.json"],
+        skills_dir_paths=["~/.cursor/skills"],
+    ),
+    CandidateClient(
+        name="vscode",
+        client_exists_paths=["~/.vscode"],
+        mcp_config_paths=[
+            "~/Library/Application Support/Code/User/settings.json",
+            "~/Library/Application Support/Code/User/mcp.json",
+        ],
+        skills_dir_paths=["~/.copilot/skills"],
+    ),
+    CandidateClient(
+        name="claude",
+        client_exists_paths=["~/Library/Application Support/Claude"],
+        mcp_config_paths=["~/Library/Application Support/Claude/claude_desktop_config.json"],
+        skills_dir_paths=[],
+    ),
+    CandidateClient(
+        name="gemini cli",
+        client_exists_paths=["~/.gemini"],
+        mcp_config_paths=["~/.gemini/settings.json"],
+        skills_dir_paths=["~/.gemini/skills"],
+    ),
+    CandidateClient(
+        name="clawdbot",
+        client_exists_paths=["~/.clawdbot"],
+        mcp_config_paths=[],
+        skills_dir_paths=["~/.clawdbot/skills"],
+    ),
+]
+
+
+def get_well_known_clients() -> list[CandidateClient]:
+    if sys.platform == "linux" or sys.platform == "linux2":
+        return []
+    elif sys.platform == "darwin":
+        return MACOS_WELL_KNOWN_CLIENTS
+    elif sys.platform == "win32":
+        return []
+    else:
+        return []
+
 
 # Built-in tools for each client
 CLIENT_TOOLS = {

@@ -108,7 +108,6 @@ async def upload(
     last_exception = None
     trace_configs = setup_aiohttp_debug_logging(verbose=verbose)
     additional_headers = additional_headers or {}
-
     for attempt in range(max_retries):
         try:
             async with aiohttp.ClientSession(

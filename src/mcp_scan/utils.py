@@ -5,11 +5,12 @@ import os
 import shutil
 import tempfile
 from pathlib import Path
+from typing import Any
 
 from lark import Lark
 from rapidfuzz.distance import Levenshtein
 
-from mcp_scan.models import StdioServer
+from mcp_scan.models import ControlServer, StdioServer
 
 logger = logging.getLogger(__name__)
 
@@ -168,3 +169,24 @@ def suppress_stdout():
     with open(os.devnull, "w") as devnull:
         with contextlib.redirect_stdout(devnull):
             yield
+
+
+def get_push_key(control_servers: list[ControlServer] | list[dict[str, Any]]) -> str | None:
+    parsed_control_servers: list[ControlServer] = []
+    for control_server in control_servers:
+        if isinstance(control_server, dict):
+            parsed_control_servers.append(
+                ControlServer(
+                    url=control_server["url"],
+                    headers=parse_headers(control_server["headers"]),
+                    identifier=control_server["identifier"],
+                    opt_out=control_server["opt_out"],
+                )
+            )
+        else:
+            parsed_control_servers.append(control_server)
+    for control_server in parsed_control_servers:
+        for header in control_server.headers:
+            if "x-client-id" in header:
+                return control_server.headers[header]
+    return None

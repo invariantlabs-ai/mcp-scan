@@ -1,6 +1,8 @@
 # fix ssl certificates if custom certificates (i.e. ZScaler) are used
 # as this needs to occur at the beginning of the file, we need to disable the ruff rule
 # ruff: noqa: E402
+from typing import Literal
+
 import truststore
 
 truststore.inject_into_ssl()
@@ -17,6 +19,8 @@ import rich
 from rich.logging import RichHandler
 
 from mcp_scan.MCPScanner import MCPScanner
+from mcp_scan.models import ControlServer, TokenAndClientInfo, TokenAndClientInfoList
+from mcp_scan.pipelines import AnalyzeArgs, InspectArgs, PushArgs, inspect_analyze_push_pipeline, inspect_pipeline
 from mcp_scan.printer import print_scan_result
 from mcp_scan.Storage import Storage
 from mcp_scan.upload import get_hostname, upload
@@ -211,6 +215,12 @@ def add_common_arguments(parser):
         help="Show error details and tracebacks",
     )
     parser.add_argument(
+        "--print-full-descriptions",
+        default=False,
+        action="store_true",
+        help="Show error details and tracebacks",
+    )
+    parser.add_argument(
         "--json",
         action="store_true",
         default=False,
@@ -221,6 +231,12 @@ def add_common_arguments(parser):
         default=False,
         action="store_true",
         help="Disable SSL certificate verification",
+    )
+    parser.add_argument(
+        "--skills",
+        default=False,
+        action="store_true",
+        help="Scan skills beyond mcp servers.",
     )
 
 
@@ -406,6 +422,7 @@ def main():
             f"  {program_name} inspect             # Just inspect tools without verification\n"
             f"  {program_name} whitelist           # View whitelisted tools\n"
             f'  {program_name} whitelist tool "add" "a1b2c3..." # Whitelist the \'add\' tool\n'
+            f"  {program_name} --skills            # Scan skills beyond mcp servers.\n"
             f"  {program_name} --verbose           # Enable detailed logging output\n"
             f"  {program_name} --print-errors      # Show error details and tracebacks\n"
             f"  {program_name} --json              # Output results in JSON format\n"
@@ -424,7 +441,6 @@ def main():
         description="Available commands (default: scan)",
         metavar="COMMAND",
     )
-
     # SCAN command
     scan_parser = subparsers.add_parser(
         "scan",
@@ -585,6 +601,7 @@ def main():
 
     # EVO command
     evo_parser = subparsers.add_parser("evo", help="Push scan results to Snyk Evo")
+
     # use the same parser as scan
     setup_scan_parser(evo_parser)
 
@@ -710,6 +727,7 @@ def main():
     elif args.command == "evo":
         asyncio.run(evo(args))
         sys.exit(0)
+
     else:
         # This shouldn't happen due to argparse's handling
         rich.print(f"[bold red]Unknown command: {args.command}[/bold red]")
@@ -783,6 +801,87 @@ async def evo(args):
         rich.print(f"[bold red]Error revoking client_id[/bold red]: {e}")
 
 
+async def scan_with_skills(args, mode: Literal["scan", "inspect"]):
+    """
+    Scan the machine with skills. Eventually this should replace run_scan_inspect
+    """
+    # collecting common args
+    verbose: bool = hasattr(args, "verbose") and args.verbose
+    json_output: bool = hasattr(args, "json") and args.json
+    print_errors: bool = hasattr(args, "print_errors") and args.print_errors
+    full_toxic_flows: bool = hasattr(args, "full_toxic_flows") and args.full_toxic_flows
+    full_description: bool = hasattr(args, "print_full_descriptions") and args.print_full_descriptions
+
+    # collect inspect args
+    server_timeout: int = args.server_timeout if hasattr(args, "server_timeout") else 10
+    files: list[str] | None = args.files
+    tokens: list[TokenAndClientInfo] = []
+    if args.mcp_oauth_tokens_path:
+        with open(args.mcp_oauth_tokens_path) as f:
+            tokens = TokenAndClientInfoList.model_validate_json(f.read()).root
+
+    inspect_args = InspectArgs(
+        timeout=server_timeout,
+        tokens=tokens,
+        paths=files,
+    )
+
+    if mode == "scan":
+        # collect analyze args
+        analysis_url: str = args.analysis_url
+        opt_out_of_identity: bool = bool(hasattr(args, "opt_out_of_identity") and args.opt_out_of_identity)
+        skip_ssl_verify: bool = bool(hasattr(args, "skip_ssl_verify") and args.skip_ssl_verify)
+        additional_headers: dict | None = parse_headers(args.verification_H)
+        identifier: None = None
+
+        control_servers: list[ControlServer] = [
+            ControlServer(
+                url=server_config["url"],
+                headers=parse_headers(server_config["headers"]),
+                identifier=server_config["identifier"],
+                opt_out=server_config["opt_out"],
+            )
+            for server_config in args.control_servers
+        ]
+        analyze_args = AnalyzeArgs(
+            analysis_url=analysis_url,
+            identifier=identifier,
+            additional_headers=additional_headers,
+            opt_out_of_identity=opt_out_of_identity,
+            control_servers=control_servers,
+            max_retries=3,
+            skip_ssl_verify=skip_ssl_verify,
+        )
+
+        # collect push args
+        push_args = PushArgs(
+            control_servers=control_servers,
+            skip_ssl_verify=skip_ssl_verify,
+            version=version_info,
+        )
+        task = inspect_analyze_push_pipeline(inspect_args, analyze_args, push_args, verbose=verbose)
+    elif mode == "inspect":
+        task = inspect_pipeline(inspect_args)
+    else:
+        raise ValueError(f"Unknown mode: {mode}, expected 'scan' or 'inspect'")
+
+    if json_output:
+        with suppress_stdout():
+            result = await task
+            result_dict = {r.path: r.model_dump(mode="json") for r in result}
+        print(json.dumps(result_dict, indent=2))
+    else:
+        result = await task
+        print_scan_result(
+            result,
+            print_errors,
+            full_toxic_flows,
+            inspect_mode=mode == "inspect",
+            internal_issues=verbose,
+            full_description=full_description,
+        )
+
+
 async def run_scan_inspect(mode="scan", args=None):
     # Initialize scan_context dict that can be populated during scanning
     scan_context = {"cli_version": version_info}
@@ -815,6 +914,9 @@ async def run_scan_inspect(mode="scan", args=None):
 async def print_scan_inspect(mode="scan", args=None):
     # With --json enabled, we suppress all stdout
     # to ensure we produce a valid JSON output.
+    if args.skills:
+        await scan_with_skills(args, mode=mode)
+        return
     if args.json:
         with suppress_stdout():
             result = await run_scan_inspect(mode, args)
