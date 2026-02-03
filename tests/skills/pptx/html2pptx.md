@@ -303,7 +303,7 @@ createPresentation().catch(console.error);
 
 After converting HTML to slides with `html2pptx`, you'll use PptxGenJS to add dynamic content like charts, images, and additional elements.
 
-### ⚠️ Critical Rules
+###  Critical Rules
 
 #### Colors
 - **NEVER use `#` prefix** with hex colors in PptxGenJS - causes file corruption

@@ -102,7 +102,7 @@ This is **VERY IMPORTANT**: The reference must be so refined that it enhances th
 
 With the philosophy AND conceptual framework established, express it through code. Pause to gather thoughts before proceeding. Use only the algorithmic philosophy created and the instructions below.
 
-### ⚠️ STEP 0: READ THE TEMPLATE FIRST ⚠️
+###  STEP 0: READ THE TEMPLATE FIRST
 
 **CRITICAL: BEFORE writing any HTML:**
 
