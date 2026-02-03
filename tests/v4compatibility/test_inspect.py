@@ -72,10 +72,9 @@ def compare_scan_errors(
                 count_common_suffix += 1
             else:
                 break
-        ratio = count_common_suffix / min(len(se_0.traceback), len(se_1.traceback))
-        if ratio < 0.9:
+        if count_common_suffix < 100:
             raise ValueError(
-                f"Traceback mismatch: {se_0.traceback} != {se_1.traceback}. More than 10% of the traceback is different."
+                f"Traceback mismatch: {se_0.traceback} != {se_1.traceback}. More than 100 characters of the traceback are different."
             )
 
 

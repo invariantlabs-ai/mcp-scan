@@ -13,7 +13,7 @@
             "args": ["-c", "'raise Exception(\"Invalid Server\")'"]
         },
         "Snyk": {
-            "command": "/Users/marcomilanta/Library/Application Support/snyk/vscode-cli/snyk-macos-arm64",
+            "command": "~/Library/Application Support/snyk/vscode-cli/snyk-macos-arm64",
             "args": [
               "mcp",
               "-t",
@@ -21,7 +21,7 @@
             ],
             "env": {
               "SNYK_API": "https://api.snyk.io",
-              "TRUSTED_FOLDERS": "/Users/marcomilanta/Documents/snyk/invariant-mcp-scan-backend;/Users/marcomilanta/Documents/personal/probable-spork-web",
+              "TRUSTED_FOLDERS": "~/Documents/snyk/invariant-mcp-scan-backend;~/Documents/personal/probable-spork-web",
               "IDE_CONFIG_PATH": "Cursor"
             }
         }
