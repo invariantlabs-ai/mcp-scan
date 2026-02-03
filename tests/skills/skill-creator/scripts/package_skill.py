@@ -46,7 +46,7 @@ def package_skill(skill_path, output_dir=None):
         return None
 
     # Run validation before packaging
-    print("🔍 Validating skill...")
+    print("Validating skill...")
     valid, message = validate_skill(skill_path)
     if not valid:
         print(f" Validation failed: {message}")

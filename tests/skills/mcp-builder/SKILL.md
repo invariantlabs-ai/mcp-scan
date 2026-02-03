@@ -55,7 +55,7 @@ Key pages to review:
 
 **Load framework documentation:**
 
-- **MCP Best Practices**: [📋 View Best Practices](./reference/mcp_best_practices.md) - Core guidelines
+- **MCP Best Practices**: [View Best Practices](./reference/mcp_best_practices.md) - Core guidelines
 
 **For TypeScript (recommended):**
 - **TypeScript SDK**: Use WebFetch to load `https://raw.githubusercontent.com/modelcontextprotocol/typescript-sdk/main/README.md`
@@ -201,7 +201,7 @@ Load these resources as needed during development:
 
 ### Core MCP Documentation (Load First)
 - **MCP Protocol**: Start with sitemap at `https://modelcontextprotocol.io/sitemap.xml`, then fetch specific pages with `.md` suffix
-- [📋 MCP Best Practices](./reference/mcp_best_practices.md) - Universal MCP guidelines including:
+- [MCP Best Practices](./reference/mcp_best_practices.md) - Universal MCP guidelines including:
   - Server and tool naming conventions
   - Response format guidelines (JSON vs Markdown)
   - Pagination best practices

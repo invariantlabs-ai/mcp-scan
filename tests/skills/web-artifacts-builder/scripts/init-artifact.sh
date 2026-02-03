@@ -6,7 +6,7 @@ set -e
 # Detect Node version
 NODE_VERSION=$(node -v | cut -d'v' -f2 | cut -d'.' -f1)
 
-echo "🔍 Detected Node.js version: $NODE_VERSION"
+echo "Detected Node.js version: $NODE_VERSION"
 
 if [ "$NODE_VERSION" -lt 18 ]; then
   echo " Error: Node.js 18 or higher is required"
@@ -70,7 +70,7 @@ pnpm install
 
 # Pin Vite version for Node 18
 if [ "$NODE_VERSION" -lt 20 ]; then
-  echo "📌 Pinning Vite to $VITE_VERSION for Node 18 compatibility..."
+  echo "Pinning Vite to $VITE_VERSION for Node 18 compatibility..."
   pnpm add -D vite@$VITE_VERSION
 fi
 
@@ -88,7 +88,7 @@ export default {
 }
 EOF
 
-echo "📝 Configuring Tailwind with shadcn theme..."
+echo "Configuring Tailwind with shadcn theme..."
 cat > tailwind.config.js << 'EOF'
 /** @type {import('tailwindcss').Config} */
 module.exports = {
@@ -160,7 +160,7 @@ module.exports = {
 EOF
 
 # Add Tailwind directives and CSS variables to index.css
-echo "🎨 Adding Tailwind directives and CSS variables..."
+echo "Adding Tailwind directives and CSS variables..."
 cat > src/index.css << 'EOF'
 @tailwind base;
 @tailwind components;
@@ -277,7 +277,7 @@ echo "Extracting shadcn/ui components..."
 tar -xzf "$COMPONENTS_TARBALL" -C src/
 
 # Create components.json for reference
-echo "📝 Creating components.json config..."
+echo "Creating components.json config..."
 cat > components.json << 'EOF'
 {
   "$schema": "https://ui.shadcn.com/schema.json",
@@ -316,7 +316,7 @@ echo "To start developing:"
 echo "  cd $PROJECT_NAME"
 echo "  pnpm dev"
 echo ""
-echo "📚 Import components like:"
+echo "Import components like:"
 echo "  import { Button } from '@/components/ui/button'"
 echo "  import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'"
 echo "  import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog'"

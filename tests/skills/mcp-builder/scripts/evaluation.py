@@ -233,10 +233,10 @@ async def run_evaluation(
     client = Anthropic()
 
     tools = await connection.list_tools()
-    print(f"📋 Loaded {len(tools)} tools from MCP server")
+    print(f"Loaded {len(tools)} tools from MCP server")
 
     qa_pairs = parse_evaluation_file(eval_path)
-    print(f"📋 Loaded {len(qa_pairs)} evaluation tasks")
+    print(f"Loaded {len(qa_pairs)} evaluation tasks")
 
     results = []
     for i, qa_pair in enumerate(qa_pairs):
