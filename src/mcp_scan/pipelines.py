@@ -17,6 +17,7 @@ from mcp_scan.models import (
     SkillServer,
     TokenAndClientInfo,
 )
+from mcp_scan.redact import redact_scan_result
 from mcp_scan.upload import upload
 from mcp_scan.utils import get_push_key
 from mcp_scan.verify_api import analyze_machine
@@ -93,9 +94,12 @@ async def inspect_analyze_push_pipeline(
     # inspect
     scan_path_results = await inspect_pipeline(inspect_args)
 
+    # redact
+    redacted_scan_path_results = [redact_scan_result(rv) for rv in scan_path_results]
+
     # analyze
     verified_scan_path_results = await analyze_machine(
-        scan_path_results,
+        redacted_scan_path_results,
         analysis_url=analyze_args.analysis_url,
         identifier=analyze_args.identifier,
         additional_headers=analyze_args.additional_headers,
