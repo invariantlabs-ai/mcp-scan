@@ -441,7 +441,7 @@ def traverse_skill_tree(skill_path: str, relative_path: str | None) -> tuple[lis
             resources.append(
                 Resource(
                     name=file,
-                    uri=f"skill://{relative_full_path}",
+                    uri=f"skill://{relative_full_path.replace(os.path.sep, '/')}",
                     description=content,
                 )
             )
