@@ -420,9 +420,9 @@ def main():
             f"  {program_name}                     # Scan all known MCP configs\n"
             f"  {program_name} ~/custom/config.json # Scan a specific config file\n"
             f"  {program_name} inspect             # Just inspect tools without verification\n"
-            f"  {program_name} scan-legacy         # Run the scan in the background\n"
             f"  {program_name} whitelist           # View whitelisted tools\n"
             f'  {program_name} whitelist tool "add" "a1b2c3..." # Whitelist the \'add\' tool\n'
+            f"  {program_name} --skills            # Scan skills beyond mcp servers.\n"
             f"  {program_name} --verbose           # Enable detailed logging output\n"
             f"  {program_name} --print-errors      # Show error details and tracebacks\n"
             f"  {program_name} --json              # Output results in JSON format\n"
@@ -906,7 +906,7 @@ async def run_scan_inspect(mode="scan", args=None):
                 verbose=getattr(args, "verbose", False),
                 additional_headers=parse_headers(server_config["headers"]),
                 skip_ssl_verify=getattr(args, "skip_ssl_verify", False),
-                scanversion_context=scan_context,
+                scan_context=scan_context,
             )
     return result
 
