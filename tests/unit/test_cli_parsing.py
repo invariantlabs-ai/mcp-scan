@@ -489,6 +489,7 @@ class TestJSONOutput:
                 print_errors=False,
                 full_toxic_flows=False,
                 verbose=False,
+                skills=False,
             )
 
             captured_output = io.StringIO()
@@ -542,6 +543,7 @@ class TestJSONOutput:
                 print_errors=False,
                 full_toxic_flows=False,
                 verbose=False,
+                skills=False,
             )
 
             # Capture stdout

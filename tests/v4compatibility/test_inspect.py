@@ -113,7 +113,7 @@ def compare_scan_path_results(
 
 
 @pytest.mark.asyncio
-@patch("mcp_scan.inspect.get_well_known_clients", return_value=TEST_CANDIDATE_CLIENTS)
+@patch("mcp_scan.pipelines.get_well_known_clients", return_value=TEST_CANDIDATE_CLIENTS)
 async def test_inspect_clients(mock_get_well_known_clients):
     result_test_client_stdout = subprocess.run(
         ["uv", "run", "-m", "src.mcp_scan.run", "inspect", "--json", "tests/mcp_servers/.test-client/mcp.json"],
@@ -173,19 +173,14 @@ async def test_inspect_clients(mock_get_well_known_clients):
 def test_inspect_skills_dir():
     skills_dir = "tests/skills"
     skills_servers = inspect_skills_dir(skills_dir)
-    sub_dirs = [
-        os.path.join(skills_dir, sub_dir)
-        for sub_dir in os.listdir(skills_dir)
-        if os.path.isdir(os.path.join(skills_dir, sub_dir))
-    ]
+    sub_dirs = [sub_dir for sub_dir in os.listdir(skills_dir) if os.path.isdir(os.path.join(skills_dir, sub_dir))]
     assert len(sub_dirs) == len(skills_servers)
-    for path, skill_server in skills_servers:
-        assert path == "tests/skills"
+    for (path, skill_server), sub_dir in zip(skills_servers, sub_dirs, strict=True):
+        assert path == sub_dir
         assert isinstance(skill_server, SkillServer)
-        assert skill_server.path in sub_dirs
+        assert skill_server.path in [os.path.join(skills_dir, sub_dir) for sub_dir in sub_dirs]
 
 
-@pytest.mark.asyncio
 @pytest.mark.parametrize("path, skill_server", inspect_skills_dir("tests/skills"))
-async def test_inspect_skill(path: str, skill_server: SkillServer):
-    await inspect_skill(skill_server)
+def test_inspect_skill(path: str, skill_server: SkillServer):
+    inspect_skill(skill_server)

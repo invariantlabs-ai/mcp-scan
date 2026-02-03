@@ -347,7 +347,7 @@ class MCPScanner:
             additional_headers=self.additional_headers,
             opt_out_of_identity=self.opt_out_of_identity,
             skip_pushing=bool(self.control_servers),
-            push_key=get_push_key(self.control_servers),  # type: ignore[arg-type]
+            push_key=get_push_key(self.control_servers) if self.control_servers is not None else None,  # type: ignore[arg-type]
             verbose=self.verbose,
             skip_ssl_verify=self.skip_ssl_verify,
         )
