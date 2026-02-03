@@ -78,7 +78,7 @@ echo "📦 Installing Tailwind CSS and dependencies..."
 pnpm install -D tailwindcss@3.4.1 postcss autoprefixer @types/node tailwindcss-animate
 pnpm install class-variance-authority clsx tailwind-merge lucide-react next-themes
 
-echo "⚙️  Creating Tailwind and PostCSS configuration..."
+echo " Creating Tailwind and PostCSS configuration..."
 cat > postcss.config.js << 'EOF'
 export default {
   plugins: {
@@ -224,7 +224,7 @@ cat > src/index.css << 'EOF'
 EOF
 
 # Add path aliases to tsconfig.json
-echo "🔧 Adding path aliases to tsconfig.json..."
+echo "Adding path aliases to tsconfig.json..."
 node -e "
 const fs = require('fs');
 const config = JSON.parse(fs.readFileSync('tsconfig.json', 'utf8'));
@@ -235,7 +235,7 @@ fs.writeFileSync('tsconfig.json', JSON.stringify(config, null, 2));
 "
 
 # Add path aliases to tsconfig.app.json
-echo "🔧 Adding path aliases to tsconfig.app.json..."
+echo "Adding path aliases to tsconfig.app.json..."
 node -e "
 const fs = require('fs');
 const path = 'tsconfig.app.json';
@@ -251,7 +251,7 @@ fs.writeFileSync(path, JSON.stringify(config, null, 2));
 "
 
 # Update vite.config.ts
-echo "⚙️  Updating Vite configuration..."
+echo " Updating Vite configuration..."
 cat > vite.config.ts << 'EOF'
 import path from "path";
 import react from "@vitejs/plugin-react";

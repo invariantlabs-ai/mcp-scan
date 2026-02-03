@@ -22,7 +22,7 @@ pnpm add -D parcel @parcel/config-default parcel-resolver-tspaths html-inline
 
 # Create Parcel config with tspaths resolver
 if [ ! -f ".parcelrc" ]; then
-  echo "🔧 Creating Parcel configuration with path alias support..."
+  echo "Creating Parcel configuration with path alias support..."
   cat > .parcelrc << 'EOF'
 {
   "extends": "@parcel/config-default",
