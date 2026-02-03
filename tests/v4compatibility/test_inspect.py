@@ -170,7 +170,7 @@ async def test_inspect_clients(mock_get_well_known_clients):
 
 
 def test_inspect_skills_dir():
-    skills_dir = "tests/skills"
+    skills_dir = os.path.join("tests", "skills")
     skills_servers = inspect_skills_dir(skills_dir)
     sub_dirs = [sub_dir for sub_dir in os.listdir(skills_dir) if os.path.isdir(os.path.join(skills_dir, sub_dir))]
     assert len(sub_dirs) == len(skills_servers)
@@ -180,6 +180,6 @@ def test_inspect_skills_dir():
         assert skill_server.path in [os.path.join(skills_dir, sub_dir) for sub_dir in sub_dirs]
 
 
-@pytest.mark.parametrize("path, skill_server", inspect_skills_dir("tests/skills"))
+@pytest.mark.parametrize("path, skill_server", inspect_skills_dir(os.path.join("tests", "skills")))
 def test_inspect_skill(path: str, skill_server: SkillServer):
     inspect_skill(skill_server)
