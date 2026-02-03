@@ -70,7 +70,7 @@ def format_servers_line(server: str, status: str | None = None, issues: list[Iss
     if status:
         text += f" [gray62]{status}[/gray62]"
     if issues:
-        text += " " + format_issues(issues)
+        text += format_issues(issues, new_line=True)
     return Text.from_markup(text)
 
 
@@ -80,8 +80,9 @@ def append_status(status: str, new_status: str) -> str:
     return f"{new_status}, {status}"
 
 
-def format_issues(issues: list[Issue]) -> str:
-    status_text = " ".join(
+def format_issues(issues: list[Issue], new_line: bool = False) -> str:
+    separator = "\n" if new_line else " "
+    status_text = separator.join(
         [
             ISSUE_COLOR_MAP["analysis_error"]
             + rf"\[{issue.code}]: {issue.message}"
@@ -126,6 +127,7 @@ def format_entity_line(
     inspect_mode: bool = False,
     is_skill: bool = False,
     full_description: bool = False,
+    are_there_server_issues: bool = False,
 ) -> Text:
     # is_verified = verified.value
     # if is_verified is not None and changed.value is not None:
@@ -141,7 +143,6 @@ def format_entity_line(
     else:
         status = "successful"
 
-    color = ISSUE_COLOR_MAP[status] if not inspect_mode else ISSUE_COLOR_MAP["inspect_mode"]
     icon_map = {
         "successful": ":white_heavy_check_mark:",
         "issue": ":cross_mark:",
@@ -150,8 +151,12 @@ def format_entity_line(
         "whitelisted": ":white_heavy_check_mark:",
         "inspect_mode": "  ",
     }
-    icon = icon_map[status] if not inspect_mode else icon_map["inspect_mode"]
-    include_description = status not in ["whitelisted", "analysis_error", "successful"]
+    color = ISSUE_COLOR_MAP[status]
+    icon = icon_map[status]
+    if inspect_mode or are_there_server_issues:
+        color = ISSUE_COLOR_MAP["inspect_mode"]
+        icon = icon_map["inspect_mode"]
+    include_description = status not in ["whitelisted", "analysis_error", "successful"] or are_there_server_issues
 
     # right-pad & truncate name
     name = entity.name
@@ -178,7 +183,16 @@ def format_entity_line(
         else:
             description = "<no description available>"
         if not full_description:
-            description = description[:200] + "..."
+            if len(description) > 200:
+                description = (
+                    description[:200]
+                    + f"... {len(description) - 200} characters truncated. Use --print-full-descriptions to see the full description."
+                )
+            else:
+                description = (
+                    description
+                    + f"... {200 - len(description)} characters truncated. Use --print-full-descriptions to see the full description."
+                )
         # escape markdown in the description
         description = description.replace("[", r"\[").replace("]", r"\]")
         text += f"\n[gray62][bold]Current description:[/bold]\n{description}[/gray62]"
@@ -318,6 +332,7 @@ def print_scan_path_result(
                     inspect_mode,
                     is_skill=server.server.type == "skill",
                     full_description=full_description,
+                    are_there_server_issues=bool(server_issues),
                 )
             )
 
