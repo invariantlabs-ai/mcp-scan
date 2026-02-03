@@ -385,7 +385,6 @@ def inspect_skill(config: SkillServer) -> ServerSignature:
         resources=resources,
         tools=tools,
     )
-
     # skill tree traversal
 
 

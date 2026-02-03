@@ -129,9 +129,10 @@ async def inspect_analyze_push_pipeline(
 async def client_to_inspect_from_path(path: str, use_path_as_client_name: bool = False) -> ClientToInspect | None:
     if os.path.isdir(os.path.expanduser(path)):
         if os.path.exists(os.path.join(path, "SKILL.md")):
-            # split last dir from all other dirs in the path
-            last_dir = path.split("/")[-1]
-            path_without_last_dir = "/".join(path.split("/")[:-1])
+            # split last segment from all other dirs in the path (account for trailing slash)
+            last_dir = os.path.basename(os.path.normpath(path))
+
+            path_without_last_dir = os.path.dirname(path)
             return ClientToInspect(
                 name="not-available" if use_path_as_client_name else path,
                 client_path=path_without_last_dir,
