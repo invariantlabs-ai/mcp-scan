@@ -5,9 +5,9 @@ from unittest.mock import patch
 
 import pytest
 
-from mcp_scan.inspect import inspect_machine, inspected_client_to_scan_path_result
 from mcp_scan.mcp_client import inspect_skill, inspect_skills_dir
 from mcp_scan.models import CandidateClient, ScanError, ScanPathResult, ServerScanResult, SkillServer
+from mcp_scan.pipelines import InspectArgs, inspect_pipeline
 from mcp_scan.signed_binary import check_signed_binary
 
 TEST_CANDIDATE_CLIENTS = [
@@ -136,9 +136,13 @@ async def test_inspect_clients(mock_get_well_known_clients):
     )
     result_test_client_invalid = (await check_signed_binary([result_test_client_invalid]))[0]
 
-    inspected_machine = await inspect_machine()
-    spr_0 = inspected_client_to_scan_path_result(inspected_machine.clients[0])
-    spr_1 = inspected_client_to_scan_path_result(inspected_machine.clients[1])
+    spr_0, spr_1 = await inspect_pipeline(
+        inspect_args=InspectArgs(
+            timeout=10,
+            tokens=[],
+            paths=None,
+        ),
+    )
 
     assert spr_0.client == "test-client"
     assert spr_1.client == "test-client-invalid"

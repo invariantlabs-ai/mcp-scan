@@ -12,7 +12,6 @@ from mcp_scan.models import (
     FileNotFoundConfig,
     InspectedClient,
     InspectedExtensions,
-    InspectedMachine,
     RemoteServer,
     ScanError,
     ScanPathResult,
@@ -29,7 +28,6 @@ from mcp_scan.models import (
 )
 from mcp_scan.signed_binary import check_server_signature
 from mcp_scan.traffic_capture import TrafficCapture
-from mcp_scan.well_known_clients import get_well_known_clients
 
 logger = logging.getLogger(__name__)
 
@@ -176,7 +174,7 @@ async def inspect_extension(
 
     elif isinstance(config, SkillServer):
         try:
-            signature = await inspect_skill(config)
+            signature = inspect_skill(config)
             return InspectedExtensions(name=name, config=config, signature_or_error=signature)
         except Exception as e:
             return InspectedExtensions(
@@ -224,30 +222,6 @@ async def inspect_client(
             extensions_for_skills_dir.append(extension)
         extensions[skills_dir_path] = extensions_for_skills_dir
     return InspectedClient(name=client.name, client_path=client.client_path, extensions=extensions)
-
-
-async def inspect_machine(timeout: int, tokens: list[TokenAndClientInfo]) -> InspectedMachine:
-    """
-    Inspect all the well known clients (Cursor, VSCode, etc.) and return a InspectedMachine object.
-    """
-    well_known_clients = get_well_known_clients()
-
-    logger.info(f"Inspecting {len(well_known_clients)} well known clients")
-    clients_to_inspect: list[ClientToInspect] = []
-    for client in well_known_clients:
-        client_to_inspect = await get_mcp_config_per_client(client)
-        if client_to_inspect is None:
-            logger.info(f"Client {client.name} does not exist os this machine. {client.client_exists_paths}")
-            continue
-        logger.info(f"Client {client.name} found on this machine")
-        clients_to_inspect.append(client_to_inspect)
-    logger.info(f"Inspecting {len(clients_to_inspect)} clients")
-    inspected_clients: list[InspectedClient] = []
-    for client_to_inspect in clients_to_inspect:
-        inspected_client = await inspect_client(client_to_inspect, timeout, tokens)
-        inspected_clients.append(inspected_client)
-
-    return InspectedMachine(clients=inspected_clients)
 
 
 def inspected_client_to_scan_path_result(inspected_client: InspectedClient) -> ScanPathResult:

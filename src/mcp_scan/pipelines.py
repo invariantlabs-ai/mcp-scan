@@ -1,3 +1,4 @@
+import logging
 import os
 
 from pydantic import BaseModel
@@ -5,7 +6,6 @@ from pydantic import BaseModel
 from mcp_scan.inspect import (
     get_mcp_config_per_client,
     inspect_client,
-    inspect_machine,
     inspected_client_to_scan_path_result,
 )
 from mcp_scan.models import (
@@ -20,11 +20,15 @@ from mcp_scan.models import (
 from mcp_scan.upload import upload
 from mcp_scan.utils import get_push_key
 from mcp_scan.verify_api import analyze_machine
+from mcp_scan.well_known_clients import get_well_known_clients
+
+logger = logging.getLogger(__name__)
 
 
 class InspectArgs(BaseModel):
     timeout: int
     tokens: list[TokenAndClientInfo]
+    paths: list[str] | None = None
 
 
 class AnalyzeArgs(BaseModel):
@@ -42,7 +46,42 @@ class PushArgs(BaseModel):
     version: str | None = None
 
 
-async def inspect_analyze_upload_machine(
+async def inspect_pipeline(
+    inspect_args: InspectArgs,
+) -> list[ScanPathResult]:
+    # fetch clients to inspect
+    if inspect_args.paths is not None:
+        clients_to_inspect = [await client_to_inspect_from_path(path, True) for path in inspect_args.paths]
+    else:
+        clients_to_inspect = [await get_mcp_config_per_client(client) for client in get_well_known_clients()]
+
+    # inspect
+    scan_path_results: list[ScanPathResult] = []
+    for i, client_to_inspect in enumerate(clients_to_inspect):
+        if client_to_inspect is None and inspect_args.paths is not None:
+            scan_path_results.append(
+                ScanPathResult(
+                    path=inspect_args.paths[i],
+                    client=inspect_args.paths[i],
+                    servers=[],
+                    issues=[],
+                    labels=[],
+                    error=ScanError(message="File or folder not found", is_failure=False, category="file_not_found"),
+                )
+            )
+            continue
+        elif client_to_inspect is None:
+            logger.info(
+                f"Client {get_well_known_clients()[i].name} does not exist os this machine. {get_well_known_clients()[i].client_exists_paths}"
+            )
+            continue
+        else:
+            inspected_client = await inspect_client(client_to_inspect, inspect_args.timeout, inspect_args.tokens)
+            scan_path_results.append(inspected_client_to_scan_path_result(inspected_client))
+    return scan_path_results
+
+
+async def inspect_analyze_push_pipeline(
     inspect_args: InspectArgs,
     analyze_args: AnalyzeArgs,
     push_args: PushArgs,
@@ -51,11 +90,8 @@ async def inspect_analyze_upload_machine(
     """
     Pipeline the scan and analyze the machine.
     """
-    # scan
-    inspected_machine = await inspect_machine(inspect_args.timeout, inspect_args.tokens)
-    scan_path_results = [
-        inspected_client_to_scan_path_result(inspected_client) for inspected_client in inspected_machine.clients
-    ]
+    # inspect
+    scan_path_results = await inspect_pipeline(inspect_args)
 
     # analyze
     verified_scan_path_results = await analyze_machine(
@@ -116,47 +152,3 @@ async def client_to_inspect_from_path(path: str, use_path_as_client_name: bool =
             skills_dir_paths=[],
         )
         return await get_mcp_config_per_client(candidate_client)
-
-
-async def inspect_analyze_paths(
-    paths: list[str],
-    inspect_args: InspectArgs,
-    analyze_args: AnalyzeArgs,
-    verbose: bool = False,
-) -> list[ScanPathResult]:
-    """
-    Pipeline the inspect, analyze, and upload the MCP config.
-    """
-
-    client_to_inspect_list = [await client_to_inspect_from_path(path, True) for path in paths]
-
-    scan_path_results: list[ScanPathResult] = []
-    for path, client_to_inspect in zip(paths, client_to_inspect_list, strict=True):
-        if client_to_inspect is None:
-            scan_path_results.append(
-                ScanPathResult(
-                    path=path,
-                    client=path,
-                    servers=[],
-                    issues=[],
-                    labels=[],
-                    error=ScanError(message="File or folder not found", is_failure=False, category="file_not_found"),
-                )
-            )
-            continue
-
-        inspected_client = await inspect_client(client_to_inspect, inspect_args.timeout, inspect_args.tokens)
-        scan_path_results.append(inspected_client_to_scan_path_result(inspected_client))
-    verified_scan_path_results = await analyze_machine(
-        scan_path_results,
-        analysis_url=analyze_args.analysis_url,
-        identifier=analyze_args.identifier,
-        additional_headers=analyze_args.additional_headers,
-        opt_out_of_identity=analyze_args.opt_out_of_identity,
-        verbose=verbose,
-        skip_pushing=False,
-        push_key=None,
-        max_retries=analyze_args.max_retries,
-        skip_ssl_verify=analyze_args.skip_ssl_verify,
-    )
-    return verified_scan_path_results

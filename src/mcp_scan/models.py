@@ -557,13 +557,9 @@ class ClientAnalysis(BaseModel):
     issues: list[NewIssue]
 
 
-class AnalyzedClient(BaseModel):
-    client: InspectedClient
-    analysis: ClientAnalysis | AnalysisError
-
-
 class AnalyzedMachine(BaseModel):
-    clients: list[AnalyzedClient]
+    machine: InspectedMachine
+    analysis: list[ClientAnalysis] | AnalysisError
 
 
 class ControlServer(BaseModel):

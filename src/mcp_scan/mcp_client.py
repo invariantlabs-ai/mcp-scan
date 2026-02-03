@@ -344,7 +344,7 @@ async def scan_mcp_config_file(path: str) -> MCPConfig:
         raise
 
 
-async def inspect_skill(config: SkillServer) -> ServerSignature:
+def inspect_skill(config: SkillServer) -> ServerSignature:
     logger.info(f"Scanning skill at path: {config.path}")
     with open(os.path.expanduser(os.path.join(config.path, "SKILL.md"))) as f:
         content = f.read()

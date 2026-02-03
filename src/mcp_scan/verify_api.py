@@ -155,6 +155,7 @@ async def analyze_machine(
     push_key: str | None = None,
     max_retries: int = 3,
     skip_ssl_verify: bool = False,
+    raise_on_error: bool = False,
 ) -> list[ScanPathResult]:
     """
     Analyze the scan paths with the analysis server.
@@ -255,6 +256,10 @@ async def analyze_machine(
             logger.info(f"Retrying in {backoff_time} seconds...")
             await asyncio.sleep(backoff_time)
 
+    if raise_on_error:
+        raise RuntimeError(
+            f"Tried calling verification api {max_retries} times. Could not reach analysis server. Last error: {error_text}"
+        )
     # failed even after all retries
     for scan_path in scan_paths:
         if scan_path.servers is not None and scan_path.error is None:
