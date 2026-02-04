@@ -399,7 +399,7 @@ def setup_scan_parser(scan_parser, add_files=True):
         scan_parser.add_argument(
             "files",
             nargs="*",
-            default=WELL_KNOWN_MCP_PATHS,
+            default=[],
             help="Path(s) to MCP config file(s). If not provided, well-known paths will be checked",
             metavar="CONFIG_FILE",
         )
@@ -464,7 +464,7 @@ def main():
         "files",
         type=str,
         nargs="*",
-        default=WELL_KNOWN_MCP_PATHS,
+        default=[],
         help="Configuration files to inspect (default: known MCP config locations)",
         metavar="CONFIG_FILE",
     )
@@ -917,6 +917,10 @@ async def print_scan_inspect(mode="scan", args=None):
     if args.skills:
         await scan_with_skills(args, mode=mode)
         return
+
+    if not args.files:
+        args.files = WELL_KNOWN_MCP_PATHS
+
     if args.json:
         with suppress_stdout():
             result = await run_scan_inspect(mode, args)
