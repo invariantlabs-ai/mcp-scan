@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  MCP security scanning tool for local and remote MCP Servers
+  Discover and scan agent components on your machine for prompt injections and vulnerabilities (agents, MCP servers, skills).
 </p>
 
 <p align="center">
@@ -18,32 +18,45 @@
   <img src=".github/mcp-scan-cmd-banner.png?raw=true" alt="MCP-Scan logo"/>
 </div>
 
+<br>
+
+MCP-scan helps you keep an inventory of all your installed agent components (harnesses, MCP servers, skills) and scans them for common threats like prompt injections, sensitive data handling or malware payloads hidden natural language.
+
 ## Highlights
 
-- Auto-discover MCP configurations
+- Auto-discover MCP configurations, agent tools, skills
 - Detects MCP Security Vulnerabilities:
   - Prompt Injection Attacks
   - Tool Poisoning Attacks
   - Toxic Flows
-- Scan local STDIO MCP Servers
-- Scan remote HTTP/SSE MCP Servers
+- Scan local STDIO MCP servers and remote HTTP/SSE MCP servers
+- Detects Agent Skill Vulnerabilities:
+  - Prompt Injection Attacks, Malware Payloads
+  - Exposure to untrusted third parties (e.g. moltbook)
+  - Sensitive Data Handling
+  - Hard-coded secrets
 
 ## Quick Start
 
-### MCP Server Scanning
+### Scanning
 
-To run an MCP scan:
+To run a full scan of your machine (auto-discovers agents, MCP servers, skills), run:
 
 ```bash
-uvx mcp-scan@latest
+uvx mcp-scan@latest --skills
 ```
 
-This will scan your installed servers for security vulnerabilities in tools, prompts, and resources. It will automatically discover a variety of MCP configurations, including Claude, Cursor and Windsurf.
+This will scan for security vulnerabilities in servers, skills, tools, prompts, and resources. It will automatically discover a variety of agent configurations, including Claude, Cursor and Windsurf. Omit `--skills` to skip skill analysis.
 
-To scan a particular MCP server configuration, for example, a VS Code MCP config, you can run:
+You can also scan particular configuration files:
 
 ```bash
-mcp-scan ~/.vscode/mcp.json
+ # scan mcp configurations
+uvx mcp-scan@latest ~/.vscode/mcp.json
+ # scan a single agent skill
+uvx mcp-scan@latest --skills ~/path/to/my/SKILL.md
+# scan all claude skills
+uvx mcp-scan@latest --skills ~/.claude/skills
 ```
 
 #### Example Run
@@ -170,9 +183,12 @@ mcp-scan [CONFIG_FILE...]
 
 Options:
 ```
---checks-per-server NUM       Number of checks to perform on each server (default: 1)
---server-timeout SECONDS      Seconds to wait before timing out server connections (default: 10)
---suppress-mcpserver-io BOOL  Suppress stdout/stderr from MCP servers (default: True)
+--checks-per-server NUM           Number of checks to perform on each server (default: 1)
+--server-timeout SECONDS          Seconds to wait before timing out server connections (default: 10)
+--suppress-mcpserver-io BOOL      Suppress stdout/stderr from MCP servers (default: True)
+--skills                          Autodetects and analyzes skills
+--skills PATH_TO_SKILL_MD_FILE    Analyzes the specific skill
+--skills PATHS_TO_DIRECTORY       Recursively detects and analyzes all skills in the directory
 ```
 
 #### proxy
