@@ -23,6 +23,7 @@ from mcp.types import (
 )
 
 from mcp_scan.models import (
+    ClaudeCodeConfigFile,
     ClaudeConfigFile,
     FileTokenStorage,
     MCPConfig,
@@ -299,6 +300,7 @@ async def scan_mcp_config_file(path: str) -> MCPConfig:
     def parse_and_validate(config: dict) -> MCPConfig:
         logger.debug("Parsing and validating config")
         models: list[type[MCPConfig]] = [
+            ClaudeCodeConfigFile,  # used by claude code .claude.json
             ClaudeConfigFile,  # used by most clients
             VSCodeConfigFile,  # used by vscode settings.json
             VSCodeMCPConfig,  # used by vscode mcp.json
