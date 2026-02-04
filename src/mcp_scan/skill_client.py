@@ -19,16 +19,20 @@ from mcp_scan.models import ServerSignature, SkillServer
 logger = logging.getLogger(__name__)
 
 
+def get_skill_md_path(path: str) -> str | None:
+    for file in os.listdir(path):
+        if file.lower() == "skill.md":
+            return file
+    return None
+
+
 def inspect_skill(config: SkillServer) -> ServerSignature:
     logger.info(f"Scanning skill at path: {config.path}")
-    if os.path.exists(os.path.expanduser(os.path.join(config.path, "SKILL.md"))):
-        with open(os.path.expanduser(os.path.join(config.path, "SKILL.md")), encoding="utf-8") as f:
-            content = f.read()
-    elif os.path.exists(os.path.expanduser(os.path.join(config.path, "skill.md"))):
-        with open(os.path.expanduser(os.path.join(config.path, "skill.md")), encoding="utf-8") as f:
-            content = f.read()
-    else:
+    skill_md_path = get_skill_md_path(config.path)
+    if skill_md_path is None:
         raise Exception(f"neither SKILL.md nor skill.md file found at path: {config.path}")
+    with open(os.path.expanduser(os.path.join(config.path, skill_md_path)), encoding="utf-8") as f:
+        content = f.read()
 
     logger.debug("Skill file read successfully")
 
@@ -86,7 +90,7 @@ def traverse_skill_tree(skill_path: str, relative_path: str | None) -> tuple[lis
             resources.extend(resources_sub)
             tools.extend(tools_sub)
             continue
-        elif file == "SKILL.md" and not relative_path:
+        elif file.lower() == "skill.md" and not relative_path:
             continue
 
         elif file.endswith(".md"):
@@ -135,11 +139,12 @@ def inspect_skills_dir(path: str) -> list[tuple[str, SkillServer]]:
 
     candidate_skills_dirs = os.listdir(os.path.expanduser(path))
     skills_servers: list[tuple[str, SkillServer]] = []
-    for candidate_skills_dir in candidate_skills_dirs:
-        if os.path.isdir(os.path.expanduser(os.path.join(path, candidate_skills_dir))) and (
-            os.path.exists(os.path.expanduser(os.path.join(path, candidate_skills_dir, "SKILL.md")))
-            or os.path.exists(os.path.expanduser(os.path.join(path, candidate_skills_dir, "skill.md")))
-        ):
-            skills_servers.append((candidate_skills_dir, SkillServer(path=os.path.join(path, candidate_skills_dir))))
+    for candidate_skill_dir in candidate_skills_dirs:
+        candidate_skill_dir_full_path = os.path.join(path, candidate_skill_dir)
+        if os.path.isdir(candidate_skill_dir_full_path):
+            skill_md_path = get_skill_md_path(candidate_skill_dir_full_path)
+            if skill_md_path is None:
+                continue
+            skills_servers.append((candidate_skill_dir, SkillServer(path=candidate_skill_dir_full_path)))
     logger.info("Found %d skills servers", len(skills_servers))
     return skills_servers
