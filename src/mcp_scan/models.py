@@ -174,16 +174,14 @@ class ClaudeCodeConfigFile(MCPConfig):
 class VSCodeMCPConfig(MCPConfig):
     # see https://code.visualstudio.com/docs/copilot/chat/mcp-servers
     model_config = ConfigDict()
-    projects: dict[str, ClaudeConfigFile]
+    inputs: list[Any] | None = None
+    servers: dict[str, StdioServer | RemoteServer]
 
-    def get_servers(self) -> dict[str, StdioServer | RemoteServer | StaticToolsServer]:
-        servers: dict[str, StdioServer | RemoteServer | StaticToolsServer] = {}
-        for proj in self.projects.values():
-            servers.update(proj.get_servers())
-        return servers
+    def get_servers(self) -> dict[str, StdioServer | RemoteServer]:
+        return self.servers
 
-    def set_servers(self, servers: dict[str, StdioServer | RemoteServer | StaticToolsServer]) -> None:
-        self.projects = {"~": ClaudeConfigFile(mcpServers=servers)}
+    def set_servers(self, servers: dict[str, StdioServer | RemoteServer]) -> None:
+        self.servers = servers
 
 
 class VSCodeConfigFile(MCPConfig):

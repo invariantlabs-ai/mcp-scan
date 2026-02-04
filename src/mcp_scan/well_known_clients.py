@@ -106,7 +106,7 @@ LINUX_WELL_KNOWN_CLIENTS: list[CandidateClient] = [
 
 def get_well_known_clients() -> list[CandidateClient]:
     if sys.platform == "linux" or sys.platform == "linux2":
-        return []
+        return LINUX_WELL_KNOWN_CLIENTS
     elif sys.platform == "darwin":
         return MACOS_WELL_KNOWN_CLIENTS
     elif sys.platform == "win32":
