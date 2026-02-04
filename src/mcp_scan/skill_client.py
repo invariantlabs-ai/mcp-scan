@@ -137,10 +137,11 @@ def traverse_skill_tree(skill_path: str, relative_path: str | None) -> tuple[lis
 def inspect_skills_dir(path: str) -> list[tuple[str, SkillServer]]:
     logger.info("Scanning skills dir: %s", path)
 
-    candidate_skills_dirs = os.listdir(os.path.expanduser(path))
+    expanded_path = os.path.expanduser(path)
+    candidate_skills_dirs = os.listdir(expanded_path)
     skills_servers: list[tuple[str, SkillServer]] = []
     for candidate_skill_dir in candidate_skills_dirs:
-        candidate_skill_dir_full_path = os.path.join(path, candidate_skill_dir)
+        candidate_skill_dir_full_path = os.path.join(expanded_path, candidate_skill_dir)
         if os.path.isdir(candidate_skill_dir_full_path):
             skill_md_path = get_skill_md_path(candidate_skill_dir_full_path)
             if skill_md_path is None:
