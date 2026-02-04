@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  MCP security scanning tool for local and remote MCP Servers
+  MCP security scanning tool for local and remote MCP Servers along with Skills
 </p>
 
 <p align="center">
@@ -27,6 +27,7 @@
   - Toxic Flows
 - Scan local STDIO MCP Servers
 - Scan remote HTTP/SSE MCP Servers
+- Scan skills (new!)
 
 ## Quick Start
 
@@ -44,6 +45,11 @@ To scan a particular MCP server configuration, for example, a VS Code MCP config
 
 ```bash
 mcp-scan ~/.vscode/mcp.json
+```
+
+Additionally, to autodetect and analyze skills:
+```bash
+uvx mcp-scan@latest --skills
 ```
 
 #### Example Run
@@ -170,9 +176,12 @@ mcp-scan [CONFIG_FILE...]
 
 Options:
 ```
---checks-per-server NUM       Number of checks to perform on each server (default: 1)
---server-timeout SECONDS      Seconds to wait before timing out server connections (default: 10)
---suppress-mcpserver-io BOOL  Suppress stdout/stderr from MCP servers (default: True)
+--checks-per-server NUM           Number of checks to perform on each server (default: 1)
+--server-timeout SECONDS          Seconds to wait before timing out server connections (default: 10)
+--suppress-mcpserver-io BOOL      Suppress stdout/stderr from MCP servers (default: True)
+--skills                          Autodetects and analyzes skills
+--skills PATH_TO_SKILL_MD_FILE    Analyzes the specific skill
+--skills PATHS_TO_DIRECTORY       Recursively detects and analyzes all skills in the directory
 ```
 
 #### proxy
