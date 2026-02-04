@@ -5,7 +5,8 @@
 </p>
 
 <p align="center">
-  Discover and scan agent components on your machine for prompt injections and vulnerabilities (agents, MCP servers, skills).
+  Discover and scan agent components on your machine for prompt injections<br/>
+  and vulnerabilities (including agents, MCP servers, skills).
 </p>
 
 <p align="center">
