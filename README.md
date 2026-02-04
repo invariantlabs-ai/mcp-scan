@@ -46,7 +46,7 @@ To run a full scan of your machine (auto-discovers agents, MCP servers, skills),
 uvx mcp-scan@latest --skills
 ```
 
-This will scan for security vulnerabilities in servers, skills, tools, prompts, and resources. It will automatically discover a variety of agent configurations, including Claude, Cursor and Windsurf. Omit `--skills` to skip skill analysis.
+This will scan for security vulnerabilities in servers, skills, tools, prompts, and resources. It will automatically discover a variety of agent configurations, including Claude Code/Desktop, Cursor, Gemini CLI and Windsurf. Omit `--skills` to skip skill analysis.
 
 You can also scan particular configuration files:
 
