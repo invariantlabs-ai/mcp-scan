@@ -128,10 +128,10 @@ class StaticToolsServer(BaseModel):
 
 
 class MCPConfig(BaseModel):
-    def get_servers(self) -> dict[str, StdioServer | RemoteServer]:
+    def get_servers(self) -> dict[str, StdioServer | RemoteServer | StaticToolsServer]:
         raise NotImplementedError("Subclasses must implement this method")
 
-    def set_servers(self, servers: dict[str, StdioServer | RemoteServer]) -> None:
+    def set_servers(self, servers: dict[str, StdioServer | RemoteServer | StaticToolsServer]) -> None:
         raise NotImplementedError("Subclasses must implement this method")
 
 
@@ -139,10 +139,10 @@ class StaticToolsConfig(MCPConfig):
     model_config = ConfigDict()
     signature: dict[str, StaticToolsServer]
 
-    def get_servers(self) -> dict[str, StdioServer | RemoteServer]:
+    def get_servers(self) -> dict[str, StdioServer | RemoteServer | StaticToolsServer]:
         return {server.name: server for server in self.signature.values()}
 
-    def set_servers(self, servers: dict[str, StdioServer | RemoteServer]) -> None:
+    def set_servers(self, servers: dict[str, StdioServer | RemoteServer | StaticToolsServer]) -> None:
         raise NotImplementedError("StaticToolsConfig does not support setting servers")
 
 
@@ -150,11 +150,25 @@ class ClaudeConfigFile(MCPConfig):
     model_config = ConfigDict()
     mcpServers: dict[str, StdioServer | RemoteServer]
 
-    def get_servers(self) -> dict[str, StdioServer | RemoteServer]:
+    def get_servers(self) -> dict[str, StdioServer | RemoteServer | StaticToolsServer]:
         return self.mcpServers
 
-    def set_servers(self, servers: dict[str, StdioServer | RemoteServer]) -> None:
+    def set_servers(self, servers: dict[str, StdioServer | RemoteServer | StaticToolsServer]) -> None:
         self.mcpServers = servers
+
+
+class ClaudeCodeConfigFile(MCPConfig):
+    model_config = ConfigDict()
+    projects: dict[str, ClaudeConfigFile]
+
+    def get_servers(self) -> dict[str, StdioServer | RemoteServer | StaticToolsServer]:
+        servers: dict[str, StdioServer | RemoteServer | StaticToolsServer] = {}
+        for proj in self.projects.values():
+            servers.update(proj.get_servers())
+        return servers
+
+    def set_servers(self, servers: dict[str, StdioServer | RemoteServer | StaticToolsServer]) -> None:
+        self.projects = {"~": ClaudeConfigFile(mcpServers=servers)}
 
 
 class VSCodeMCPConfig(MCPConfig):
@@ -174,10 +188,10 @@ class VSCodeConfigFile(MCPConfig):
     model_config = ConfigDict()
     mcp: VSCodeMCPConfig
 
-    def get_servers(self) -> dict[str, StdioServer | RemoteServer]:
+    def get_servers(self) -> dict[str, StdioServer | RemoteServer | StaticToolsServer]:
         return self.mcp.servers
 
-    def set_servers(self, servers: dict[str, StdioServer | RemoteServer]) -> None:
+    def set_servers(self, servers: dict[str, StdioServer | RemoteServer | StaticToolsServer]) -> None:
         self.mcp.servers = servers
 
 
@@ -194,10 +208,10 @@ class UnknownMCPConfig(MCPConfig):
 
     model_config = ConfigDict()
 
-    def get_servers(self) -> dict[str, StdioServer | RemoteServer]:
+    def get_servers(self) -> dict[str, StdioServer | RemoteServer | StaticToolsServer]:
         return {}
 
-    def set_servers(self, servers: dict[str, StdioServer | RemoteServer]) -> None:
+    def set_servers(self, servers: dict[str, StdioServer | RemoteServer | StaticToolsServer]) -> None:
         pass
 
 

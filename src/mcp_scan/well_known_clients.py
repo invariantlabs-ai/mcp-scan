@@ -41,6 +41,12 @@ MACOS_WELL_KNOWN_CLIENTS: list[CandidateClient] = [
         skills_dir_paths=[],
     ),
     CandidateClient(
+        name="claude code",
+        client_exists_paths=["~/.claude"],
+        mcp_config_paths=["~/.claude.json"],
+        skills_dir_paths=["~/.claude/skills"],
+    ),
+    CandidateClient(
         name="gemini cli",
         client_exists_paths=["~/.gemini"],
         mcp_config_paths=["~/.gemini/settings.json"],
@@ -54,10 +60,53 @@ MACOS_WELL_KNOWN_CLIENTS: list[CandidateClient] = [
     ),
 ]
 
+LINUX_WELL_KNOWN_CLIENTS: list[CandidateClient] = [
+    CandidateClient(
+        name="windsurf",
+        client_exists_paths=["~/.codeium"],
+        mcp_config_paths=["~/.codeium/windsurf/mcp_config.json"],
+        skills_dir_paths=["~/.codeium/windsurf/skills"],
+    ),
+    CandidateClient(
+        name="cursor",
+        client_exists_paths=["~/.cursor"],
+        mcp_config_paths=["~/.cursor/mcp.json"],
+        skills_dir_paths=["~/.cursor/skills"],
+    ),
+    CandidateClient(
+        name="vscode",
+        client_exists_paths=["~/.vscode", "~/.config/Code"],
+        mcp_config_paths=[
+            "~/.config/Code/User/settings.json",
+            "~/.vscode/mcp.json",
+            "~/.config/Code/User/mcp.json",
+        ],
+        skills_dir_paths=["~/.copilot/skills"],
+    ),
+    CandidateClient(
+        name="claude code",
+        client_exists_paths=["~/.claude"],
+        mcp_config_paths=["~/.claude.json"],
+        skills_dir_paths=["~/.claude/skills"],
+    ),
+    CandidateClient(
+        name="gemini cli",
+        client_exists_paths=["~/.gemini"],
+        mcp_config_paths=["~/.gemini/settings.json"],
+        skills_dir_paths=["~/.gemini/skills"],
+    ),
+    CandidateClient(
+        name="openclaw",
+        client_exists_paths=["~/.clawdbot", "~/.openclaw"],
+        mcp_config_paths=[],
+        skills_dir_paths=["~/.clawdbot/skills", "~/.openclaw/skills"],
+    ),
+]
+
 
 def get_well_known_clients() -> list[CandidateClient]:
     if sys.platform == "linux" or sys.platform == "linux2":
-        return []
+        return LINUX_WELL_KNOWN_CLIENTS
     elif sys.platform == "darwin":
         return MACOS_WELL_KNOWN_CLIENTS
     elif sys.platform == "win32":
