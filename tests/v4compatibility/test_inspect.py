@@ -5,10 +5,10 @@ from unittest.mock import patch
 
 import pytest
 
-from mcp_scan.mcp_client import inspect_skill, inspect_skills_dir
 from mcp_scan.models import CandidateClient, ScanError, ScanPathResult, ServerScanResult, SkillServer
 from mcp_scan.pipelines import InspectArgs, inspect_pipeline
 from mcp_scan.signed_binary import check_signed_binary
+from mcp_scan.skill_client import inspect_skill, inspect_skills_dir
 
 TEST_CANDIDATE_CLIENTS = [
     CandidateClient(

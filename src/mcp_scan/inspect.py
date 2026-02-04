@@ -4,7 +4,7 @@ import traceback
 
 from httpx import HTTPStatusError
 
-from mcp_scan.mcp_client import check_server, inspect_skill, inspect_skills_dir, scan_mcp_config_file
+from mcp_scan.mcp_client import check_server, scan_mcp_config_file
 from mcp_scan.models import (
     CandidateClient,
     ClientToInspect,
@@ -27,6 +27,7 @@ from mcp_scan.models import (
     UnknownMCPConfig,
 )
 from mcp_scan.signed_binary import check_server_signature
+from mcp_scan.skill_client import inspect_skill, inspect_skills_dir
 from mcp_scan.traffic_capture import TrafficCapture
 
 logger = logging.getLogger(__name__)
