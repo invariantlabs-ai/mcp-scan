@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 class InspectArgs(BaseModel):
     timeout: int
     tokens: list[TokenAndClientInfo]
-    paths: list[str] | None = None
+    paths: list[str]
 
 
 class AnalyzeArgs(BaseModel):
@@ -51,7 +51,7 @@ async def inspect_pipeline(
     inspect_args: InspectArgs,
 ) -> list[ScanPathResult]:
     # fetch clients to inspect
-    if inspect_args.paths is not None:
+    if inspect_args.paths:
         clients_to_inspect = [await client_to_inspect_from_path(path, True) for path in inspect_args.paths]
     else:
         clients_to_inspect = [await get_mcp_config_per_client(client) for client in get_well_known_clients()]
@@ -59,7 +59,7 @@ async def inspect_pipeline(
     # inspect
     scan_path_results: list[ScanPathResult] = []
     for i, client_to_inspect in enumerate(clients_to_inspect):
-        if client_to_inspect is None and inspect_args.paths is not None:
+        if client_to_inspect is None and inspect_args.paths:
             scan_path_results.append(
                 ScanPathResult(
                     path=inspect_args.paths[i],

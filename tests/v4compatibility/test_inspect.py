@@ -139,7 +139,7 @@ async def test_inspect_clients(mock_get_well_known_clients):
         inspect_args=InspectArgs(
             timeout=10,
             tokens=[],
-            paths=None,
+            paths=[],
         ),
     )
 
