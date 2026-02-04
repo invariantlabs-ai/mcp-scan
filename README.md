@@ -54,9 +54,9 @@ You can also scan particular configuration files:
  # scan mcp configurations
 uvx mcp-scan@latest ~/.vscode/mcp.json
  # scan a single agent skill
-uvx mcp-scan@latest ~/path/to/my/SKILL.md
+uvx mcp-scan@latest --skills ~/path/to/my/SKILL.md
 # scan all claude skills
-uvx mcp-scan@latest ~/.claude/skills 
+uvx mcp-scan@latest --skills ~/.claude/skills
 ```
 
 #### Example Run
