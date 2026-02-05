@@ -9,7 +9,7 @@
   and vulnerabilities (including agents, MCP servers, skills).
 </p>
 
-> **NEW** Read our [technical report on the emerging threats of the agent skill eco-system](.github/reports/skills-report.pdf) published together with mcp-scan support for agent skill scanning.
+> **NEW** Read our [technical report on the emerging threats of the agent skill eco-system](.github/reports/skills-report.pdf) published together with mcp-scan 0.4, which adds support for scanning agent skills.
 
 <p align="center">
   <a href="https://pypi.python.org/pypi/mcp-scan"><img src="https://img.shields.io/pypi/v/mcp-scan.svg" alt="mcp-scan"/></a>
