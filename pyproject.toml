@@ -10,7 +10,7 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "rich>=14.0.0",
+    "rich==14.2.0",
     "pyjson5>=1.6.8",
     "aiofiles>=23.1.0",
     "types-aiofiles",
