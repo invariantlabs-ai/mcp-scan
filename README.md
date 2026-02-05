@@ -9,6 +9,8 @@
   and vulnerabilities (including agents, MCP servers, skills).
 </p>
 
+> **NEW** Read our [technical report on the emerging threats of the agent skill eco-system](.github/reports/skills-report.pdf) published together with mcp-scan 0.4, which adds support for scanning agent skills.
+
 <p align="center">
   <a href="https://pypi.python.org/pypi/mcp-scan"><img src="https://img.shields.io/pypi/v/mcp-scan.svg" alt="mcp-scan"/></a>
   <a href="https://pypi.python.org/pypi/mcp-scan"><img src="https://img.shields.io/pypi/l/mcp-scan.svg" alt="mcp-scan license"/></a>
@@ -63,8 +65,8 @@ uvx mcp-scan@latest --skills ~/.claude/skills
 ```
 
 #### Example Run
-[![MCP Scan for security vulnerabilities demo](demo.svg)](https://asciinema.org/a/716858)
 
+[![MCP Scan for security vulnerabilities demo](demo.svg)](https://asciinema.org/a/716858)
 
 ## MCP Security Scanner Capabilities
 
@@ -74,11 +76,11 @@ MCp-Scan operates in two main modes which can be used jointly or separately:
 
 1. `mcp-scan scan` statically scans all your installed servers for malicious tool descriptions and tools (e.g. [tool poisoning attacks](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks), cross-origin escalation, rug pull attacks, toxic flows).
 
-    [Quickstart →](#server-scanning).
+   [Quickstart →](#server-scanning).
 
 2. `mcp-scan proxy` continuously monitors your MCP connections in real-time, and can restrict what agent systems can do over MCP (tool call checking, data flow constraints, PII detection, indirect prompt injection etc.).
 
-    [Quickstart →](#server-proxying).
+   [Quickstart →](#server-proxying).
 
 <br/>
 <br/>
@@ -100,8 +102,6 @@ _mcp-scan in proxy mode._
 - Audit and log MCP traffic in real-time via [`mcp-scan proxy`](#proxy)
 - Detect cross-origin escalation attacks (e.g. [tool shadowing](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks)), and detect and prevent [MCP rug pull attacks](https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks), i.e. mcp-scan detects changes to MCP tools via hashing
 
-
-
 ### Server Proxying
 
 Using `mcp-scan proxy`, you can monitor, log, and safeguard all MCP traffic on your machine. This allows you to inspect the runtime behavior of agents and tools, and prevent attacks from e.g., untrusted sources (like websites or emails) that may try to exploit your agents. mcp-scan proxy is a dynamic security layer that runs in the background, and continuously monitors your MCP traffic.
@@ -117,8 +117,8 @@ You can also add guardrailing rules, to restrict and validate the sequence of to
 For this, create a `~/.mcp-scan/guardrails_config.yml` with the following contents:
 
 ```yml
-<client-name>:  # your client's shorthand (e.g., cursor, claude, windsurf)
-  <server-name>:  # your server's name according to the mcp config (e.g., whatsapp-mcp)
+<client-name>: # your client's shorthand (e.g., cursor, claude, windsurf)
+  <server-name>: # your server's name according to the mcp config (e.g., whatsapp-mcp)
     guardrails:
       secrets: block # block calls/results with secrets
 
@@ -131,6 +131,7 @@ For this, create a `~/.mcp-scan/guardrails_config.yml` with the following conten
               (msg: ToolOutput)
               "error" in msg.content
 ```
+
 From then on, all calls proxied via `mcp-scan proxy` will be checked against your configured guardrailing rules for the current client/server.
 
 Custom guardrails are implemented using Invariant Guardrails. To learn more about these rules, see the [official documentation](https://invariantlabs-ai.github.io/docs/mcp-scan/guardrails-reference/).
@@ -185,6 +186,7 @@ mcp-scan [CONFIG_FILE...]
 ```
 
 Options:
+
 ```
 --checks-per-server NUM           Number of checks to perform on each server (default: 1)
 --server-timeout SECONDS          Seconds to wait before timing out server connections (default: 10)
@@ -207,11 +209,11 @@ This command requires the `proxy` optional dependency (extra).
   This installs the `proxy` extra into an uvx-managed virtual environment, not your current shell venv.
 
 Options:
+
 ```
 CONFIG_FILE...                  Path to MCP configuration files to setup for proxying.
 --pretty oneline|compact|full   Pretty print the output in different formats (default: compact)
 ```
-
 
 #### inspect
 
@@ -222,6 +224,7 @@ mcp-scan inspect [CONFIG_FILE...]
 ```
 
 Options:
+
 ```
 --server-timeout SECONDS      Seconds to wait before timing out server connections (default: 10)
 --suppress-mcpserver-io BOOL  Suppress stdout/stderr from MCP servers (default: True)
@@ -243,12 +246,14 @@ mcp-scan whitelist --reset
 ```
 
 Options:
+
 ```
 --reset                       Reset the entire whitelist
 --local-only                  Only update local whitelist, don't contribute to global whitelist
 ```
 
 Arguments:
+
 ```
 TYPE                          Type of entity to whitelist: "tool", "prompt", or "resource"
 NAME                          Name of the entity to whitelist
@@ -287,8 +292,10 @@ mcp-scan whitelist tool "add" "a1b2c3..."
 This repository includes a vulnerable MCP server that can demonstrate Model Context Protocol security issues that MCP-Scan finds.
 
 How to demo MCP security issues?
+
 1. Clone this repository
 2. Create an `mcp.json` config file in the cloned git repository root directory with the following contents:
+
 ```jsonc
 {
   "mcpServers": {
@@ -296,10 +303,11 @@ How to demo MCP security issues?
       "type": "stdio",
       "command": "uv",
       "args": ["run", "mcp", "run", "demoserver/server.py"],
-    }
-  }
+    },
+  },
 }
 ```
+
 3. Run MCP-Scan: `uvx --python 3.13 mcp-scan@latest scan --full-toxic-flows mcp.json`
 
 Note: if you place the `mcp.json` configuration filepath elsewhere then adjust the `args` path inside the MCP server configuration to reflect the path to the MCP Server (`demoserver/server.py`) as well as the `uvx` command that runs MCP-Scan CLI with the correct filepath to `mcp.json`.
