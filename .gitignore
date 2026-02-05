@@ -1,6 +1,5 @@
 .DS_Store
 __pycache__
-uv.lock
 *.pyc
 *.pyo
 *.pyd
