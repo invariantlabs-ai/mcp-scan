@@ -55,3 +55,4 @@
 - `0.3.37` Add possibility to use authentication tokens to scan authenticated mcp servers.
 - `0.3.38` Fix `--json` functionality. Default to HTTP for servers with unknown types.
 - `0.3.39` Add support to scan skills and clients without MCP servers.
+- `0.4` Fix dependency issue, 0.4 version bump, include uv.lock
