@@ -76,6 +76,12 @@ MACOS_WELL_KNOWN_CLIENTS: list[CandidateClient] = [
         mcp_config_paths=["~/.gemini/antigravity/mcp_config.json"],
         skills_dir_paths=[],
     ),
+    CandidateClient(
+        name="codex",
+        client_exists_paths=["~/.codex"],
+        mcp_config_paths=[],
+        skills_dir_paths=["~/.codex/skills"],
+    ),
 ]
 
 LINUX_WELL_KNOWN_CLIENTS: list[CandidateClient] = [
@@ -136,6 +142,12 @@ LINUX_WELL_KNOWN_CLIENTS: list[CandidateClient] = [
         client_exists_paths=["~/.gemini/antigravity"],
         mcp_config_paths=["~/.gemini/antigravity/mcp_config.json"],
         skills_dir_paths=[],
+    ),
+    CandidateClient(
+        name="codex",
+        client_exists_paths=["~/.codex"],
+        mcp_config_paths=[],
+        skills_dir_paths=["~/.codex/skills"],
     ),
 ]
 
