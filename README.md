@@ -39,6 +39,8 @@ MCP-scan helps you keep an inventory of all your installed agent components (har
 
 ## Quick Start
 
+To get started, make sure you have uv [installed](https://docs.astral.sh/uv/getting-started/installation/) on your system.
+
 ### Scanning
 
 To run a full scan of your machine (auto-discovers agents, MCP servers, skills), run:
