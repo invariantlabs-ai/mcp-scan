@@ -54,3 +54,4 @@
 - `0.3.36` Add fallback to check command in well known directories to reduce path not found errors.
 - `0.3.37` Add possibility to use authentication tokens to scan authenticated mcp servers.
 - `0.3.38` Fix `--json` functionality. Default to HTTP for servers with unknown types.
+- `0.3.39` Add support to scan skills and clients without MCP servers.
