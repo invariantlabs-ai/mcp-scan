@@ -104,7 +104,6 @@ LINUX_WELL_KNOWN_CLIENTS: list[CandidateClient] = [
 ]
 
 
-
 WINDOWS_WELL_KNOWN_CLIENTS: list[CandidateClient] = [
     CandidateClient(
         name="windsurf",
