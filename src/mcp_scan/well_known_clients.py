@@ -199,6 +199,24 @@ WINDOWS_WELL_KNOWN_CLIENTS: list[CandidateClient] = [
         mcp_config_paths=[],
         skills_dir_paths=["~/.clawdbot/skills", "~/.openclaw/skills"],
     ),
+    CandidateClient(
+        name="kiro",
+        client_exists_paths=["~/.kiro"],
+        mcp_config_paths=["~/.kiro/settings/mcp.json"],
+        skills_dir_paths=[],
+    ),
+    CandidateClient(
+        name="opencode",
+        client_exists_paths=["~/.config/opencode"],
+        mcp_config_paths=[],
+        skills_dir_paths=[],
+    ),
+    CandidateClient(
+        name="antigravity",
+        client_exists_paths=["~/.gemini/antigravity"],
+        mcp_config_paths=["~/.gemini/antigravity/mcp_config.json"],
+        skills_dir_paths=[],
+    ),
 ]
 
 
