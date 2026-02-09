@@ -5,6 +5,7 @@ from hashlib import md5
 from itertools import chain
 from typing import Any, Literal, TypeAlias
 
+from lark import Lark
 from mcp.client.auth import TokenStorage
 from mcp.shared.auth import OAuthClientInformationFull, OAuthToken
 from mcp.types import Completion, InitializeResult, Prompt, Resource, ResourceTemplate, Tool
@@ -15,6 +16,7 @@ from pydantic import (
     RootModel,
     field_serializer,
     field_validator,
+    model_validator,
 )
 from pydantic.alias_generators import to_camel
 
@@ -33,6 +35,45 @@ logger = logging.getLogger(__name__)
 
 Entity: TypeAlias = Prompt | Resource | Tool | ResourceTemplate | Completion
 Metadata: TypeAlias = InitializeResult
+
+
+class CommandParsingError(Exception):
+    pass
+
+
+# Cache the Lark parser to avoid recreation on every call
+_command_parser = None
+
+
+def rebalance_command_args(command, args):
+    # create a parser that splits on whitespace,
+    # unless it is inside "." or '.'
+    # unless that is escaped
+    # permit arbitrary whitespace between parts
+    global _command_parser
+    if _command_parser is None:
+        _command_parser = Lark(
+            r"""
+            command: WORD+
+            WORD: (PART|SQUOTEDPART|DQUOTEDPART)
+            PART: /[^\s'"]+/
+            SQUOTEDPART: /'[^']*'/
+            DQUOTEDPART: /"[^"]*"/
+            %import common.WS
+            %ignore WS
+            """,
+            parser="lalr",
+            start="command",
+            regex=True,
+        )
+    try:
+        tree = _command_parser.parse(command)
+        command_parts = [node.value for node in tree.children]
+        args = command_parts[1:] + (args or [])
+        command = command_parts[0]
+    except Exception as e:
+        raise CommandParsingError(f"Failed to parse command: {e}") from e
+    return command, args
 
 
 def hash_entity(entity: Entity) -> str:
@@ -110,6 +151,12 @@ class StdioServer(BaseModel):
     type: Literal["stdio"] | None = "stdio"
     env: dict[str, str] | None = None
     binary_identifier: str | None = None
+
+    @model_validator(mode="after")
+    def rebalance_command(self) -> "StdioServer":
+        """Rebalance command and args on model creation."""
+        self.command, self.args = rebalance_command_args(self.command, self.args)
+        return self
 
 
 class SkillServer(BaseModel):
