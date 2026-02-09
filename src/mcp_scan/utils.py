@@ -7,16 +7,11 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from lark import Lark
 from rapidfuzz.distance import Levenshtein
 
 from mcp_scan.models import ControlServer, StdioServer
 
 logger = logging.getLogger(__name__)
-
-
-class CommandParsingError(Exception):
-    pass
 
 
 def get_relative_path(path: str) -> str:
@@ -34,41 +29,6 @@ def get_relative_path(path: str) -> str:
 
 def calculate_distance(responses: list[str], reference: str):
     return sorted([(w, Levenshtein.distance(w, reference)) for w in responses], key=lambda x: x[1])
-
-
-# Cache the Lark parser to avoid recreation on every call
-_command_parser = None
-
-
-def rebalance_command_args(command, args):
-    # create a parser that splits on whitespace,
-    # unless it is inside "." or '.'
-    # unless that is escaped
-    # permit arbitrary whitespace between parts
-    global _command_parser
-    if _command_parser is None:
-        _command_parser = Lark(
-            r"""
-            command: WORD+
-            WORD: (PART|SQUOTEDPART|DQUOTEDPART)
-            PART: /[^\s'"]+/
-            SQUOTEDPART: /'[^']*'/
-            DQUOTEDPART: /"[^"]*"/
-            %import common.WS
-            %ignore WS
-            """,
-            parser="lalr",
-            start="command",
-            regex=True,
-        )
-    try:
-        tree = _command_parser.parse(command)
-        command_parts = [node.value for node in tree.children]
-        args = command_parts[1:] + (args or [])
-        command = command_parts[0]
-    except Exception as e:
-        raise CommandParsingError(f"Failed to parse command: {e}") from e
-    return command, args
 
 
 class TempFile:
@@ -112,12 +72,7 @@ def resolve_command_and_args(server_config: StdioServer) -> tuple[str, list[str]
     if check_executable_exists(server_config.command):
         return server_config.command, server_config.args
 
-    # attempt to rebalance the command/arg structure
-    logger.debug(f"Command does not exist: {server_config.command}, attempting to rebalance")
-    command, args = rebalance_command_args(server_config.command, server_config.args)
-    if check_executable_exists(command):
-        return command, args
-
+    command, args = server_config.command, server_config.args
     if os.path.sep in command:
         logger.warning(f"Path does not exist: {command}")
         raise ValueError(f"Path does not exist: {command}")
