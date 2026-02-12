@@ -1,0 +1,8 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: mcp-scan
+spec:
+  type: snyk-cli-plugin
+  lifecycle: "-"
+  owner: emerging-tech-strategy_llm
