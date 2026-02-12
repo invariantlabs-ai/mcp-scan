@@ -1,6 +1,6 @@
 # type: ignore
 import asyncio
-import os
+from pathlib import Path
 from typing import Any
 
 import fastapi
@@ -32,6 +32,22 @@ router = APIRouter()
 session_store = SessionStore()
 
 
+def _validate_and_resolve_config_path(config_file_path: str | None) -> Path:
+    """Normalize and validate guardrails config path before file access."""
+    if not config_file_path:
+        raise ValueError("Guardrails config file path is missing")
+
+    # Reject obvious traversal attempts before normalization.
+    if ".." in Path(config_file_path).parts:
+        raise ValueError("Guardrails config file path contains invalid path traversal")
+
+    resolved = Path(config_file_path).expanduser().resolve(strict=False)
+    if resolved.suffix not in {".yml", ".yaml"}:
+        raise ValueError("Guardrails config file must use .yml or .yaml extension")
+
+    return resolved
+
+
 async def load_guardrails_config_file(config_file_path: str) -> GuardrailConfigFile:
     """Load the guardrails config file.
 
@@ -41,31 +57,34 @@ async def load_guardrails_config_file(config_file_path: str) -> GuardrailConfigF
     Returns:
         The loaded config file.
     """
-    if not os.path.exists(config_file_path):
+    resolved_config_path = _validate_and_resolve_config_path(config_file_path)
+
+    if not resolved_config_path.exists():
         rich.print(
-            f"""[bold red]Guardrail config file not found: {config_file_path}. Creating an empty one.[/bold red]"""
+            f"""[bold red]Guardrail config file not found: {resolved_config_path}. Creating an empty one.[/bold red]"""
         )
         config = GuardrailConfigFile()
-        with open(config_file_path, "w") as f:
+        resolved_config_path.parent.mkdir(parents=True, exist_ok=True)
+        with resolved_config_path.open("w", encoding="utf-8") as f:
             f.write(DEFAULT_GUARDRAIL_CONFIG)
 
-    with open(config_file_path) as f:
+    with resolved_config_path.open(encoding="utf-8") as f:
         try:
-            config = yaml.load(f, Loader=yaml.FullLoader)
+            config = yaml.safe_load(f)
         except yaml.YAMLError as e:
             rich.print(f"[bold red]Error loading guardrail config file: {e}[/bold red]")
-            raise ValueError("Invalid guardrails config file at " + config_file_path) from e
+            raise ValueError("Invalid guardrails config file at " + str(resolved_config_path)) from e
 
         try:
             config = GuardrailConfigFile.model_validate(config)
         except ValidationError as e:
             rich.print(f"[bold red]Error validating guardrail config file: {e}[/bold red]")
-            raise ValueError("Invalid guardrails config file at " + config_file_path) from e
+            raise ValueError("Invalid guardrails config file at " + str(resolved_config_path)) from e
         except Exception as e:
-            raise ValueError("Invalid guardrails config file at " + config_file_path) from e
+            raise ValueError("Invalid guardrails config file at " + str(resolved_config_path)) from e
 
     if not config:
-        rich.print(f"[bold red]Guardrail config file is empty: {config_file_path}[/bold red]")
+        rich.print(f"[bold red]Guardrail config file is empty: {resolved_config_path}[/bold red]")
         raise ValueError("Empty config file")
 
     return config
