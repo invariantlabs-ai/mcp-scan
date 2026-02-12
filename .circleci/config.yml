@@ -1,0 +1,39 @@
+version: 2.1
+
+orbs:
+  prodsec: snyk/prodsec-orb@1
+
+parameters:
+  snyk-scan-context:
+    description: CircleCI context that provides SNYK_TOKEN to Snyk security scanning.
+    type: string
+    default: etso_llm
+
+jobs:
+  security-scans:
+    resource_class: small
+    docker:
+      - image: cimg/node:lts
+    steps:
+      - checkout
+      - prodsec/security_scans:
+          mode: auto
+          open-source-additional-arguments: --exclude=mocked_data
+          iac-scan: disabled
+
+workflows:
+  version: 2
+  CICD:
+    jobs:
+      - prodsec/secrets-scan:
+          name: Scan repository for secrets
+          context:
+            - snyk-bot-slack
+          channel: mcp-scan-alerting
+          trusted-branch: main
+
+      - security-scans:
+          name: Security Scans
+          context:
+            - << pipeline.parameters.snyk-scan-context >>
+            - snyk-bot-slack
