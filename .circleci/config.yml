@@ -13,9 +13,12 @@ jobs:
   security-scans:
     resource_class: small
     docker:
-      - image: cimg/node:lts
+      - image: cimg/python:3.12
     steps:
       - checkout
+      - run:
+          name: Update uv
+          command: curl -LsSf https://astral.sh/uv/install.sh | sh
       - prodsec/security_scans:
           mode: auto
           open-source-additional-arguments: --exclude=mocked_data,mcp-builder,slack-gif-creator
