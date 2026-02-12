@@ -3,6 +3,6 @@ kind: Component
 metadata:
   name: mcp-scan
 spec:
-  type: snyk-cli-plugin
+  type: external-tooling
   lifecycle: "-"
   owner: emerging-tech-strategy_llm
