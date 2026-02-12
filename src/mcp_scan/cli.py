@@ -743,6 +743,8 @@ async def evo(args):
     2. Pushes scan results to the Evo API
     3. Revokes the client_id
     """
+    if not args.files:
+        args.files = WELL_KNOWN_MCP_PATHS
 
     rich.print(
         "Go to https://app.snyk.io and select the tenant on the left nav bar. Copy the Tenant ID from the URL and paste it here: "
