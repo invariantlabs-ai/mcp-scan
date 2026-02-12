@@ -974,7 +974,7 @@ cli = [
 
 [[package]]
 name = "mcp-scan"
-version = "0.3.39"
+version = "0.4"
 source = { editable = "." }
 dependencies = [
     { name = "aiofiles" },
