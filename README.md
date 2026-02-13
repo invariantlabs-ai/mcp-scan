@@ -5,6 +5,10 @@
 </p>
 
 <p align="center">
+  <a href="https://www.agentaudit.dev/package/mcp-scan"><img src="https://img.shields.io/badge/AgentAudit-safe-brightgreen" alt="AgentAudit: safe"/></a>
+</p>
+
+<p align="center">
   Discover and scan agent components on your machine for prompt injections<br/>
   and vulnerabilities (including agents, MCP servers, skills).
 </p>
