@@ -1,4 +1,5 @@
 import logging
+import os
 import re
 from datetime import datetime
 from hashlib import md5
@@ -46,6 +47,11 @@ _command_parser = None
 
 
 def rebalance_command_args(command, args):
+    # If the command string already points to an existing path (e.g. it contains
+    # spaces like "/Library/Application Support/..."), don't split it on whitespace.
+    if os.path.exists(command):
+        return command, args
+
     # create a parser that splits on whitespace,
     # unless it is inside "." or '.'
     # unless that is escaped
