@@ -113,6 +113,7 @@ async def upload(
             async with aiohttp.ClientSession(
                 trace_configs=trace_configs,
                 connector=setup_tcp_connector(skip_ssl_verify=skip_ssl_verify),
+                trust_env=True,
             ) as session:
                 headers = {"Content-Type": "application/json"}
                 headers.update(additional_headers)
