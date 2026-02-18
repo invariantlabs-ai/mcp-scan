@@ -196,6 +196,7 @@ async def analyze_machine(
             async with aiohttp.ClientSession(
                 trace_configs=trace_configs,
                 connector=setup_tcp_connector(skip_ssl_verify=skip_ssl_verify),
+                trust_env=True,
             ) as session:
                 async with session.post(
                     analysis_url,

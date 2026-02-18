@@ -25,6 +25,7 @@ from mcp_scan.printer import print_scan_result
 from mcp_scan.Storage import Storage
 from mcp_scan.upload import get_hostname, upload
 from mcp_scan.utils import parse_headers, suppress_stdout
+from mcp_scan.verify_api import setup_aiohttp_debug_logging, setup_tcp_connector
 from mcp_scan.version import version_info
 from mcp_scan.well_known_clients import WELL_KNOWN_MCP_PATHS, client_shorthands_to_paths
 
@@ -758,8 +759,14 @@ async def evo(args):
 
     # create a client_id (shared secret)
     client_id = None
+    skip_ssl_verify = getattr(args, "skip_ssl_verify", False)
+    trace_configs = setup_aiohttp_debug_logging(verbose=False)
     try:
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(
+            trace_configs=trace_configs,
+            connector=setup_tcp_connector(skip_ssl_verify=skip_ssl_verify),
+            trust_env=True,
+        ) as session:
             async with session.post(push_key_url, data="", headers={"Authorization": f"token {token}"}) as resp:
                 if resp.status not in (200, 201):
                     text = await resp.text()
@@ -793,7 +800,11 @@ async def evo(args):
         "x-client-id": client_id,
     }
     try:
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(
+            trace_configs=trace_configs,
+            connector=setup_tcp_connector(skip_ssl_verify=skip_ssl_verify),
+            trust_env=True,
+        ) as session:
             async with session.delete(push_key_url, headers=del_headers) as del_resp:
                 if del_resp.status not in (200, 204):
                     text = await del_resp.text()

@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.10"
 
 [[package]]
@@ -975,7 +975,7 @@ cli = [
 
 [[package]]
 name = "mcp-scan"
-version = "0.4"
+version = "0.4.1"
 source = { editable = "." }
 dependencies = [
     { name = "aiofiles" },
