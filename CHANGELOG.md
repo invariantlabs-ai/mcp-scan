@@ -57,3 +57,4 @@
 - `0.3.39` Add support to scan skills and clients without MCP servers.
 - `0.4` Fix dependency issue, 0.4 version bump, include uv.lock
 - `0.4.1` Add more agent support and rebalance command args earlier.
+- `0.4.2` Add support for HTTP_PROXY and HTTPS_PROXY configuration.
