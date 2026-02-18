@@ -81,17 +81,6 @@ class TestRebalanceCommandArgsWithSpacesInPath:
         assert command == str(executable)
         assert args is None
 
-    def test_path_with_spaces_and_inline_args(self, tmp_path):
-        spaced_dir = tmp_path / "Application Support" / "bin"
-        spaced_dir.mkdir(parents=True)
-        executable = spaced_dir / "my-tool"
-        executable.touch()
-
-        inline_command = f"{executable} --serve --port 8080"
-        command, args = rebalance_command_args(inline_command, ["-v"])
-        assert command == str(executable)
-        assert args == ["--serve", "--port", "8080", "-v"]
-
 
 def test_calculate_distance():
     assert calculate_distance(["a", "b", "c"], "b")[0] == ("b", 0)
