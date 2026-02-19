@@ -350,6 +350,7 @@ class MCPScanner:
             push_key=get_push_key(self.control_servers) if self.control_servers is not None else None,  # type: ignore[arg-type]
             verbose=self.verbose,
             skip_ssl_verify=self.skip_ssl_verify,
+            scan_context=self.scan_context,
         )
         self.scan_context["scan_time_milliseconds"] = (time.perf_counter() - scan_start_time) * 1000
 
