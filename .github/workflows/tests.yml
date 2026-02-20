@@ -26,6 +26,10 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
     - uses: actions/checkout@v4
+    - name: Print scan environment variables
+      run: |
+        echo "MCP_SCAN_ENVIRONMENT=${{ env.MCP_SCAN_ENVIRONMENT }}"
+        echo "MCP_SCAN_CI_HOSTNAME=${{ env.MCP_SCAN_CI_HOSTNAME }}"
     - name: Install the latest version of uv
       uses: astral-sh/setup-uv@v6
     - name: Create venv
