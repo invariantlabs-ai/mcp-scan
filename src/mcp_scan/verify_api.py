@@ -227,8 +227,24 @@ async def analyze_machine(
             error_text = f"API timeout while scanning discovered servers: {e}"
 
         except aiohttp.ClientResponseError as e:
-            error_text = f"Could not reach analysis server: {e.status} - {e.message}"
             if 400 <= e.status < 500:
+                if e.status == 413:  # Request Entity Too Large (large skill payloads or MCP server signatures)
+                    error_text = "Request too large. Scan individual MCP servers or skill directories instead of your entire machine."
+                else:  # Other 400 errors (e.g. invalid JSON, missing required fields, etc.)
+                    error_text = f"The analysis server returned an error for your request: {e.status} - {e.message}"
+                logger.warning(error_text)
+                for scan_path in scan_paths:
+                    if scan_path.servers is not None and scan_path.error is None:
+                        scan_path.error = ScanError(
+                            message=error_text,
+                            exception=e,
+                            traceback=traceback.format_exc(),
+                            is_failure=True,
+                            category="analysis_error",
+                        )
+                        return scan_paths
+            else:  # 500 errors (e.g. server error, service unavailable, etc.)
+                error_text = f"Could not reach analysis server: {e.status} - {e.message}"
                 logger.warning(error_text)
                 for scan_path in scan_paths:
                     if scan_path.servers is not None and scan_path.error is None:
