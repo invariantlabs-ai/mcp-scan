@@ -229,7 +229,7 @@ async def analyze_machine(
         except aiohttp.ClientResponseError as e:
             if 400 <= e.status < 500:
                 if e.status == 413:  # Request Entity Too Large (large skill payloads or MCP server signatures)
-                    error_text = "Request too large. Scan individual MCP servers or skill directories instead of your entire machine."
+                    error_text = "Analysis scope too large (e.g. too many or very large MCP servers/skills). Please consider scanning individual MCP servers or skill directories."
                 else:  # Other 400 errors (e.g. invalid JSON, missing required fields, etc.)
                     error_text = f"The analysis server returned an error for your request: {e.status} - {e.message}"
                 logger.warning(error_text)
