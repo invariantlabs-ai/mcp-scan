@@ -18,8 +18,9 @@ identity = IdentityManager()
 
 
 def get_hostname() -> str:
-    if os.getenv("MCP_SCAN_ENVIRONMENT") == "ci" and os.getenv("MCP_SCAN_CI_HOSTNAME"):
-        return os.getenv("MCP_SCAN_CI_HOSTNAME")
+    ci_hostname = os.getenv("MCP_SCAN_CI_HOSTNAME")
+    if os.getenv("MCP_SCAN_ENVIRONMENT") == "ci" and ci_hostname:
+        return ci_hostname
     else:
         try:
             return os.uname().nodename
