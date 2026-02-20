@@ -97,6 +97,7 @@ async def inspect_analyze_push_pipeline(
     # redact
     redacted_scan_path_results = [redact_scan_result(rv) for rv in scan_path_results]
 
+    scan_context = {"cli_version": push_args.version}
     # analyze
     verified_scan_path_results = await analyze_machine(
         redacted_scan_path_results,
@@ -109,6 +110,7 @@ async def inspect_analyze_push_pipeline(
         push_key=get_push_key(push_args.control_servers),
         max_retries=analyze_args.max_retries,
         skip_ssl_verify=analyze_args.skip_ssl_verify,
+        scan_context=scan_context,
     )
     # push
     for control_server in push_args.control_servers:
@@ -120,7 +122,7 @@ async def inspect_analyze_push_pipeline(
             verbose=verbose,
             additional_headers=control_server.headers,
             skip_ssl_verify=push_args.skip_ssl_verify,
-            scan_context={"cli_version": push_args.version},
+            scan_context=scan_context,
         )
 
     return verified_scan_path_results

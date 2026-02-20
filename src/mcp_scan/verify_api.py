@@ -23,10 +23,14 @@ identity_manager = IdentityManager()
 
 
 def get_hostname() -> str:
-    try:
-        return os.uname().nodename
-    except Exception:
-        return "unknown"
+    ci_hostname = os.getenv("MCP_SCAN_CI_HOSTNAME")
+    if os.getenv("MCP_SCAN_ENVIRONMENT") == "ci" and ci_hostname:
+        return ci_hostname
+    else:
+        try:
+            return os.uname().nodename
+        except Exception:
+            return "unknown"
 
 
 def get_username() -> str:
@@ -156,6 +160,7 @@ async def analyze_machine(
     max_retries: int = 3,
     skip_ssl_verify: bool = False,
     raise_on_error: bool = False,
+    scan_context: dict | None = None,
 ) -> list[ScanPathResult]:
     """
     Analyze the scan paths with the analysis server.
@@ -170,6 +175,7 @@ async def analyze_machine(
         skip_pushing: Whether to skip pushing the scan to the platform
         max_retries: Maximum number of retry attempts
         skip_ssl_verify: Whether to skip SSL verification
+        scan_context: Optional dict containing scan metadata to include in the request
     """
     logger.debug(f"Analyzing scan path with URL: {analysis_url}")
     user_info = get_user_info(identifier=identifier, opt_out=opt_out_of_identity)
@@ -177,7 +183,11 @@ async def analyze_machine(
     for result in scan_paths:
         result.client = get_client_from_path(result.path) or result.client or result.path
 
-    payload = ScanPathResultsCreate(scan_path_results=scan_paths, scan_user_info=user_info)
+    payload = ScanPathResultsCreate(
+        scan_path_results=scan_paths,
+        scan_user_info=user_info,
+        scan_metadata=scan_context if scan_context else None,
+    )
     logger.debug("Payload: %s", payload.model_dump_json())
     trace_configs = setup_aiohttp_debug_logging(verbose=verbose)
     headers = {

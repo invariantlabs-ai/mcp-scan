@@ -1,5 +1,6 @@
 """Unit tests for the verify_api module, including HTTP proxy support."""
 
+import json
 import os
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -321,3 +322,84 @@ class TestAnalyzeMachineHeaders:
             assert headers["Content-Type"] == "application/json"
 
             assert len(result) == 1
+
+
+class TestAnalyzeMachineScanMetadata:
+    """Test that analyze_machine includes scan_metadata in the request payload."""
+
+    @pytest.mark.asyncio
+    async def test_analyze_machine_includes_scan_metadata_when_scan_context_provided(self):
+        """When scan_context is passed, the request payload includes scan_metadata."""
+        scan_paths = [ScanPathResult(path="/test/path")]
+        analysis_url = "https://test.example.com/api"
+        scan_context = {"cli_version": "1.2.3", "source": "pipeline"}
+
+        with patch("mcp_scan.verify_api.aiohttp.ClientSession") as mock_session_class:
+            mock_session = MagicMock()
+            mock_response = AsyncMock()
+            mock_response.status = 200
+            mock_response.text = AsyncMock(
+                return_value='{"scan_path_results": [{"path": "/test/path", "issues": [], "labels": []}], "scan_user_info": {}}'
+            )
+            mock_response.raise_for_status = MagicMock()
+
+            mock_post = MagicMock()
+            mock_post.__aenter__ = AsyncMock(return_value=mock_response)
+            mock_post.__aexit__ = AsyncMock(return_value=None)
+
+            mock_session.post = MagicMock(return_value=mock_post)
+            mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_session.__aexit__ = AsyncMock(return_value=None)
+
+            mock_session_class.return_value = mock_session
+
+            await analyze_machine(
+                scan_paths=scan_paths,
+                analysis_url=analysis_url,
+                identifier=None,
+                opt_out_of_identity=True,
+                scan_context=scan_context,
+            )
+
+            mock_session.post.assert_called_once()
+            call_kwargs = mock_session.post.call_args[1]
+            payload = json.loads(call_kwargs["data"])
+            assert payload.get("scan_metadata") == scan_context
+
+    @pytest.mark.asyncio
+    async def test_analyze_machine_omits_scan_metadata_when_scan_context_not_provided(self):
+        """When scan_context is not passed, the request payload has no scan_metadata or null."""
+        scan_paths = [ScanPathResult(path="/test/path")]
+        analysis_url = "https://test.example.com/api"
+
+        with patch("mcp_scan.verify_api.aiohttp.ClientSession") as mock_session_class:
+            mock_session = MagicMock()
+            mock_response = AsyncMock()
+            mock_response.status = 200
+            mock_response.text = AsyncMock(
+                return_value='{"scan_path_results": [{"path": "/test/path", "issues": [], "labels": []}], "scan_user_info": {}}'
+            )
+            mock_response.raise_for_status = MagicMock()
+
+            mock_post = MagicMock()
+            mock_post.__aenter__ = AsyncMock(return_value=mock_response)
+            mock_post.__aexit__ = AsyncMock(return_value=None)
+
+            mock_session.post = MagicMock(return_value=mock_post)
+            mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_session.__aexit__ = AsyncMock(return_value=None)
+
+            mock_session_class.return_value = mock_session
+
+            await analyze_machine(
+                scan_paths=scan_paths,
+                analysis_url=analysis_url,
+                identifier=None,
+                opt_out_of_identity=True,
+            )
+
+            mock_session.post.assert_called_once()
+            call_kwargs = mock_session.post.call_args[1]
+            payload = json.loads(call_kwargs["data"])
+            # scan_metadata may be absent or null when not provided
+            assert payload.get("scan_metadata") is None
