@@ -17,8 +17,8 @@ jobs:
     steps:
       - checkout
       - run:
-          name: Update uv
-          command: curl -LsSf https://astral.sh/uv/install.sh | sh
+          name: Install Deps
+          command: pip install -r requirements.txt
       - prodsec/security_scans:
           mode: auto
           open-source-additional-arguments: --exclude=mocked_data,mcp-builder,slack-gif-creator
