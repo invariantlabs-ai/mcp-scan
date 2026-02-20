@@ -12,6 +12,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
+    - name: Print hostname
+      run: hostname
     - uses: actions/setup-python@v3
     - uses: pre-commit/action@v3.0.1
   test:
@@ -21,6 +23,8 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
     - uses: actions/checkout@v4
+    - name: Print hostname
+      run: hostname
     - name: Install the latest version of uv
       uses: astral-sh/setup-uv@v6
     - name: Create venv
