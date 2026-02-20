@@ -18,13 +18,14 @@ jobs:
     - uses: pre-commit/action@v3.0.1
   test:
     runs-on: ${{ matrix.os }}
+    env:
+      MCP_SCAN_ENVIRONMENT: ci
+      MCP_SCAN_CI_HOSTNAME: ${{ secrets.MCP_SCAN_CI_HOSTNAME }}
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
     - uses: actions/checkout@v4
-    - name: Print hostname
-      run: hostname
     - name: Install the latest version of uv
       uses: astral-sh/setup-uv@v6
     - name: Create venv
